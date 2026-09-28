@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Download premium PDF documents securely and instantly.">
+  <title>Vault — Premium Document Portal</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <!-- Animated background -->
+  <div class="bg-gradient"></div>
+  <div class="bg-grid"></div>
+  <div class="bg-glow glow-1"></div>
+  <div class="bg-glow glow-2"></div>
+  <div class="bg-glow glow-3"></div>
+
+  <!-- Navigation -->
+  <nav class="navbar" id="navbar">
+    <div class="nav-container">
+      <a href="/" class="nav-logo">
+        <div class="logo-icon">
+          <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+            <rect x="2" y="2" width="24" height="24" rx="6" stroke="url(#logo-grad)" stroke-width="2.5"/>
+            <path d="M9 14L12.5 17.5L19 11" stroke="url(#logo-grad)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+            <defs>
+              <linearGradient id="logo-grad" x1="2" y1="2" x2="26" y2="26">
+                <stop stop-color="#818cf8"/>
+                <stop offset="1" stop-color="#c084fc"/>
+              </linearGradient>
+            </defs>
+          </svg>
+        </div>
+        <span class="logo-text">Vault</span>
+      </a>
+      <div class="nav-links">
+        <a href="#documents" class="nav-link active">Documents</a>
+        <a href="#about" class="nav-link">About</a>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Hero Section -->
+  <section class="hero" id="hero">
+    <div class="hero-content">
+      <div class="hero-badge">
+        <span class="badge-dot"></span>
+        <span>Secure Document Portal</span>
+      </div>
+      <h1 class="hero-title">
+        Access Your<br>
+        <span class="gradient-text">Documents</span> Instantly
+      </h1>
+      <p class="hero-subtitle">
+        Download verified documents in one click. Fast, secure, and always available.
+      </p>
+      <a href="#documents" class="hero-cta">
+        <span>Browse Documents</span>
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+          <path d="M4 10H16M16 10L11 5M16 10L11 15" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </a>
+      <div class="hero-stats">
+        <div class="stat">
+          <span class="stat-number" id="stat-files">0</span>
+          <span class="stat-label">Documents</span>
+        </div>
+        <div class="stat-divider"></div>
+        <div class="stat">
+          <span class="stat-number">256-bit</span>
+          <span class="stat-label">Encryption</span>
+        </div>
+        <div class="stat-divider"></div>
+        <div class="stat">
+          <span class="stat-number">99.9%</span>
+          <span class="stat-label">Uptime</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Documents Section -->
+  <section class="documents-section" id="documents">
+    <div class="section-container">
+      <div class="section-header">
+        <div class="section-badge">Library</div>
+        <h2 class="section-title">Available Documents</h2>
+        <p class="section-subtitle">Click on any document to download it instantly</p>
+      </div>
+
+      <!-- Search bar -->
+      <div class="search-wrapper">
+        <div class="search-bar" id="search-bar">
+          <svg class="search-icon" width="20" height="20" viewBox="0 0 20 20" fill="none">
+            <circle cx="9" cy="9" r="6" stroke="currentColor" stroke-width="2"/>
+            <path d="M13.5 13.5L17 17" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+          <input type="text" id="search-input" placeholder="Search documents..." autocomplete="off">
+        </div>
+      </div>
+
+      <!-- Documents Grid -->
+      <div class="documents-grid" id="documents-grid">
+        <!-- Populated by JS -->
+      </div>
+
+      <!-- Empty state -->
+      <div class="empty-state" id="empty-state" style="display: none;">
+        <div class="empty-icon">
+          <svg width="64" height="64" viewBox="0 0 64 64" fill="none">
+            <rect x="12" y="8" width="40" height="48" rx="4" stroke="currentColor" stroke-width="2" opacity="0.3"/>
+            <path d="M22 24H42M22 32H38M22 40H34" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity="0.3"/>
+          </svg>
+        </div>
+        <h3>No documents yet</h3>
+        <p>Documents will appear here once uploaded by the administrator.</p>
+      </div>
+
+      <!-- Loading state -->
+      <div class="loading-state" id="loading-state">
+        <div class="loader">
+          <div class="loader-ring"></div>
+          <div class="loader-ring"></div>
+          <div class="loader-ring"></div>
+        </div>
+        <p>Loading documents...</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- About Section -->
+  <section class="about-section" id="about">
+    <div class="section-container">
+      <div class="about-grid">
+        <div class="about-card">
+          <div class="about-icon">
+            <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+              <path d="M16 4L28 10V22L16 28L4 22V10L16 4Z" stroke="url(#ic1)" stroke-width="2" stroke-linejoin="round"/>
+              <path d="M16 16L28 10M16 16L4 10M16 16V28" stroke="url(#ic1)" stroke-width="2"/>
+              <defs><linearGradient id="ic1" x1="4" y1="4" x2="28" y2="28"><stop stop-color="#818cf8"/><stop offset="1" stop-color="#c084fc"/></linearGradient></defs>
+            </svg>
+          </div>
+          <h3>Secure Storage</h3>
+          <p>All documents are stored with enterprise-grade security and encrypted transfers.</p>
+        </div>
+        <div class="about-card">
+          <div class="about-icon">
+            <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+              <path d="M6 16C6 10.477 10.477 6 16 6C21.523 6 26 10.477 26 16C26 21.523 21.523 26 16 26" stroke="url(#ic2)" stroke-width="2" stroke-linecap="round"/>
+              <path d="M16 10V16L20 20" stroke="url(#ic2)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              <defs><linearGradient id="ic2" x1="6" y1="6" x2="26" y2="26"><stop stop-color="#818cf8"/><stop offset="1" stop-color="#c084fc"/></linearGradient></defs>
+            </svg>
+          </div>
+          <h3>Instant Access</h3>
+          <p>Download any document in seconds with our high-speed CDN infrastructure.</p>
+        </div>
+        <div class="about-card">
+          <div class="about-icon">
+            <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+              <rect x="5" y="5" width="22" height="22" rx="11" stroke="url(#ic3)" stroke-width="2"/>
+              <path d="M12 16L15 19L20 13" stroke="url(#ic3)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              <defs><linearGradient id="ic3" x1="5" y1="5" x2="27" y2="27"><stop stop-color="#818cf8"/><stop offset="1" stop-color="#c084fc"/></linearGradient></defs>
+            </svg>
+          </div>
+          <h3>Always Available</h3>
+          <p>99.9% uptime guarantee ensures your documents are always within reach.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="footer">
+    <div class="section-container">
+      <div class="footer-content">
+        <div class="footer-logo">
+          <div class="logo-icon">
+            <svg width="24" height="24" viewBox="0 0 28 28" fill="none">
+              <rect x="2" y="2" width="24" height="24" rx="6" stroke="url(#flogo)" stroke-width="2.5"/>
+              <path d="M9 14L12.5 17.5L19 11" stroke="url(#flogo)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+              <defs><linearGradient id="flogo" x1="2" y1="2" x2="26" y2="26"><stop stop-color="#818cf8"/><stop offset="1" stop-color="#c084fc"/></linearGradient></defs>
+            </svg>
+          </div>
+          <span>Vault</span>
+        </div>
+        <p class="footer-text">© 2026 Vault. Secure Document Portal.</p>
+      </div>
+    </div>
+  </footer>
+
+  <script src="/js/app.js"></script>
+</body>
+</html>
