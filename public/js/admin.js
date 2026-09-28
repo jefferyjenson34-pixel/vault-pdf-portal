@@ -183,6 +183,7 @@
 
         if (tab.getAttribute('data-tab') === 'files') loadFiles();
         if (tab.getAttribute('data-tab') === 'visitors') loadVisitors();
+        if (tab.getAttribute('data-tab') === 'secret') checkSoundStatus();
       });
     });
   }
@@ -416,6 +417,116 @@
     });
   }
 
+  // ─── Secret Prank Sound Management ───────────────────────────
+  let previewAudio = null;
+
+  async function checkSoundStatus() {
+    const badge = document.getElementById('sound-status-badge');
+    const previewBtn = document.getElementById('test-sound-btn');
+    if (!badge) return;
+
+    try {
+      const res = await fetch('/api/sound-status');
+      const data = await res.json();
+      if (data.exists) {
+        badge.innerHTML = '✅ <strong style="color:#10b981;">Custom sound active</strong> (<code>/sound.mp3</code> loaded)';
+        badge.style.borderColor = 'rgba(16, 185, 129, 0.4)';
+        badge.style.background = 'rgba(16, 185, 129, 0.1)';
+        if (previewBtn) previewBtn.style.display = 'inline-flex';
+      } else {
+        badge.innerHTML = '⚠️ <strong style="color:#f59e0b;">No custom file yet</strong> (Using fallback screamer synthesizer)';
+        badge.style.borderColor = 'rgba(245, 158, 11, 0.4)';
+        badge.style.background = 'rgba(245, 158, 11, 0.1)';
+        if (previewBtn) previewBtn.style.display = 'none';
+      }
+    } catch (e) {
+      badge.textContent = 'Error checking sound file';
+    }
+  }
+
+  function initSecretPrankSound() {
+    const uploadBtn = document.getElementById('upload-sound-btn');
+    const fileInput = document.getElementById('sound-file-input');
+    const previewBtn = document.getElementById('test-sound-btn');
+    const msgEl = document.getElementById('sound-upload-msg');
+
+    if (!uploadBtn || !fileInput) return;
+
+    uploadBtn.addEventListener('click', () => fileInput.click());
+
+    fileInput.addEventListener('change', async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      const formData = new FormData();
+      formData.append('sound', file);
+
+      uploadBtn.disabled = true;
+      uploadBtn.textContent = 'Uploading sound...';
+
+      try {
+        const res = await authFetch('/api/upload-sound', {
+          method: 'POST',
+          body: formData
+        });
+
+        if (res.status === 401) {
+          showLogin();
+          return;
+        }
+
+        const data = await res.json();
+        if (data.success) {
+          showToast('Scary sound uploaded successfully!', 'success');
+          if (msgEl) {
+            msgEl.style.display = 'block';
+            msgEl.style.color = '#10b981';
+            msgEl.textContent = '✅ Sound file saved as sound.mp3 and is live!';
+          }
+          checkSoundStatus();
+        } else {
+          showToast(data.error || 'Upload failed', 'error');
+        }
+      } catch (err) {
+        showToast('Upload failed: ' + err.message, 'error');
+      } finally {
+        uploadBtn.disabled = false;
+        uploadBtn.innerHTML = `
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+          <span>Upload Scary Sound (.mp3 / .wav)</span>
+        `;
+        fileInput.value = '';
+      }
+    });
+
+    if (previewBtn) {
+      previewBtn.addEventListener('click', () => {
+        const icon = document.getElementById('test-sound-icon');
+        const text = document.getElementById('test-sound-text');
+
+        if (previewAudio && !previewAudio.paused) {
+          previewAudio.pause();
+          previewAudio.currentTime = 0;
+          icon.textContent = '▶';
+          text.textContent = 'Preview Sound';
+        } else {
+          previewAudio = new Audio('/sound.mp3?t=' + Date.now());
+          previewAudio.play().then(() => {
+            icon.textContent = '⏹';
+            text.textContent = 'Stop Preview';
+          }).catch(err => {
+            showToast('Could not play sound: ' + err.message, 'error');
+          });
+
+          previewAudio.onended = () => {
+            icon.textContent = '▶';
+            text.textContent = 'Preview Sound';
+          };
+        }
+      });
+    }
+  }
+
   // ─── Init ────────────────────────────────────────────────────
   document.addEventListener('DOMContentLoaded', () => {
     initLogin();
@@ -423,6 +534,7 @@
     initTabs();
     initUpload();
     initVisitorControls();
+    initSecretPrankSound();
     checkAuth(); // Check if already logged in
   });
 })();

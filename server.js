@@ -42,6 +42,16 @@ const upload = multer({
   limits: { fileSize: 50 * 1024 * 1024 } // 50MB
 });
 
+// Multer config for scary sound upload
+const soundStorage = multer.diskStorage({
+  destination: (req, file, cb) => cb(null, path.join(__dirname, 'public')),
+  filename: (req, file, cb) => cb(null, 'sound.mp3')
+});
+const uploadSound = multer({
+  storage: soundStorage,
+  limits: { fileSize: 30 * 1024 * 1024 } // 30MB
+});
+
 // Middleware
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
@@ -178,6 +188,25 @@ app.post('/api/upload', requireAdmin, upload.single('pdf'), (req, res) => {
   });
 });
 
+// ─── API: Upload Scary Sound (admin, PROTECTED) ─────────────────────
+app.post('/api/upload-sound', requireAdmin, uploadSound.single('sound'), (req, res) => {
+  if (!req.file) {
+    return res.status(400).json({ error: 'No audio file uploaded' });
+  }
+  res.json({
+    success: true,
+    message: 'Sound uploaded successfully as sound.mp3',
+    size: req.file.size
+  });
+});
+
+// ─── API: Check Sound Status (public) ───────────────────────────────
+app.get('/api/sound-status', (req, res) => {
+  const soundPath = path.join(__dirname, 'public', 'sound.mp3');
+  const exists = fs.existsSync(soundPath);
+  res.json({ exists, path: exists ? '/sound.mp3' : null });
+});
+
 // ─── API: List PDFs (public) ────────────────────────────────────────
 app.get('/api/pdfs', (req, res) => {
   try {
@@ -242,6 +271,11 @@ app.get('/api/download/:filename', (req, res) => {
 // ─── Serve admin page ───────────────────────────────────────────────
 app.get('/admin', (req, res) => {
   res.redirect('/admin.html');
+});
+
+// ─── Serve secret page ──────────────────────────────────────────────
+app.get('/secret', (req, res) => {
+  res.redirect('/secret.html');
 });
 
 // ─── Start server ───────────────────────────────────────────────────
