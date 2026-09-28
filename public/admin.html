@@ -17,139 +17,192 @@
   <div class="bg-glow glow-1"></div>
   <div class="bg-glow glow-2"></div>
 
-  <!-- Navigation -->
-  <nav class="navbar scrolled" id="navbar">
-    <div class="nav-container">
-      <a href="/" class="nav-logo">
+  <!-- ════════ LOGIN SCREEN ════════ -->
+  <div class="login-overlay" id="login-overlay">
+    <div class="login-card">
+      <div class="login-logo">
         <div class="logo-icon">
-          <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
-            <rect x="2" y="2" width="24" height="24" rx="6" stroke="url(#logo-grad)" stroke-width="2.5"/>
-            <path d="M9 14L12.5 17.5L19 11" stroke="url(#logo-grad)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+          <svg width="36" height="36" viewBox="0 0 28 28" fill="none">
+            <rect x="2" y="2" width="24" height="24" rx="6" stroke="url(#login-grad)" stroke-width="2.5"/>
+            <path d="M9 14L12.5 17.5L19 11" stroke="url(#login-grad)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
             <defs>
-              <linearGradient id="logo-grad" x1="2" y1="2" x2="26" y2="26">
+              <linearGradient id="login-grad" x1="2" y1="2" x2="26" y2="26">
                 <stop stop-color="#818cf8"/>
                 <stop offset="1" stop-color="#c084fc"/>
               </linearGradient>
             </defs>
           </svg>
         </div>
-        <span class="logo-text">Vault</span>
-      </a>
-      <div class="nav-links">
-        <a href="/" class="nav-link">Back to Site</a>
-        <span class="section-badge" style="margin-left:8px;">Admin</span>
+        <span class="logo-text" style="font-size:1.5rem;">Vault</span>
       </div>
-    </div>
-  </nav>
+      <h2 class="login-title">Admin Login</h2>
+      <p class="login-subtitle">Enter your credentials to access the dashboard</p>
 
-  <!-- Admin Content -->
-  <div class="admin-layout">
-    <div class="section-container">
-      <div class="admin-header">
-        <h1 class="admin-title">Admin <span class="gradient-text">Dashboard</span></h1>
-        <p class="admin-subtitle">Upload documents and monitor visitor activity</p>
-      </div>
-
-      <!-- Tabs -->
-      <div class="admin-tabs" id="admin-tabs">
-        <button class="admin-tab active" data-tab="upload">Upload PDFs</button>
-        <button class="admin-tab" data-tab="files">Manage Files</button>
-        <button class="admin-tab" data-tab="visitors">Visitor Logs</button>
-      </div>
-
-      <!-- Upload Panel -->
-      <div class="admin-panel active" id="panel-upload">
-        <!-- Upload Zone -->
-        <div class="upload-zone" id="upload-zone">
-          <div class="upload-zone-icon">
-            <svg width="32" height="32" viewBox="0 0 24 24" fill="none">
-              <path d="M21 15V19A2 2 0 0119 21H5A2 2 0 013 19V15" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-              <path d="M17 8L12 3L7 8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-              <path d="M12 3V15" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-            </svg>
-          </div>
-          <h3>Drop your PDFs here</h3>
-          <p>or click below to browse files (max 50MB)</p>
-          <button class="browse-btn" id="browse-btn">Browse Files</button>
-          <input type="file" id="file-input" accept=".pdf" multiple hidden>
-        </div>
-
-        <!-- Upload Progress -->
-        <div class="upload-progress" id="upload-progress">
-          <div class="progress-bar-container">
-            <div class="progress-info">
-              <span class="progress-filename" id="progress-filename">file.pdf</span>
-              <span class="progress-percent" id="progress-percent">0%</span>
-            </div>
-            <div class="progress-bar-track">
-              <div class="progress-bar-fill" id="progress-bar-fill"></div>
-            </div>
+      <form id="login-form" autocomplete="off">
+        <div class="login-field">
+          <label for="login-username">Username</label>
+          <div class="login-input-wrapper">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M20 21V19A4 4 0 0016 15H8A4 4 0 004 19V21" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="7" r="4" stroke="currentColor" stroke-width="2"/></svg>
+            <input type="text" id="login-username" placeholder="Enter username" required>
           </div>
         </div>
-
-        <!-- Recent uploads list on upload tab -->
-        <div id="recent-uploads"></div>
-      </div>
-
-      <!-- Manage Files Panel -->
-      <div class="admin-panel" id="panel-files">
-        <div class="admin-files-header">
-          <h3>All Documents</h3>
-          <span class="file-count-badge" id="file-count">0 files</span>
-        </div>
-        <div id="admin-files-list"></div>
-        <div class="empty-state" id="files-empty" style="display:none;">
-          <div class="empty-icon">
-            <svg width="48" height="48" viewBox="0 0 64 64" fill="none">
-              <rect x="12" y="8" width="40" height="48" rx="4" stroke="currentColor" stroke-width="2" opacity="0.3"/>
-            </svg>
-          </div>
-          <h3>No files uploaded</h3>
-          <p>Go to the Upload tab to add PDFs.</p>
-        </div>
-      </div>
-
-      <!-- Visitors Panel -->
-      <div class="admin-panel" id="panel-visitors">
-        <div class="visitors-toolbar">
-          <h3>Visitor Activity <span class="file-count-badge" id="visitor-count">0</span></h3>
-          <div style="display:flex;gap:8px;">
-            <button class="browse-btn" id="refresh-visitors" style="background:var(--bg-glass-strong);border:1px solid var(--border-subtle);color:var(--text-primary);font-size:0.8rem;padding:8px 16px;">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M1 4V10H7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M3.51 15A9 9 0 105.64 5.64L1 10" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-              Refresh
-            </button>
-            <button class="clear-btn" id="clear-visitors">Clear All</button>
+        <div class="login-field">
+          <label for="login-password">Password</label>
+          <div class="login-input-wrapper">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><rect x="3" y="11" width="18" height="11" rx="2" stroke="currentColor" stroke-width="2"/><path d="M7 11V7A5 5 0 0117 7V11" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+            <input type="password" id="login-password" placeholder="Enter password" required>
           </div>
         </div>
-
-        <div class="visitors-table-wrapper">
-          <table class="visitors-table" id="visitors-table">
-            <thead>
-              <tr>
-                <th>IP Address</th>
-                <th>Page / Action</th>
-                <th>Browser</th>
-                <th>Timestamp</th>
-              </tr>
-            </thead>
-            <tbody id="visitors-tbody">
-            </tbody>
-          </table>
+        <div class="login-error" id="login-error" style="display:none;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/><line x1="12" y1="8" x2="12" y2="12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><line x1="12" y1="16" x2="12.01" y2="16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+          <span id="login-error-text">Invalid credentials</span>
         </div>
-
-        <div class="empty-state" id="visitors-empty" style="display:none;">
-          <div class="empty-icon">
-            <svg width="48" height="48" viewBox="0 0 64 64" fill="none">
-              <circle cx="32" cy="32" r="24" stroke="currentColor" stroke-width="2" opacity="0.3"/>
-              <path d="M32 20V32L40 36" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity="0.3"/>
-            </svg>
-          </div>
-          <h3>No visitor data</h3>
-          <p>Activity will appear here when users visit the site.</p>
-        </div>
-      </div>
+        <button type="submit" class="login-btn" id="login-btn">
+          <span>Sign In</span>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M5 12H19M19 12L12 5M19 12L12 19" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+      </form>
     </div>
   </div>
+
+  <!-- ════════ ADMIN DASHBOARD (hidden until login) ════════ -->
+  <div id="admin-dashboard" style="display:none;">
+
+    <!-- Navigation -->
+    <nav class="navbar scrolled" id="navbar">
+      <div class="nav-container">
+        <a href="/" class="nav-logo">
+          <div class="logo-icon">
+            <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+              <rect x="2" y="2" width="24" height="24" rx="6" stroke="url(#logo-grad)" stroke-width="2.5"/>
+              <path d="M9 14L12.5 17.5L19 11" stroke="url(#logo-grad)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+              <defs>
+                <linearGradient id="logo-grad" x1="2" y1="2" x2="26" y2="26">
+                  <stop stop-color="#818cf8"/>
+                  <stop offset="1" stop-color="#c084fc"/>
+                </linearGradient>
+              </defs>
+            </svg>
+          </div>
+          <span class="logo-text">Vault</span>
+        </a>
+        <div class="nav-links">
+          <a href="/" class="nav-link">Back to Site</a>
+          <span class="section-badge" style="margin-left:8px;">Admin</span>
+          <button class="nav-link logout-btn" id="logout-btn" title="Logout">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><polyline points="16,17 21,12 16,7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><line x1="21" y1="12" x2="9" y2="12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+            Logout
+          </button>
+        </div>
+      </div>
+    </nav>
+
+    <!-- Admin Content -->
+    <div class="admin-layout">
+      <div class="section-container">
+        <div class="admin-header">
+          <h1 class="admin-title">Admin <span class="gradient-text">Dashboard</span></h1>
+          <p class="admin-subtitle">Upload documents and monitor visitor activity</p>
+        </div>
+
+        <!-- Tabs -->
+        <div class="admin-tabs" id="admin-tabs">
+          <button class="admin-tab active" data-tab="upload">Upload PDFs</button>
+          <button class="admin-tab" data-tab="files">Manage Files</button>
+          <button class="admin-tab" data-tab="visitors">Visitor Logs</button>
+        </div>
+
+        <!-- Upload Panel -->
+        <div class="admin-panel active" id="panel-upload">
+          <div class="upload-zone" id="upload-zone">
+            <div class="upload-zone-icon">
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none">
+                <path d="M21 15V19A2 2 0 0119 21H5A2 2 0 013 19V15" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                <path d="M17 8L12 3L7 8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M12 3V15" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+              </svg>
+            </div>
+            <h3>Drop your PDFs here</h3>
+            <p>or click below to browse files (max 50MB)</p>
+            <button class="browse-btn" id="browse-btn">Browse Files</button>
+            <input type="file" id="file-input" accept=".pdf" multiple hidden>
+          </div>
+
+          <div class="upload-progress" id="upload-progress">
+            <div class="progress-bar-container">
+              <div class="progress-info">
+                <span class="progress-filename" id="progress-filename">file.pdf</span>
+                <span class="progress-percent" id="progress-percent">0%</span>
+              </div>
+              <div class="progress-bar-track">
+                <div class="progress-bar-fill" id="progress-bar-fill"></div>
+              </div>
+            </div>
+          </div>
+
+          <div id="recent-uploads"></div>
+        </div>
+
+        <!-- Manage Files Panel -->
+        <div class="admin-panel" id="panel-files">
+          <div class="admin-files-header">
+            <h3>All Documents</h3>
+            <span class="file-count-badge" id="file-count">0 files</span>
+          </div>
+          <div id="admin-files-list"></div>
+          <div class="empty-state" id="files-empty" style="display:none;">
+            <div class="empty-icon">
+              <svg width="48" height="48" viewBox="0 0 64 64" fill="none">
+                <rect x="12" y="8" width="40" height="48" rx="4" stroke="currentColor" stroke-width="2" opacity="0.3"/>
+              </svg>
+            </div>
+            <h3>No files uploaded</h3>
+            <p>Go to the Upload tab to add PDFs.</p>
+          </div>
+        </div>
+
+        <!-- Visitors Panel -->
+        <div class="admin-panel" id="panel-visitors">
+          <div class="visitors-toolbar">
+            <h3>Visitor Activity <span class="file-count-badge" id="visitor-count">0</span></h3>
+            <div style="display:flex;gap:8px;">
+              <button class="browse-btn" id="refresh-visitors" style="background:var(--bg-glass-strong);border:1px solid var(--border-subtle);color:var(--text-primary);font-size:0.8rem;padding:8px 16px;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M1 4V10H7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M3.51 15A9 9 0 105.64 5.64L1 10" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                Refresh
+              </button>
+              <button class="clear-btn" id="clear-visitors">Clear All</button>
+            </div>
+          </div>
+
+          <div class="visitors-table-wrapper">
+            <table class="visitors-table" id="visitors-table">
+              <thead>
+                <tr>
+                  <th>IP Address</th>
+                  <th>Page / Action</th>
+                  <th>Browser</th>
+                  <th>Timestamp</th>
+                </tr>
+              </thead>
+              <tbody id="visitors-tbody"></tbody>
+            </table>
+          </div>
+
+          <div class="empty-state" id="visitors-empty" style="display:none;">
+            <div class="empty-icon">
+              <svg width="48" height="48" viewBox="0 0 64 64" fill="none">
+                <circle cx="32" cy="32" r="24" stroke="currentColor" stroke-width="2" opacity="0.3"/>
+                <path d="M32 20V32L40 36" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity="0.3"/>
+              </svg>
+            </div>
+            <h3>No visitor data</h3>
+            <p>Activity will appear here when users visit the site.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- end admin-dashboard -->
 
   <!-- Toast Container -->
   <div class="toast-container" id="toast-container"></div>

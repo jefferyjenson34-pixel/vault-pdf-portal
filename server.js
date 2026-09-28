@@ -1,10 +1,19 @@
 const express = require('express');
 const multer = require('multer');
+const crypto = require('crypto');
 const path = require('path');
 const fs = require('fs');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+
+// ─── Admin Credentials (single user, no database) ──────────────────
+const ADMIN_USERNAME = 'halimon';
+const ADMIN_PASSWORD = 'halimon@2011';
+
+// ─── Active sessions (in-memory) ────────────────────────────────────
+const activeSessions = new Map(); // token -> { createdAt }
+const SESSION_MAX_AGE = 24 * 60 * 60 * 1000; // 24 hours
 
 // Data paths
 const DATA_DIR = path.join(__dirname, 'data');
@@ -40,6 +49,40 @@ app.use(express.static(path.join(__dirname, 'public')));
 // Trust proxy for real IP behind reverse proxy (Render, Cloudflare, etc.)
 app.set('trust proxy', true);
 
+// ─── Auth helpers ───────────────────────────────────────────────────
+function generateToken() {
+  return crypto.randomBytes(32).toString('hex');
+}
+
+function isValidSession(token) {
+  if (!token || !activeSessions.has(token)) return false;
+  const session = activeSessions.get(token);
+  if (Date.now() - session.createdAt > SESSION_MAX_AGE) {
+    activeSessions.delete(token);
+    return false;
+  }
+  return true;
+}
+
+// Auth middleware — protects admin-only routes
+function requireAdmin(req, res, next) {
+  const token = req.headers['x-admin-token'];
+  if (!isValidSession(token)) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+  next();
+}
+
+// Clean expired sessions periodically
+setInterval(() => {
+  const now = Date.now();
+  for (const [token, session] of activeSessions) {
+    if (now - session.createdAt > SESSION_MAX_AGE) {
+      activeSessions.delete(token);
+    }
+  }
+}, 60 * 60 * 1000); // Every hour
+
 // Helper: get visitor IP
 function getVisitorIP(req) {
   return req.headers['x-forwarded-for']?.split(',')[0]?.trim()
@@ -62,6 +105,32 @@ function writeVisitors(visitors) {
   fs.writeFileSync(VISITORS_FILE, JSON.stringify(visitors, null, 2));
 }
 
+// ─── API: Admin Login ───────────────────────────────────────────────
+app.post('/api/admin/login', (req, res) => {
+  const { username, password } = req.body;
+
+  if (username === ADMIN_USERNAME && password === ADMIN_PASSWORD) {
+    const token = generateToken();
+    activeSessions.set(token, { createdAt: Date.now() });
+    res.json({ success: true, token });
+  } else {
+    res.status(401).json({ error: 'Invalid username or password' });
+  }
+});
+
+// ─── API: Admin Logout ──────────────────────────────────────────────
+app.post('/api/admin/logout', (req, res) => {
+  const token = req.headers['x-admin-token'];
+  if (token) activeSessions.delete(token);
+  res.json({ success: true });
+});
+
+// ─── API: Check Auth ────────────────────────────────────────────────
+app.get('/api/admin/check', (req, res) => {
+  const token = req.headers['x-admin-token'];
+  res.json({ authenticated: isValidSession(token) });
+});
+
 // ─── API: Log visitor ───────────────────────────────────────────────
 app.post('/api/visit', (req, res) => {
   const ip = getVisitorIP(req);
@@ -82,20 +151,20 @@ app.post('/api/visit', (req, res) => {
   res.json({ success: true });
 });
 
-// ─── API: Get all visitors (admin) ──────────────────────────────────
-app.get('/api/visitors', (req, res) => {
+// ─── API: Get all visitors (admin, PROTECTED) ───────────────────────
+app.get('/api/visitors', requireAdmin, (req, res) => {
   const visitors = readVisitors();
   res.json(visitors.reverse());
 });
 
-// ─── API: Clear visitors (admin) ────────────────────────────────────
-app.post('/api/visitors/clear', (req, res) => {
+// ─── API: Clear visitors (admin, PROTECTED) ─────────────────────────
+app.post('/api/visitors/clear', requireAdmin, (req, res) => {
   writeVisitors([]);
   res.json({ success: true });
 });
 
-// ─── API: Upload PDF (admin) ────────────────────────────────────────
-app.post('/api/upload', upload.single('pdf'), (req, res) => {
+// ─── API: Upload PDF (admin, PROTECTED) ─────────────────────────────
+app.post('/api/upload', requireAdmin, upload.single('pdf'), (req, res) => {
   if (!req.file) {
     return res.status(400).json({ error: 'No file uploaded' });
   }
@@ -109,14 +178,13 @@ app.post('/api/upload', upload.single('pdf'), (req, res) => {
   });
 });
 
-// ─── API: List PDFs ─────────────────────────────────────────────────
+// ─── API: List PDFs (public) ────────────────────────────────────────
 app.get('/api/pdfs', (req, res) => {
   try {
     const files = fs.readdirSync(UPLOADS_DIR)
       .filter(f => f.endsWith('.pdf'))
       .map(filename => {
         const stats = fs.statSync(path.join(UPLOADS_DIR, filename));
-        // Extract original name from stored filename
         const originalName = filename.replace(/^\d+-\d+-/, '');
         return {
           filename,
@@ -132,8 +200,8 @@ app.get('/api/pdfs', (req, res) => {
   }
 });
 
-// ─── API: Delete PDF (admin) ────────────────────────────────────────
-app.delete('/api/pdfs/:filename', (req, res) => {
+// ─── API: Delete PDF (admin, PROTECTED) ─────────────────────────────
+app.delete('/api/pdfs/:filename', requireAdmin, (req, res) => {
   const filePath = path.join(UPLOADS_DIR, req.params.filename);
   if (fs.existsSync(filePath)) {
     fs.unlinkSync(filePath);
@@ -143,11 +211,10 @@ app.delete('/api/pdfs/:filename', (req, res) => {
   }
 });
 
-// ─── API: Download PDF (FIXED — uses stream instead of res.download) ─
+// ─── API: Download PDF (public, logs IP) ────────────────────────────
 app.get('/api/download/:filename', (req, res) => {
   const filePath = path.join(UPLOADS_DIR, req.params.filename);
   if (fs.existsSync(filePath)) {
-    // Log the download
     const ip = getVisitorIP(req);
     const visitors = readVisitors();
     visitors.push({
@@ -161,7 +228,6 @@ app.get('/api/download/:filename', (req, res) => {
     const originalName = req.params.filename.replace(/^\d+-\d+-/, '');
     const stat = fs.statSync(filePath);
 
-    // Stream file directly — avoids Express sendFile dotfiles restriction
     res.set({
       'Content-Type': 'application/pdf',
       'Content-Disposition': `attachment; filename="${encodeURIComponent(originalName)}"`,

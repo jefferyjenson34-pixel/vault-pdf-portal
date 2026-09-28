@@ -1,9 +1,21 @@
 /* ═══════════════════════════════════════════════════════════════
-   VAULT — Admin Panel Logic
+   VAULT — Admin Panel Logic (with Authentication)
    ═══════════════════════════════════════════════════════════════ */
 
 (function () {
   'use strict';
+
+  // ─── Auth State ──────────────────────────────────────────────
+  let adminToken = localStorage.getItem('vault_admin_token') || null;
+
+  function getAuthHeaders() {
+    return { 'X-Admin-Token': adminToken };
+  }
+
+  function authFetch(url, options = {}) {
+    options.headers = { ...options.headers, ...getAuthHeaders() };
+    return fetch(url, options);
+  }
 
   // ─── Toast notifications ─────────────────────────────────────
   function showToast(message, type = 'success') {
@@ -66,21 +78,109 @@
     return div.innerHTML;
   }
 
+  // ─── Login / Logout ──────────────────────────────────────────
+  function showLogin() {
+    document.getElementById('login-overlay').style.display = 'flex';
+    document.getElementById('admin-dashboard').style.display = 'none';
+  }
+
+  function showDashboard() {
+    document.getElementById('login-overlay').style.display = 'none';
+    document.getElementById('admin-dashboard').style.display = 'block';
+    loadFiles();
+  }
+
+  async function checkAuth() {
+    if (!adminToken) {
+      showLogin();
+      return;
+    }
+    try {
+      const res = await authFetch('/api/admin/check');
+      const data = await res.json();
+      if (data.authenticated) {
+        showDashboard();
+      } else {
+        adminToken = null;
+        localStorage.removeItem('vault_admin_token');
+        showLogin();
+      }
+    } catch {
+      showLogin();
+    }
+  }
+
+  function initLogin() {
+    const form = document.getElementById('login-form');
+    const errorEl = document.getElementById('login-error');
+    const errorText = document.getElementById('login-error-text');
+    const loginBtn = document.getElementById('login-btn');
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      errorEl.style.display = 'none';
+      loginBtn.disabled = true;
+      loginBtn.querySelector('span').textContent = 'Signing in...';
+
+      const username = document.getElementById('login-username').value.trim();
+      const password = document.getElementById('login-password').value;
+
+      try {
+        const res = await fetch('/api/admin/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username, password })
+        });
+
+        const data = await res.json();
+
+        if (res.ok && data.success) {
+          adminToken = data.token;
+          localStorage.setItem('vault_admin_token', adminToken);
+          showDashboard();
+          showToast('Welcome back, admin!', 'success');
+        } else {
+          errorText.textContent = data.error || 'Invalid credentials';
+          errorEl.style.display = 'flex';
+          // Shake animation
+          form.style.animation = 'none';
+          form.offsetHeight; // Trigger reflow
+          form.style.animation = 'shake 0.4s ease';
+        }
+      } catch {
+        errorText.textContent = 'Connection error. Try again.';
+        errorEl.style.display = 'flex';
+      }
+
+      loginBtn.disabled = false;
+      loginBtn.querySelector('span').textContent = 'Sign In';
+    });
+  }
+
+  function initLogout() {
+    document.getElementById('logout-btn').addEventListener('click', async () => {
+      try {
+        await authFetch('/api/admin/logout', { method: 'POST' });
+      } catch { /* ignore */ }
+      adminToken = null;
+      localStorage.removeItem('vault_admin_token');
+      showLogin();
+      showToast('Logged out', 'success');
+    });
+  }
+
   // ─── Tabs ────────────────────────────────────────────────────
   function initTabs() {
     const tabs = document.querySelectorAll('.admin-tab');
     tabs.forEach(tab => {
       tab.addEventListener('click', () => {
-        // Remove active from all tabs and panels
         tabs.forEach(t => t.classList.remove('active'));
         document.querySelectorAll('.admin-panel').forEach(p => p.classList.remove('active'));
 
-        // Activate clicked tab and panel
         tab.classList.add('active');
         const panelId = 'panel-' + tab.getAttribute('data-tab');
         document.getElementById(panelId).classList.add('active');
 
-        // Refresh data when switching tabs
         if (tab.getAttribute('data-tab') === 'files') loadFiles();
         if (tab.getAttribute('data-tab') === 'visitors') loadVisitors();
       });
@@ -93,7 +193,6 @@
     const fileInput = document.getElementById('file-input');
     const browseBtn = document.getElementById('browse-btn');
 
-    // Browse button
     browseBtn.addEventListener('click', (e) => {
       e.stopPropagation();
       fileInput.click();
@@ -101,14 +200,12 @@
 
     zone.addEventListener('click', () => fileInput.click());
 
-    // File input change
     fileInput.addEventListener('change', (e) => {
       const files = Array.from(e.target.files);
       files.forEach(file => uploadFile(file));
       fileInput.value = '';
     });
 
-    // Drag & Drop
     zone.addEventListener('dragover', (e) => {
       e.preventDefault();
       zone.classList.add('drag-over');
@@ -145,7 +242,6 @@
     formData.append('pdf', file);
 
     try {
-      // Use XMLHttpRequest for progress tracking
       await new Promise((resolve, reject) => {
         const xhr = new XMLHttpRequest();
 
@@ -160,6 +256,11 @@
         xhr.addEventListener('load', () => {
           if (xhr.status === 200) {
             resolve(JSON.parse(xhr.responseText));
+          } else if (xhr.status === 401) {
+            adminToken = null;
+            localStorage.removeItem('vault_admin_token');
+            showLogin();
+            reject(new Error('Session expired'));
           } else {
             reject(new Error('Upload failed'));
           }
@@ -167,13 +268,13 @@
 
         xhr.addEventListener('error', () => reject(new Error('Upload failed')));
         xhr.open('POST', '/api/upload');
+        xhr.setRequestHeader('X-Admin-Token', adminToken);
         xhr.send(formData);
       });
 
       showToast(`"${file.name}" uploaded successfully!`, 'success');
       loadFiles();
 
-      // Reset progress after delay
       setTimeout(() => {
         progressEl.classList.remove('active');
         fillEl.style.width = '0%';
@@ -235,7 +336,13 @@
     if (!confirm('Are you sure you want to delete this file?')) return;
 
     try {
-      const res = await fetch('/api/pdfs/' + encodeURIComponent(filename), { method: 'DELETE' });
+      const res = await authFetch('/api/pdfs/' + encodeURIComponent(filename), { method: 'DELETE' });
+      if (res.status === 401) {
+        adminToken = null;
+        localStorage.removeItem('vault_admin_token');
+        showLogin();
+        return;
+      }
       if (res.ok) {
         showToast('File deleted', 'success');
         loadFiles();
@@ -255,7 +362,13 @@
     const tableWrapper = document.querySelector('.visitors-table-wrapper');
 
     try {
-      const res = await fetch('/api/visitors');
+      const res = await authFetch('/api/visitors');
+      if (res.status === 401) {
+        adminToken = null;
+        localStorage.removeItem('vault_admin_token');
+        showLogin();
+        return;
+      }
       const visitors = await res.json();
 
       countEl.textContent = visitors.length;
@@ -288,7 +401,8 @@
     document.getElementById('clear-visitors').addEventListener('click', async () => {
       if (!confirm('Clear all visitor logs?')) return;
       try {
-        await fetch('/api/visitors/clear', { method: 'POST' });
+        const res = await authFetch('/api/visitors/clear', { method: 'POST' });
+        if (res.status === 401) { showLogin(); return; }
         showToast('Visitor logs cleared', 'success');
         loadVisitors();
       } catch (e) {
@@ -304,9 +418,11 @@
 
   // ─── Init ────────────────────────────────────────────────────
   document.addEventListener('DOMContentLoaded', () => {
+    initLogin();
+    initLogout();
     initTabs();
     initUpload();
     initVisitorControls();
-    loadFiles();
+    checkAuth(); // Check if already logged in
   });
 })();
