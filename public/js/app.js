@@ -1,33 +1,35 @@
 /* ═══════════════════════════════════════════════════════════════
-   VAULT — User-Facing App Logic
+   VAULT PDF PORTAL — Client App Logic
+   Document loading, live search, scroll reveals, active spy
    ═══════════════════════════════════════════════════════════════ */
 
 (function () {
   'use strict';
 
-  // ─── Log visitor IP ───────────────────────────────────────────
+  // ─── 1. Log visit to server analytics ──────────────────────────
   async function logVisit() {
     try {
       await fetch('/api/visit', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ page: window.location.pathname })
+        body: JSON.stringify({ page: window.location.pathname || '/' })
       });
     } catch (e) {
-      // Silent fail
+      // Non-blocking silent catch
     }
   }
 
-  // ─── Format file size ────────────────────────────────────────
+  // ─── 2. Format file size ───────────────────────────────────────
   function formatSize(bytes) {
-    if (bytes === 0) return '0 B';
+    if (!bytes || bytes === 0) return '0 B';
     const sizes = ['B', 'KB', 'MB', 'GB'];
     const i = Math.floor(Math.log(bytes) / Math.log(1024));
     return (bytes / Math.pow(1024, i)).toFixed(1) + ' ' + sizes[i];
   }
 
-  // ─── Format date ─────────────────────────────────────────────
+  // ─── 3. Format upload date ─────────────────────────────────────
   function formatDate(iso) {
+    if (!iso) return 'Recent';
     const date = new Date(iso);
     const now = new Date();
     const diffMs = now - date;
@@ -42,63 +44,75 @@
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
   }
 
-  // ─── Create document card HTML ───────────────────────────────
+  // ─── 4. Escape HTML helper ─────────────────────────────────────
+  function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text || '';
+    return div.innerHTML;
+  }
+
+  // ─── 5. Create modern document card HTML ───────────────────────
   function createDocCard(file, index) {
     const card = document.createElement('div');
-    card.className = 'doc-card';
-    card.style.animationDelay = `${index * 0.08}s`;
-    card.setAttribute('data-name', file.originalName.toLowerCase());
+    card.className = 'doc-card reveal-fade-up is-revealed';
+    card.setAttribute('data-name', (file.originalName || '').toLowerCase());
+    card.setAttribute('tabindex', '0');
+    card.setAttribute('role', 'article');
+    card.setAttribute('aria-label', `Document: ${file.originalName}`);
 
     card.innerHTML = `
       <div class="doc-card-header">
-        <div class="doc-icon">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-            <path d="M14 2H6C4.9 2 4 2.9 4 4V20C4 21.1 4.9 22 6 22H18C19.1 22 20 21.1 20 20V8L14 2Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-            <polyline points="14,2 14,8 20,8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-            <line x1="9" y1="13" x2="15" y2="13" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-            <line x1="9" y1="17" x2="13" y2="17" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+        <div class="doc-icon-badge">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+            <polyline points="14 2 14 8 20 8"></polyline>
+            <line x1="16" y1="13" x2="8" y2="13"></line>
+            <line x1="16" y1="17" x2="8" y2="17"></line>
           </svg>
         </div>
         <div class="doc-info">
-          <div class="doc-name">${escapeHtml(file.originalName)}</div>
+          <h3 class="doc-name" title="${escapeHtml(file.originalName)}">${escapeHtml(file.originalName)}</h3>
           <div class="doc-meta">
-            <span class="doc-meta-item">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M21 15V19A2 2 0 0119 21H5A2 2 0 013 19V15" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M7 10L12 15L17 10" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M12 15V3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-              PDF
-            </span>
-            <span class="doc-meta-item">${formatSize(file.size)}</span>
+            <span class="doc-tag pdf-tag">PDF</span>
+            <span class="doc-size">${formatSize(file.size)}</span>
           </div>
         </div>
       </div>
       <div class="doc-card-footer">
-        <span class="doc-date">${formatDate(file.uploadedAt)}</span>
-        <button class="doc-download-btn" onclick="event.stopPropagation(); window.location.href='/api/download/${encodeURIComponent(file.filename)}'">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-            <path d="M21 15V19A2 2 0 0119 21H5A2 2 0 013 19V15" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-            <path d="M7 10L12 15L17 10" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-            <path d="M12 15V3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        <div class="doc-date-wrap">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"></circle>
+            <polyline points="12 6 12 12 16 14"></polyline>
           </svg>
-          Download
+          <span class="doc-date">${formatDate(file.uploadedAt)}</span>
+        </div>
+        <button class="doc-download-btn" aria-label="Download ${escapeHtml(file.originalName)}" onclick="event.stopPropagation(); window.location.href='/api/download/${encodeURIComponent(file.filename)}'">
+          <span>Download</span>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+            <polyline points="7 10 12 15 17 10"></polyline>
+            <line x1="12" y1="15" x2="12" y2="3"></line>
+          </svg>
         </button>
       </div>
     `;
 
-    // Card click also downloads
+    // Click card to initiate download
     card.addEventListener('click', () => {
       window.location.href = '/api/download/' + encodeURIComponent(file.filename);
+    });
+
+    // Keyboard enter support
+    card.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        window.location.href = '/api/download/' + encodeURIComponent(file.filename);
+      }
     });
 
     return card;
   }
 
-  // ─── Escape HTML ──────────────────────────────────────────────
-  function escapeHtml(text) {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
-  }
-
-  // ─── Load documents ──────────────────────────────────────────
+  // ─── 6. Fetch and render document library ─────────────────────
   async function loadDocuments() {
     const grid = document.getElementById('documents-grid');
     const loading = document.getElementById('loading-state');
@@ -109,36 +123,40 @@
       const res = await fetch('/api/pdfs');
       const files = await res.json();
 
-      loading.style.display = 'none';
+      if (loading) loading.style.display = 'none';
 
-      if (files.length === 0) {
-        empty.style.display = 'block';
-        statFiles.textContent = '0';
+      if (!files || files.length === 0) {
+        if (empty) empty.style.display = 'block';
+        if (statFiles) statFiles.textContent = '0';
         return;
       }
 
-      statFiles.textContent = files.length;
-      grid.innerHTML = '';
-
-      files.forEach((file, index) => {
-        grid.appendChild(createDocCard(file, index));
-      });
+      if (statFiles) statFiles.textContent = files.length;
+      if (empty) empty.style.display = 'none';
+      if (grid) {
+        grid.innerHTML = '';
+        files.forEach((file, index) => {
+          grid.appendChild(createDocCard(file, index));
+        });
+      }
     } catch (e) {
-      loading.style.display = 'none';
-      empty.style.display = 'block';
+      if (loading) loading.style.display = 'none';
+      if (empty) empty.style.display = 'block';
     }
   }
 
-  // ─── Search ───────────────────────────────────────────────────
+  // ─── 7. Fast client-side search ───────────────────────────────
   function initSearch() {
     const input = document.getElementById('search-input');
+    if (!input) return;
+
     input.addEventListener('input', () => {
       const query = input.value.toLowerCase().trim();
       const cards = document.querySelectorAll('.doc-card');
       let visibleCount = 0;
 
-      cards.forEach(card => {
-        const name = card.getAttribute('data-name');
+      cards.forEach((card) => {
+        const name = card.getAttribute('data-name') || '';
         if (name.includes(query)) {
           card.style.display = '';
           visibleCount++;
@@ -149,33 +167,150 @@
 
       const empty = document.getElementById('empty-state');
       const grid = document.getElementById('documents-grid');
-      if (visibleCount === 0 && grid.children.length > 0) {
-        empty.style.display = 'block';
-        empty.querySelector('h3').textContent = 'No matches found';
-        empty.querySelector('p').textContent = 'Try a different search term.';
-      } else {
-        empty.style.display = visibleCount === 0 ? 'block' : 'none';
+      if (empty) {
+        if (visibleCount === 0 && grid && grid.children.length > 0) {
+          empty.style.display = 'block';
+          const h3 = empty.querySelector('h3');
+          const p = empty.querySelector('p');
+          if (h3) h3.textContent = 'No matching documents';
+          if (p) p.textContent = 'Try adjusting your search query or check spelling.';
+        } else if (visibleCount === 0 && (!grid || grid.children.length === 0)) {
+          empty.style.display = 'block';
+        } else {
+          empty.style.display = 'none';
+        }
       }
     });
   }
 
-  // ─── Navbar scroll effect ────────────────────────────────────
-  function initNavbar() {
-    const navbar = document.getElementById('navbar');
-    window.addEventListener('scroll', () => {
-      if (window.scrollY > 30) {
-        navbar.classList.add('scrolled');
-      } else {
-        navbar.classList.remove('scrolled');
-      }
+  // ─── 8. Sticky header & scroll observer ───────────────────────
+  function initHeader() {
+    const header = document.querySelector('.site-header');
+    if (!header) return;
+
+    window.addEventListener(
+      'scroll',
+      () => {
+        if (window.scrollY > 20) {
+          header.classList.add('scrolled');
+        } else {
+          header.classList.remove('scrolled');
+        }
+      },
+      { passive: true }
+    );
+  }
+
+  // ─── 9. Mobile menu toggle ────────────────────────────────────
+  function initMobileMenu() {
+    const toggle = document.querySelector('.mobile-toggle');
+    const menu = document.querySelector('.nav-menu');
+    if (!toggle || !menu) return;
+
+    toggle.addEventListener('click', () => {
+      const expanded = toggle.getAttribute('aria-expanded') === 'true';
+      toggle.setAttribute('aria-expanded', String(!expanded));
+      menu.classList.toggle('is-active');
+    });
+
+    menu.querySelectorAll('a').forEach((link) => {
+      link.addEventListener('click', () => {
+        menu.classList.remove('is-active');
+        toggle.setAttribute('aria-expanded', 'false');
+      });
     });
   }
 
-  // ─── Initialize ──────────────────────────────────────────────
+  // ─── 10. Nav Scroll Spy: highlight Documents vs About ─────────
+  function initScrollSpy() {
+    const navDocs = document.getElementById('nav-link-docs');
+    const navAbout = document.getElementById('nav-link-about');
+    const docsSection = document.getElementById('documents');
+    const aboutSection = document.getElementById('about');
+
+    if (!docsSection || !aboutSection || !navDocs || !navAbout) return;
+
+    window.addEventListener(
+      'scroll',
+      () => {
+        const scrollPos = window.scrollY + 140;
+        const aboutTop = aboutSection.offsetTop;
+
+        if (scrollPos >= aboutTop) {
+          navAbout.classList.add('active');
+          navDocs.classList.remove('active');
+        } else {
+          navDocs.classList.add('active');
+          navAbout.classList.remove('active');
+        }
+      },
+      { passive: true }
+    );
+  }
+
+  // ─── 11. Viewport Scroll Reveals (IntersectionObserver) ───────
+  function initScrollReveal() {
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      document.querySelectorAll('.reveal-fade-up').forEach((el) => {
+        el.classList.add('is-revealed');
+      });
+      return;
+    }
+
+    const observer = new IntersectionObserver(
+      (entries, obs) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            entry.target.classList.add('is-revealed');
+            obs.unobserve(entry.target);
+          }
+        });
+      },
+      {
+        threshold: 0.1,
+        rootMargin: '0px 0px -40px 0px'
+      }
+    );
+
+    document.querySelectorAll('.reveal-fade-up').forEach((el) => {
+      observer.observe(el);
+    });
+  }
+
+  // ─── 12. Subtle 3D Tilt on Floating Hero Shield ───────────────
+  function initHeroTilt() {
+    const shield = document.querySelector('.floating-shield-card');
+    const visual = document.querySelector('.hero-visual-container');
+    if (!shield || !visual) return;
+
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    if (window.innerWidth < 1024) return;
+
+    visual.addEventListener('mousemove', (e) => {
+      const rect = visual.getBoundingClientRect();
+      const x = e.clientX - rect.left - rect.width / 2;
+      const y = e.clientY - rect.top - rect.height / 2;
+
+      const tiltX = (y / (rect.height / 2)) * -6;
+      const tiltY = (x / (rect.width / 2)) * 6;
+
+      shield.style.transform = `perspective(1000px) rotateX(${tiltX}deg) rotateY(${tiltY}deg) translateY(-6px)`;
+    });
+
+    visual.addEventListener('mouseleave', () => {
+      shield.style.transform = '';
+    });
+  }
+
+  // ─── DOM Ready ────────────────────────────────────────────────
   document.addEventListener('DOMContentLoaded', () => {
     logVisit();
     loadDocuments();
     initSearch();
-    initNavbar();
+    initHeader();
+    initMobileMenu();
+    initScrollSpy();
+    initScrollReveal();
+    initHeroTilt();
   });
 })();

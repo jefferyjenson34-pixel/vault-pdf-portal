@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════════
-   VAULT PDF PORTAL — About Page Stylesheet
+   VAULT PDF PORTAL — Unified Design System Stylesheet
    Theme: Clean, trustworthy, soft gray background,
           deep navy accents, subtle purple highlights
    ═══════════════════════════════════════════════════════════════ */
@@ -43,7 +43,6 @@
   --gradient-badge: linear-gradient(135deg, rgba(124, 58, 237, 0.12) 0%, rgba(79, 70, 229, 0.08) 100%);
   --gradient-cta: linear-gradient(135deg, #0f172a 0%, #1e1b4b 50%, #4338ca 100%);
   --gradient-text: linear-gradient(135deg, #0f172a 0%, #4338ca 70%, #7c3aed 100%);
-  --gradient-card-border: linear-gradient(135deg, rgba(124, 58, 237, 0.2) 0%, rgba(30, 41, 59, 0.05) 100%);
   
   /* Borders */
   --border-subtle: #e2e8f0;
@@ -53,7 +52,7 @@
   /* Shadows */
   --shadow-sm: 0 1px 3px rgba(15, 23, 42, 0.05), 0 1px 2px rgba(15, 23, 42, 0.03);
   --shadow-card: 0 4px 20px -2px rgba(15, 23, 42, 0.05), 0 2px 6px -1px rgba(15, 23, 42, 0.03);
-  --shadow-card-hover: 0 20px 35px -5px rgba(15, 23, 42, 0.09), 0 8px 16px -4px rgba(124, 58, 237, 0.08);
+  --shadow-card-hover: 0 18px 32px -4px rgba(15, 23, 42, 0.08), 0 6px 14px -3px rgba(124, 58, 237, 0.08);
   --shadow-cta: 0 20px 40px -15px rgba(15, 23, 42, 0.35), 0 10px 20px -10px rgba(124, 58, 237, 0.25);
   --shadow-button: 0 4px 14px rgba(15, 23, 42, 0.12);
   --shadow-button-hover: 0 8px 24px rgba(124, 58, 237, 0.25);
@@ -181,15 +180,15 @@ img, svg {
   position: sticky;
   top: 0;
   z-index: 100;
-  background: rgba(255, 255, 255, 0.85);
+  background: rgba(255, 255, 255, 0.88);
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
-  border-bottom: 1px solid rgba(226, 232, 240, 0.8);
+  border-bottom: 1px solid rgba(226, 232, 240, 0.85);
   transition: all 0.3s ease;
 }
 
 .site-header.scrolled {
-  background: rgba(255, 255, 255, 0.95);
+  background: rgba(255, 255, 255, 0.96);
   box-shadow: 0 4px 20px -4px rgba(15, 23, 42, 0.06);
 }
 
@@ -417,6 +416,7 @@ img, svg {
   box-shadow: var(--shadow-button);
   transition: var(--transition-smooth);
   border: 1px solid rgba(255, 255, 255, 0.1);
+  cursor: pointer;
 }
 
 .btn-primary:hover {
@@ -439,6 +439,7 @@ img, svg {
   border: 1px solid var(--border-subtle);
   box-shadow: var(--shadow-sm);
   transition: var(--transition-smooth);
+  cursor: pointer;
 }
 
 .btn-secondary:hover {
@@ -449,13 +450,14 @@ img, svg {
   box-shadow: 0 6px 16px rgba(15, 23, 42, 0.06);
 }
 
-/* Hero Key Indicators */
+/* Hero Key Indicators / Stats Bar */
 .hero-trust-bar {
   display: flex;
   align-items: center;
   gap: 28px;
   padding-top: 24px;
-  border-top: 1px solid rgba(226, 232, 240, 0.8);
+  border-top: 1px solid rgba(226, 232, 240, 0.85);
+  flex-wrap: wrap;
 }
 
 .trust-item {
@@ -491,7 +493,6 @@ img, svg {
   justify-content: center;
 }
 
-/* Background Glowing Rings */
 .glow-ring {
   position: absolute;
   border-radius: 50%;
@@ -517,7 +518,6 @@ img, svg {
   to { transform: rotate(360deg); }
 }
 
-/* Floating Shield Hero Centerpiece */
 .floating-shield-card {
   position: relative;
   z-index: 2;
@@ -587,7 +587,6 @@ img, svg {
   margin-top: 2px;
 }
 
-/* Floating Doc Badge 1 */
 .floating-doc-badge {
   position: absolute;
   z-index: 3;
@@ -686,7 +685,7 @@ img, svg {
   max-width: 680px;
   margin-left: auto;
   margin-right: auto;
-  margin-bottom: 56px;
+  margin-bottom: 48px;
 }
 
 .section-tag {
@@ -718,7 +717,269 @@ img, svg {
   line-height: 1.65;
 }
 
-/* ─── Section 1: Built Around Trust ──────────────────────────── */
+/* ═══════════════════════════════════════════════════════════════
+   DOCUMENTS LIBRARY SECTION
+   ═══════════════════════════════════════════════════════════════ */
+.documents-section {
+  position: relative;
+  padding: 80px 0 100px;
+  background: var(--bg-page);
+  z-index: 1;
+}
+
+/* Search Bar */
+.search-wrapper {
+  max-width: 600px;
+  margin: 0 auto 48px;
+}
+
+.search-bar {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  background: #ffffff;
+  border: 1px solid var(--border-card);
+  border-radius: var(--radius-pill);
+  padding: 12px 22px;
+  box-shadow: var(--shadow-sm);
+  transition: var(--transition-smooth);
+}
+
+.search-bar:focus-within {
+  border-color: var(--purple-primary);
+  box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.12), var(--shadow-card);
+}
+
+.search-icon {
+  color: var(--navy-600);
+  flex-shrink: 0;
+}
+
+.search-input {
+  width: 100%;
+  border: none;
+  background: transparent;
+  outline: none;
+  font-family: var(--font-sans);
+  font-size: 0.975rem;
+  color: var(--navy-950);
+}
+
+.search-input::placeholder {
+  color: var(--text-light);
+}
+
+/* Documents Grid */
+.documents-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 24px;
+}
+
+/* Document Card */
+.doc-card {
+  background: #ffffff;
+  border: 1px solid var(--border-card);
+  border-radius: var(--radius-lg);
+  padding: 24px;
+  box-shadow: var(--shadow-card);
+  transition: var(--transition-smooth);
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.doc-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 20px;
+  right: 20px;
+  height: 2px;
+  background: var(--gradient-purple);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  border-radius: 2px;
+}
+
+.doc-card:hover {
+  transform: translateY(-5px);
+  border-color: var(--purple-border);
+  box-shadow: var(--shadow-card-hover);
+}
+
+.doc-card:hover::before {
+  opacity: 1;
+}
+
+.doc-card-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.doc-icon-badge {
+  width: 48px;
+  height: 48px;
+  border-radius: var(--radius-md);
+  background: rgba(124, 58, 237, 0.08);
+  border: 1px solid rgba(124, 58, 237, 0.16);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--purple-primary);
+  flex-shrink: 0;
+  transition: var(--transition-smooth);
+}
+
+.doc-card:hover .doc-icon-badge {
+  background: var(--gradient-purple);
+  color: #ffffff;
+  transform: scale(1.05);
+}
+
+.doc-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.doc-name {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--navy-950);
+  line-height: 1.4;
+  margin-bottom: 6px;
+  word-break: break-word;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  letter-spacing: -0.01em;
+}
+
+.doc-meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.8rem;
+  color: var(--navy-600);
+}
+
+.doc-tag {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-weight: 700;
+  font-size: 0.725rem;
+  letter-spacing: 0.04em;
+}
+
+.doc-tag.pdf-tag {
+  background: rgba(220, 38, 38, 0.08);
+  color: #dc2626;
+  border: 1px solid rgba(220, 38, 38, 0.2);
+}
+
+.doc-size {
+  font-weight: 500;
+  color: var(--text-muted);
+}
+
+.doc-card-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: 14px;
+  border-top: 1px solid #f1f5f9;
+}
+
+.doc-date-wrap {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.doc-download-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 16px;
+  background: var(--navy-900);
+  border: 1px solid rgba(15, 23, 42, 0.1);
+  border-radius: var(--radius-pill);
+  font-size: 0.825rem;
+  font-weight: 600;
+  color: #ffffff;
+  cursor: pointer;
+  transition: var(--transition-smooth);
+  font-family: var(--font-sans);
+}
+
+.doc-download-btn:hover {
+  background: var(--purple-primary);
+  border-color: var(--purple-primary);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(124, 58, 237, 0.25);
+}
+
+/* Empty & Loading States */
+.empty-state, .loading-state {
+  text-align: center;
+  padding: 64px 24px;
+  background: #ffffff;
+  border: 1px dashed var(--border-subtle);
+  border-radius: var(--radius-xl);
+  max-width: 520px;
+  margin: 0 auto;
+}
+
+.empty-icon {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: #f1f5f9;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 16px;
+  color: var(--navy-600);
+}
+
+.empty-state h3 {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--navy-900);
+  margin-bottom: 6px;
+}
+
+.empty-state p, .loading-state p {
+  font-size: 0.9rem;
+  color: var(--navy-600);
+}
+
+.loader-dual {
+  width: 44px;
+  height: 44px;
+  border: 3px solid rgba(124, 58, 237, 0.15);
+  border-top-color: var(--purple-primary);
+  border-radius: 50%;
+  margin: 0 auto 16px;
+  animation: spinLoader 0.9s linear infinite;
+}
+
+@keyframes spinLoader {
+  to { transform: rotate(360deg); }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   BUILT AROUND TRUST SECTION
+   ═══════════════════════════════════════════════════════════════ */
 .trust-section {
   position: relative;
   padding: 96px 0;
@@ -801,7 +1062,6 @@ img, svg {
   line-height: 1.6;
 }
 
-/* Trust Pillar Breakdown Bar */
 .trust-banner {
   background: #ffffff;
   border: 1px solid var(--border-subtle);
@@ -865,7 +1125,9 @@ img, svg {
   color: var(--navy-700);
 }
 
-/* ─── Section 2: Why Vault PDF Portal? ────────────────────────── */
+/* ═══════════════════════════════════════════════════════════════
+   WHY VAULT PDF PORTAL SECTION
+   ═══════════════════════════════════════════════════════════════ */
 .features-section {
   position: relative;
   padding: 96px 0;
@@ -1026,7 +1288,9 @@ img, svg {
   flex-shrink: 0;
 }
 
-/* ─── Section 3: Mission Section ─────────────────────────────── */
+/* ═══════════════════════════════════════════════════════════════
+   OUR GUIDING MISSION SECTION
+   ═══════════════════════════════════════════════════════════════ */
 .mission-section {
   position: relative;
   padding: 96px 0;
@@ -1147,7 +1411,9 @@ img, svg {
   color: #cbd5e1;
 }
 
-/* ─── Call to Action (CTA) Section ───────────────────────────── */
+/* ═══════════════════════════════════════════════════════════════
+   CALL TO ACTION (CTA) SECTION
+   ═══════════════════════════════════════════════════════════════ */
 .cta-section {
   position: relative;
   padding: 104px 0;
@@ -1241,6 +1507,7 @@ img, svg {
   border-radius: var(--radius-md);
   box-shadow: 0 10px 25px rgba(0, 0, 0, 0.25);
   transition: var(--transition-smooth);
+  cursor: pointer;
 }
 
 .btn-cta-primary:hover {
@@ -1269,7 +1536,9 @@ img, svg {
   transform: translateY(-2px);
 }
 
-/* ─── Footer ─────────────────────────────────────────────────── */
+/* ═══════════════════════════════════════════════════════════════
+   POLISHED FOOTER
+   ═══════════════════════════════════════════════════════════════ */
 .site-footer {
   position: relative;
   background: var(--navy-950);
@@ -1375,7 +1644,6 @@ img, svg {
   transform: translateY(0);
 }
 
-/* Stagger delays */
 .delay-100 { transition-delay: 100ms; }
 .delay-200 { transition-delay: 200ms; }
 .delay-300 { transition-delay: 300ms; }
@@ -1456,6 +1724,10 @@ img, svg {
 
   .hero-section {
     padding: 48px 0 64px;
+  }
+
+  .documents-grid {
+    grid-template-columns: 1fr;
   }
 
   .trust-grid {

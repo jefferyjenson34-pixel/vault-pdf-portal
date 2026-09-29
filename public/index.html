@@ -4,23 +4,24 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="google-site-verification" content="epL2Eo41KgvZqM8xxtxfyofxyVxa_DEpWi84ABTD7Fw" />
-  <title>Vault PDF Portal — Secure Document Portal & Free PDF Downloads</title>
-  <meta name="description" content="Vault PDF Portal allows you to access, browse, and securely download curated PDF documents, research presentations, and whitepapers instantly.">
-  <meta name="keywords" content="Vault PDF Portal, Vault PDF, PDF download, document portal, pitch deck pdf, free pdf download">
+  
+  <title>Vault PDF Portal — Your Important Documents, Securely Organized</title>
+  <meta name="description" content="Vault PDF Portal helps individuals and teams upload, store, access, and manage important PDF documents in one secure, reliable place.">
+  <meta name="keywords" content="Vault PDF Portal, PDF documents, secure document storage, organize PDF files, PDF manager, download PDF">
   <meta name="robots" content="index, follow">
   <link rel="canonical" href="https://vault-pdf-portal.onrender.com/">
 
   <!-- Open Graph / Facebook -->
   <meta property="og:type" content="website">
   <meta property="og:url" content="https://vault-pdf-portal.onrender.com/">
-  <meta property="og:title" content="Vault PDF Portal — Secure Document Portal">
-  <meta property="og:description" content="Access and download premium PDF documents securely and instantly.">
+  <meta property="og:title" content="Vault PDF Portal — Secure Document Repository">
+  <meta property="og:description" content="Access and download verified PDF documents securely and instantly.">
   <meta property="og:site_name" content="Vault PDF Portal">
 
   <!-- Twitter -->
   <meta name="twitter:card" content="summary">
-  <meta name="twitter:title" content="Vault PDF Portal — Secure Document Portal">
-  <meta name="twitter:description" content="Access and download premium PDF documents securely and instantly.">
+  <meta name="twitter:title" content="Vault PDF Portal — Secure Document Repository">
+  <meta name="twitter:description" content="Access and download verified PDF documents securely and instantly.">
 
   <!-- Structured Data (JSON-LD) -->
   <script type="application/ld+json">
@@ -29,204 +30,776 @@
     "@type": "WebSite",
     "name": "Vault PDF Portal",
     "url": "https://vault-pdf-portal.onrender.com/",
-    "description": "Secure document repository and PDF download portal"
+    "description": "Secure document repository and PDF management portal"
   }
   </script>
 
+  <!-- Typography: Inter -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/css/style.css">
+
+  <!-- Unified Design Stylesheet -->
+  <link rel="stylesheet" href="/css/about.css">
 </head>
 <body>
-  <!-- Animated background -->
-  <div class="bg-gradient"></div>
-  <div class="bg-grid"></div>
-  <div class="bg-glow glow-1"></div>
-  <div class="bg-glow glow-2"></div>
-  <div class="bg-glow glow-3"></div>
 
-  <!-- Navigation -->
-  <nav class="navbar" id="navbar">
-    <div class="nav-container">
-      <a href="/" class="nav-logo">
-        <div class="logo-icon">
-          <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
-            <rect x="2" y="2" width="24" height="24" rx="6" stroke="url(#logo-grad)" stroke-width="2.5"/>
-            <path d="M9 14L12.5 17.5L19 11" stroke="url(#logo-grad)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
-            <defs>
-              <linearGradient id="logo-grad" x1="2" y1="2" x2="26" y2="26">
-                <stop stop-color="#818cf8"/>
-                <stop offset="1" stop-color="#c084fc"/>
-              </linearGradient>
-            </defs>
-          </svg>
-        </div>
-        <span class="logo-text">Vault</span>
-      </a>
-      <div class="nav-links">
-        <a href="#documents" class="nav-link active">Documents</a>
-        <a href="/about" class="nav-link">About</a>
-        <a href="/secret" class="nav-link" style="color:#f87171;display:inline-flex;align-items:center;gap:4px;">
-          <span>🔒</span> Secret Page
+  <!-- Ambient Light Accents -->
+  <div class="bg-ambient" aria-hidden="true">
+    <div class="ambient-orb orb-1"></div>
+    <div class="ambient-orb orb-2"></div>
+    <div class="ambient-orb orb-3"></div>
+    <div class="ambient-grid"></div>
+  </div>
+
+  <!-- Header / Navigation -->
+  <header class="site-header" id="site-header">
+    <div class="container">
+      <div class="nav-wrapper">
+        <a href="/" class="brand-link" aria-label="Vault PDF Portal Home">
+          <div class="brand-icon">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+              <path d="m9 12 2 2 4-4"/>
+            </svg>
+          </div>
+          <span class="brand-name">Vault <span class="brand-highlight">PDF</span></span>
         </a>
-      </div>
-    </div>
-  </nav>
 
-  <!-- Hero Section -->
-  <section class="hero" id="hero">
-    <div class="hero-content">
-      <div class="hero-badge">
-        <span class="badge-dot"></span>
-        <span>Secure Document Portal</span>
-      </div>
-      <h1 class="hero-title">
-        Access Your<br>
-        <span class="gradient-text">Documents</span> Instantly
-      </h1>
-      <p class="hero-subtitle">
-        Download verified documents in one click. Fast, secure, and always available.
-      </p>
-      <a href="#documents" class="hero-cta">
-        <span>Browse Documents</span>
-        <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-          <path d="M4 10H16M16 10L11 5M16 10L11 15" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-        </svg>
-      </a>
-      <div class="hero-stats">
-        <div class="stat">
-          <span class="stat-number" id="stat-files">0</span>
-          <span class="stat-label">Documents</span>
-        </div>
-        <div class="stat-divider"></div>
-        <div class="stat">
-          <span class="stat-number">256-bit</span>
-          <span class="stat-label">Encryption</span>
-        </div>
-        <div class="stat-divider"></div>
-        <div class="stat">
-          <span class="stat-number">99.9%</span>
-          <span class="stat-label">Uptime</span>
-        </div>
-      </div>
-    </div>
-  </section>
+        <!-- Navigation Links -->
+        <nav class="nav-menu" id="nav-menu" aria-label="Main Navigation">
+          <a href="#documents" class="nav-link active" id="nav-link-docs">Documents</a>
+          <a href="#about" class="nav-link" id="nav-link-about">About</a>
+          <a href="/secret" class="nav-link nav-link-secret">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+              <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+            </svg>
+            Secret Page
+          </a>
+        </nav>
 
-  <!-- Documents Section -->
-  <section class="documents-section" id="documents">
-    <div class="section-container">
-      <div class="section-header">
-        <div class="section-badge">Library</div>
-        <h2 class="section-title">Available Documents</h2>
-        <p class="section-subtitle">Click on any document to download it instantly</p>
-      </div>
+        <!-- Right Side Nav Actions -->
+        <div class="nav-actions">
+          <a href="#documents" class="btn-nav-cta">
+            <span>Explore Documents</span>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M5 12h14"></path>
+              <path d="m12 5 7 7-7 7"></path>
+            </svg>
+          </a>
+        </div>
 
-      <!-- Search bar -->
-      <div class="search-wrapper">
-        <div class="search-bar" id="search-bar">
-          <svg class="search-icon" width="20" height="20" viewBox="0 0 20 20" fill="none">
-            <circle cx="9" cy="9" r="6" stroke="currentColor" stroke-width="2"/>
-            <path d="M13.5 13.5L17 17" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        <!-- Mobile Toggle Button -->
+        <button class="mobile-toggle" aria-label="Toggle navigation menu" aria-expanded="false" aria-controls="nav-menu">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="3" y1="12" x2="21" y2="12"></line>
+            <line x1="3" y1="6" x2="21" y2="6"></line>
+            <line x1="3" y1="18" x2="21" y2="18"></line>
           </svg>
-          <input type="text" id="search-input" placeholder="Search documents..." autocomplete="off">
-        </div>
-      </div>
-
-      <!-- Documents Grid -->
-      <div class="documents-grid" id="documents-grid">
-        <!-- Populated by JS -->
-      </div>
-
-      <!-- Empty state -->
-      <div class="empty-state" id="empty-state" style="display: none;">
-        <div class="empty-icon">
-          <svg width="64" height="64" viewBox="0 0 64 64" fill="none">
-            <rect x="12" y="8" width="40" height="48" rx="4" stroke="currentColor" stroke-width="2" opacity="0.3"/>
-            <path d="M22 24H42M22 32H38M22 40H34" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity="0.3"/>
-          </svg>
-        </div>
-        <h3>No documents yet</h3>
-        <p>Documents will appear here once uploaded by the administrator.</p>
-      </div>
-
-      <!-- Loading state -->
-      <div class="loading-state" id="loading-state">
-        <div class="loader">
-          <div class="loader-ring"></div>
-          <div class="loader-ring"></div>
-          <div class="loader-ring"></div>
-        </div>
-        <p>Loading documents...</p>
+        </button>
       </div>
     </div>
-  </section>
+  </header>
 
-  <!-- About Section -->
-  <section class="about-section" id="about">
-    <div class="section-container">
-      <div class="about-grid">
-        <div class="about-card">
-          <div class="about-icon">
-            <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
-              <path d="M16 4L28 10V22L16 28L4 22V10L16 4Z" stroke="url(#ic1)" stroke-width="2" stroke-linejoin="round"/>
-              <path d="M16 16L28 10M16 16L4 10M16 16V28" stroke="url(#ic1)" stroke-width="2"/>
-              <defs><linearGradient id="ic1" x1="4" y1="4" x2="28" y2="28"><stop stop-color="#818cf8"/><stop offset="1" stop-color="#c084fc"/></linearGradient></defs>
-            </svg>
+  <main id="main-content">
+
+    <!-- ═══════════════════════════════════════════════════════════════
+         HERO SECTION
+         ═══════════════════════════════════════════════════════════════ -->
+    <section class="hero-section" id="hero">
+      <div class="container">
+        <div class="hero-grid">
+          
+          <!-- Left Column -->
+          <div class="hero-text-block reveal-fade-up">
+            <div class="hero-badge">
+              <span class="badge-pulse"></span>
+              <span>Vault PDF Portal &bull; Secure Document Repository</span>
+            </div>
+
+            <h1 class="hero-title">
+              Your Important Documents,<br>
+              <span class="title-accent">Securely Organized.</span>
+            </h1>
+
+            <p class="hero-desc">
+              Vault PDF Portal helps individuals and teams upload, store, access, and manage PDF files in one reliable place. Download verified documents in one click, backed by enterprise-grade protection.
+            </p>
+
+            <div class="hero-actions">
+              <a href="#documents" class="btn-primary">
+                <span>Browse Documents</span>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M5 12h14"></path>
+                  <path d="m12 5 7 7-7 7"></path>
+                </svg>
+              </a>
+              <a href="#about" class="btn-secondary">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                </svg>
+                <span>Built Around Trust</span>
+              </a>
+            </div>
+
+            <!-- Stats Bar -->
+            <div class="hero-trust-bar">
+              <div class="trust-item">
+                <span class="trust-item-icon">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="20 6 9 17 4 12"></polyline>
+                  </svg>
+                </span>
+                <span><strong id="stat-files">0</strong> Documents Stored</span>
+              </div>
+              <div class="trust-item">
+                <span class="trust-item-icon">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="20 6 9 17 4 12"></polyline>
+                  </svg>
+                </span>
+                <span>256-Bit Protection</span>
+              </div>
+              <div class="trust-item">
+                <span class="trust-item-icon">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="20 6 9 17 4 12"></polyline>
+                  </svg>
+                </span>
+                <span>99.9% High Availability</span>
+              </div>
+            </div>
           </div>
-          <h3>Secure Storage</h3>
-          <p>All documents are stored with enterprise-grade security and encrypted transfers.</p>
-        </div>
-        <div class="about-card">
-          <div class="about-icon">
-            <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
-              <path d="M6 16C6 10.477 10.477 6 16 6C21.523 6 26 10.477 26 16C26 21.523 21.523 26 16 26" stroke="url(#ic2)" stroke-width="2" stroke-linecap="round"/>
-              <path d="M16 10V16L20 20" stroke="url(#ic2)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-              <defs><linearGradient id="ic2" x1="6" y1="6" x2="26" y2="26"><stop stop-color="#818cf8"/><stop offset="1" stop-color="#c084fc"/></linearGradient></defs>
-            </svg>
+
+          <!-- Right Column: Subtle Floating Shield & Document Illustration -->
+          <div class="hero-visual-wrapper reveal-fade-up delay-200">
+            <div class="hero-visual-container">
+              
+              <!-- Subtle Animated Glowing Rings -->
+              <div class="glow-ring glow-ring-1" aria-hidden="true"></div>
+              <div class="glow-ring glow-ring-2" aria-hidden="true"></div>
+
+              <!-- Main Floating Shield Card -->
+              <div class="floating-shield-card">
+                <div class="shield-icon-glow">
+                  <svg width="42" height="42" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                    <rect x="9" y="11" width="6" height="4" rx="1" fill="#c084fc"/>
+                    <path d="M10 11V9a2 2 0 1 1 4 0v2"/>
+                  </svg>
+                </div>
+                <span class="shield-label">Vault Shield</span>
+                <span class="shield-subtext">Protected &bull; Verified</span>
+              </div>
+
+              <!-- Floating Document Badge 1 -->
+              <div class="floating-doc-badge badge-doc-1">
+                <div class="doc-mini-icon purple">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                    <polyline points="14 2 14 8 20 8"></polyline>
+                  </svg>
+                </div>
+                <div class="doc-badge-info">
+                  <span class="doc-badge-title">Agreement_2026.pdf</span>
+                  <span class="doc-badge-status">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                      <polyline points="20 6 9 17 4 12"></polyline>
+                    </svg>
+                    256-Bit Encrypted
+                  </span>
+                </div>
+              </div>
+
+              <!-- Floating Document Badge 2 -->
+              <div class="floating-doc-badge badge-doc-2">
+                <div class="doc-mini-icon navy">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                    <polyline points="14 2 14 8 20 8"></polyline>
+                    <line x1="16" y1="13" x2="8" y2="13"></line>
+                    <line x1="16" y1="17" x2="8" y2="17"></line>
+                  </svg>
+                </div>
+                <div class="doc-badge-info">
+                  <span class="doc-badge-title">Financial_Report.pdf</span>
+                  <span class="doc-badge-status">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                      <polyline points="20 6 9 17 4 12"></polyline>
+                    </svg>
+                    Verified Integrity
+                  </span>
+                </div>
+              </div>
+
+              <!-- Floating Document Badge 3 -->
+              <div class="floating-doc-badge badge-doc-3">
+                <div class="doc-mini-icon green">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <polyline points="12 6 12 12 14 14"></polyline>
+                  </svg>
+                </div>
+                <div class="doc-badge-info">
+                  <span class="doc-badge-title">Academic_Record.pdf</span>
+                  <span class="doc-badge-status">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                      <polyline points="20 6 9 17 4 12"></polyline>
+                    </svg>
+                    Instant Download
+                  </span>
+                </div>
+              </div>
+
+            </div>
           </div>
-          <h3>Instant Access</h3>
-          <p>Download any document in seconds with our high-speed CDN infrastructure.</p>
-        </div>
-        <div class="about-card">
-          <div class="about-icon">
-            <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
-              <rect x="5" y="5" width="22" height="22" rx="11" stroke="url(#ic3)" stroke-width="2"/>
-              <path d="M12 16L15 19L20 13" stroke="url(#ic3)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-              <defs><linearGradient id="ic3" x1="5" y1="5" x2="27" y2="27"><stop stop-color="#818cf8"/><stop offset="1" stop-color="#c084fc"/></linearGradient></defs>
-            </svg>
-          </div>
-          <h3>Always Available</h3>
-          <p>99.9% uptime guarantee ensures your documents are always within reach.</p>
+
         </div>
       </div>
-    </div>
-  </section>
+    </section>
 
-  <!-- Footer -->
-  <footer class="footer">
-    <div class="section-container">
-      <div class="footer-content">
-        <div class="footer-logo">
-          <div class="logo-icon">
-            <svg width="24" height="24" viewBox="0 0 28 28" fill="none">
-              <rect x="2" y="2" width="24" height="24" rx="6" stroke="url(#flogo)" stroke-width="2.5"/>
-              <path d="M9 14L12.5 17.5L19 11" stroke="url(#flogo)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
-              <defs><linearGradient id="flogo" x1="2" y1="2" x2="26" y2="26"><stop stop-color="#818cf8"/><stop offset="1" stop-color="#c084fc"/></linearGradient></defs>
+    <!-- ═══════════════════════════════════════════════════════════════
+         DOCUMENTS LIBRARY SECTION
+         ═══════════════════════════════════════════════════════════════ -->
+    <section class="documents-section" id="documents">
+      <div class="container">
+        
+        <div class="section-header reveal-fade-up">
+          <span class="section-tag">Verified Repository</span>
+          <h2 class="section-heading">Available Documents</h2>
+          <p class="section-subtitle">
+            Browse our curated collection of verified PDF documents. Click on any file to download instantly.
+          </p>
+        </div>
+
+        <!-- Search Bar -->
+        <div class="search-wrapper reveal-fade-up delay-100">
+          <div class="search-bar" id="search-bar">
+            <svg class="search-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="11" cy="11" r="8"></circle>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+            </svg>
+            <input type="text" id="search-input" class="search-input" placeholder="Search documents by name, type, or keyword..." autocomplete="off">
+          </div>
+        </div>
+
+        <!-- Documents Grid -->
+        <div class="documents-grid" id="documents-grid">
+          <!-- Dynamically populated by app.js -->
+        </div>
+
+        <!-- Loading State -->
+        <div class="loading-state" id="loading-state">
+          <div class="loader-dual"></div>
+          <p>Retrieving verified documents from vault...</p>
+        </div>
+
+        <!-- Empty State -->
+        <div class="empty-state" id="empty-state" style="display: none;">
+          <div class="empty-icon">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+              <polyline points="14 2 14 8 20 8"></polyline>
+              <line x1="9" y1="15" x2="15" y2="15"></line>
             </svg>
           </div>
-          <span>Vault</span>
+          <h3>No documents found</h3>
+          <p>Documents will appear here once uploaded by the portal administrator.</p>
         </div>
-        <div style="display:flex;gap:20px;font-size:0.9rem;flex-wrap:wrap;">
-          <a href="/about" style="color:var(--text-secondary);transition:color 0.2s;">About Vault</a>
-          <a href="#documents" style="color:var(--text-secondary);transition:color 0.2s;">Documents</a>
-          <a href="/admin" style="color:var(--text-secondary);transition:color 0.2s;">Admin</a>
+
+      </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════════════════════
+         INTEGRATED ABOUT SECTION: BUILT AROUND TRUST
+         ═══════════════════════════════════════════════════════════════ -->
+    <section class="trust-section" id="about">
+      <div class="container">
+        
+        <div class="section-header reveal-fade-up">
+          <span class="section-tag">Core Foundation</span>
+          <h2 class="section-heading">Built Around Trust</h2>
+          <p class="section-subtitle">
+            Security and confidence are not afterthoughts at Vault PDF Portal. We architected every layer around privacy, reliability, structure, and frictionless access.
+          </p>
         </div>
-        <p class="footer-text">© 2026 Vault. Secure Document Portal.</p>
+
+        <div class="trust-grid">
+          
+          <!-- Pillar 1: Privacy -->
+          <div class="trust-card reveal-fade-up delay-100">
+            <div class="trust-card-icon">
+              <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+              </svg>
+            </div>
+            <h3 class="trust-card-title">Absolute Privacy</h3>
+            <p class="trust-card-desc">
+              Your files belong solely to you. We enforce rigorous isolation and zero unauthorized tracking, data harvesting, or ad-targeting on your stored documents.
+            </p>
+          </div>
+
+          <!-- Pillar 2: Organization -->
+          <div class="trust-card reveal-fade-up delay-200">
+            <div class="trust-card-icon">
+              <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+                <line x1="12" y1="11" x2="12" y2="17"></line>
+                <line x1="9" y1="14" x2="15" y2="14"></line>
+              </svg>
+            </div>
+            <h3 class="trust-card-title">Clear Organization</h3>
+            <p class="trust-card-desc">
+              Bid farewell to scattered attachments and buried downloads. Every document is indexed with exact timestamps, clean metadata, and instant search capability.
+            </p>
+          </div>
+
+          <!-- Pillar 3: Reliability -->
+          <div class="trust-card reveal-fade-up delay-300">
+            <div class="trust-card-icon">
+              <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 2v20"></path>
+                <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
+              </svg>
+            </div>
+            <h3 class="trust-card-title">Proven Reliability</h3>
+            <p class="trust-card-desc">
+              Backed by resilient cloud storage infrastructure with 99.9% uptime. Your critical contracts, statements, and records are guaranteed to be intact and ready.
+            </p>
+          </div>
+
+          <!-- Pillar 4: Ease of Access -->
+          <div class="trust-card reveal-fade-up delay-400">
+            <div class="trust-card-icon">
+              <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"></circle>
+                <polyline points="12 6 12 12 16 14"></polyline>
+              </svg>
+            </div>
+            <h3 class="trust-card-title">Ease of Access</h3>
+            <p class="trust-card-desc">
+              Retrieve documents in milliseconds on any modern desktop, tablet, or smartphone without demanding cumbersome app downloads or login roadblocks.
+            </p>
+          </div>
+
+        </div>
+
+        <!-- Trust Guarantee Banner -->
+        <div class="trust-banner reveal-fade-up">
+          <div class="trust-banner-info">
+            <div class="trust-seal">
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                <polyline points="9 12 11 14 15 10"/>
+              </svg>
+            </div>
+            <div class="trust-banner-text">
+              <h4>Verified Document Integrity & Zero-Tamper Architecture</h4>
+              <p>Every file is validated against corruption and protected against unauthorized modifications.</p>
+            </div>
+          </div>
+
+          <div class="trust-badges-list">
+            <span class="trust-micro-badge">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#7c3aed" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="20 6 9 17 4 12"></polyline>
+              </svg>
+              TLS 1.3 In-Flight
+            </span>
+            <span class="trust-micro-badge">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#7c3aed" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="20 6 9 17 4 12"></polyline>
+              </svg>
+              AES-256 at Rest
+            </span>
+            <span class="trust-micro-badge">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#7c3aed" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="20 6 9 17 4 12"></polyline>
+              </svg>
+              GDPR Compliant Principles
+            </span>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════════════════════
+         INTEGRATED ABOUT SECTION: WHY VAULT PDF PORTAL?
+         ═══════════════════════════════════════════════════════════════ -->
+    <section class="features-section">
+      <div class="container">
+        
+        <div class="section-header reveal-fade-up">
+          <span class="section-tag">Key Capabilities</span>
+          <h2 class="section-heading">Why Vault PDF Portal?</h2>
+          <p class="section-subtitle">
+            Engineered specifically for PDFs, combining enterprise security with clean simplicity so you spend less time searching and more time moving forward.
+          </p>
+        </div>
+
+        <div class="features-grid">
+          
+          <!-- Feature Card 1: Secure Storage -->
+          <div class="feature-card reveal-fade-up delay-100">
+            <div class="feature-header">
+              <div class="feature-icon-box feature-icon-navy">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+                  <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
+                  <line x1="12" y1="22.08" x2="12" y2="12"></line>
+                </svg>
+              </div>
+              <span class="feature-number">01 / SECURITY</span>
+            </div>
+            <h3 class="feature-title">Secure Storage</h3>
+            <p class="feature-desc">
+              State-of-the-art document containment shielding your vital paperwork against accidental loss, security breaches, and unauthorized tampering.
+            </p>
+            <ul class="feature-bullets">
+              <li class="feature-bullet">
+                <span class="bullet-icon">&#10003;</span>
+                <span>Encrypted transit pipelines and hardened storage endpoints</span>
+              </li>
+              <li class="feature-bullet">
+                <span class="bullet-icon">&#10003;</span>
+                <span>Isolated administrative upload controls with session tokens</span>
+              </li>
+              <li class="feature-bullet">
+                <span class="bullet-icon">&#10003;</span>
+                <span>Automated file integrity verification upon every save</span>
+              </li>
+            </ul>
+          </div>
+
+          <!-- Feature Card 2: Easy Organization -->
+          <div class="feature-card reveal-fade-up delay-200">
+            <div class="feature-header">
+              <div class="feature-icon-box feature-icon-purple">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <rect x="3" y="3" width="7" height="7"></rect>
+                  <rect x="14" y="3" width="7" height="7"></rect>
+                  <rect x="14" y="14" width="7" height="7"></rect>
+                  <rect x="3" y="14" width="7" height="7"></rect>
+                </svg>
+              </div>
+              <span class="feature-number">02 / ORGANIZATION</span>
+            </div>
+            <h3 class="feature-title">Easy Organization</h3>
+            <p class="feature-desc">
+              Tame document chaos with a structured catalog that presents files cleanly with clear titles, precise byte sizes, and intuitive discovery tools.
+            </p>
+            <ul class="feature-bullets">
+              <li class="feature-bullet">
+                <span class="bullet-icon">&#10003;</span>
+                <span>Instant live search with zero latency across all titles</span>
+              </li>
+              <li class="feature-bullet">
+                <span class="bullet-icon">&#10003;</span>
+                <span>Clean chronological sorting from newest to oldest</span>
+              </li>
+              <li class="feature-bullet">
+                <span class="bullet-icon">&#10003;</span>
+                <span>Visual document badges indicating file format and readiness</span>
+              </li>
+            </ul>
+          </div>
+
+          <!-- Feature Card 3: Quick Access -->
+          <div class="feature-card reveal-fade-up delay-300">
+            <div class="feature-header">
+              <div class="feature-icon-box feature-icon-indigo">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+                </svg>
+              </div>
+              <span class="feature-number">03 / VELOCITY</span>
+            </div>
+            <h3 class="feature-title">Quick Access</h3>
+            <p class="feature-desc">
+              When an urgent contract or record is needed, every second matters. Vault PDF Portal delivers high-speed asset streaming for one-click downloads.
+            </p>
+            <ul class="feature-bullets">
+              <li class="feature-bullet">
+                <span class="bullet-icon">&#10003;</span>
+                <span>Instant single-click downloads with native browser handling</span>
+              </li>
+              <li class="feature-bullet">
+                <span class="bullet-icon">&#10003;</span>
+                <span>Optimized lightweight architecture with zero bloated scripts</span>
+              </li>
+              <li class="feature-bullet">
+                <span class="bullet-icon">&#10003;</span>
+                <span>Seamless performance on desktop, iPad, and mobile devices</span>
+              </li>
+            </ul>
+          </div>
+
+          <!-- Feature Card 4: Simple Sharing -->
+          <div class="feature-card reveal-fade-up delay-400">
+            <div class="feature-header">
+              <div class="feature-icon-box feature-icon-blue">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="18" cy="5" r="3"></circle>
+                  <circle cx="6" cy="12" r="3"></circle>
+                  <circle cx="18" cy="19" r="3"></circle>
+                  <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line>
+                  <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line>
+                </svg>
+              </div>
+              <span class="feature-number">04 / COLLABORATION</span>
+            </div>
+            <h3 class="feature-title">Simple Sharing</h3>
+            <p class="feature-desc">
+              Distribute documents effortlessly without sending cumbersome email attachments that get rejected or stuck in spam filters.
+            </p>
+            <ul class="feature-bullets">
+              <li class="feature-bullet">
+                <span class="bullet-icon">&#10003;</span>
+                <span>Permanent, direct canonical links for every public document</span>
+              </li>
+              <li class="feature-bullet">
+                <span class="bullet-icon">&#10003;</span>
+                <span>Zero recipient account creation or complex logins required</span>
+              </li>
+              <li class="feature-bullet">
+                <span class="bullet-icon">&#10003;</span>
+                <span>Audit-friendly download tracking for admin visibility</span>
+              </li>
+            </ul>
+          </div>
+
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════════════════════
+         INTEGRATED ABOUT SECTION: OUR GUIDING MISSION
+         ═══════════════════════════════════════════════════════════════ -->
+    <section class="mission-section">
+      <div class="container">
+        <div class="mission-layout">
+          
+          <!-- Left Column -->
+          <div class="mission-text-block reveal-fade-up">
+            <span class="section-tag">Our Guiding Mission</span>
+            <h2 class="mission-headline">
+              A Dependable Digital Home for What Matters Most
+            </h2>
+            <p class="mission-body">
+              Every day, vital commitments are sealed, milestones achieved, and legal duties fulfilled through documents. Yet all too often, these indispensable files remain trapped in cluttered inbox threads, expiring cloud links, or unorganized local folders.
+            </p>
+            <p class="mission-body">
+              At Vault PDF Portal, we hold a simple conviction: documents such as <strong>agreements, reports, invoices, academic records, and personal files deserve a dependable digital home</strong>. One that remains steadfast, transparent, and always available when you need it most.
+            </p>
+
+            <div class="mission-quote-box">
+              <p class="mission-quote">
+                &ldquo;We don't build complex, bloated suites. We create clean, rock-solid portals where your most important documents remain safe, searchable, and always within arm's reach.&rdquo;
+              </p>
+            </div>
+          </div>
+
+          <!-- Right Column -->
+          <div class="mission-categories-block reveal-fade-up delay-200">
+            <div class="doc-categories-grid">
+              
+              <div class="doc-cat-card featured">
+                <div class="doc-cat-icon">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                    <polyline points="14 2 14 8 20 8"></polyline>
+                    <path d="M16 13H8"></path>
+                    <path d="M16 17H8"></path>
+                    <path d="M10 9H8"></path>
+                  </svg>
+                </div>
+                <h4 class="doc-cat-title">Legal Agreements & Contracts</h4>
+                <p class="doc-cat-desc">
+                  Service agreements, NDAs, lease contracts, and business covenants preserved with immutable fidelity.
+                </p>
+              </div>
+
+              <div class="doc-cat-card">
+                <div class="doc-cat-icon">
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="18" y1="20" x2="18" y2="10"></line>
+                    <line x1="12" y1="20" x2="12" y2="4"></line>
+                    <line x1="6" y1="20" x2="6" y2="14"></line>
+                  </svg>
+                </div>
+                <h4 class="doc-cat-title">Financial Reports</h4>
+                <p class="doc-cat-desc">
+                  Quarterly statements, audit briefs, and annual balance sheets.
+                </p>
+              </div>
+
+              <div class="doc-cat-card">
+                <div class="doc-cat-icon">
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="2" y="4" width="20" height="16" rx="2"></rect>
+                    <line x1="6" y1="8" x2="10" y2="8"></line>
+                    <line x1="6" y1="12" x2="14" y2="12"></line>
+                    <line x1="6" y1="16" x2="18" y2="16"></line>
+                  </svg>
+                </div>
+                <h4 class="doc-cat-title">Invoices & Receipts</h4>
+                <p class="doc-cat-desc">
+                  Official purchase receipts, vendor invoices, and tax filings.
+                </p>
+              </div>
+
+              <div class="doc-cat-card">
+                <div class="doc-cat-icon">
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M22 10v6M2 10l10-5 10 5-10 5z"></path>
+                    <path d="M6 12v5c3 3 9 3 12 0v-5"></path>
+                  </svg>
+                </div>
+                <h4 class="doc-cat-title">Academic Records</h4>
+                <p class="doc-cat-desc">
+                  Certified transcripts, diplomas, syllabi, and research papers.
+                </p>
+              </div>
+
+              <div class="doc-cat-card">
+                <div class="doc-cat-icon">
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                    <circle cx="12" cy="7" r="4"></circle>
+                  </svg>
+                </div>
+                <h4 class="doc-cat-title">Personal Files</h4>
+                <p class="doc-cat-desc">
+                  Passports, certificates, identity verification, and medical summaries.
+                </p>
+              </div>
+
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════════════════════
+         CALL TO ACTION (CTA) SECTION
+         ═══════════════════════════════════════════════════════════════ -->
+    <section class="cta-section" id="cta">
+      <div class="container">
+        <div class="cta-card reveal-fade-up">
+          
+          <div class="cta-ambient-glow" aria-hidden="true"></div>
+          <div class="cta-ambient-glow-2" aria-hidden="true"></div>
+
+          <div class="cta-badge">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+            </svg>
+            <span>Secure &bull; Dependable &bull; Instant</span>
+          </div>
+
+          <h2 class="cta-title">Keep Your Documents Within Reach</h2>
+          <p class="cta-desc">
+            Discover a simpler, safer way to manage agreements, records, and reports. Access our repository now or browse verified publications in one click.
+          </p>
+
+          <div class="cta-actions">
+            <a href="#documents" class="btn-cta-primary">
+              <span>Explore Documents</span>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M5 12h14"></path>
+                <path d="m12 5 7 7-7 7"></path>
+              </svg>
+            </a>
+            <a href="/admin" class="btn-cta-ghost">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+              </svg>
+              <span>Portal Administration</span>
+            </a>
+          </div>
+
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ═══════════════════════════════════════════════════════════════
+       POLISHED FOOTER
+       ═══════════════════════════════════════════════════════════════ -->
+  <footer class="site-footer">
+    <div class="container">
+      <div class="footer-top">
+        
+        <!-- Brand & Statement -->
+        <div class="footer-brand">
+          <a href="/" class="brand-link">
+            <div class="brand-icon">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                <path d="m9 12 2 2 4-4"/>
+              </svg>
+            </div>
+            <span class="brand-name">Vault <span class="brand-highlight">PDF Portal</span></span>
+          </a>
+
+          <p class="footer-security-message">
+            Vault PDF Portal is engineered with privacy-by-design. Protecting your most critical agreements, reports, and records with zero compromise and guaranteed reliability.
+          </p>
+
+          <div class="footer-security-badge">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+              <polyline points="9 12 11 14 15 10"/>
+            </svg>
+            <span>All Systems Encrypted &bull; 99.9% Operational</span>
+          </div>
+        </div>
+
+        <!-- Navigation Links -->
+        <div class="footer-col">
+          <h4 class="footer-col-title">Navigation</h4>
+          <ul class="footer-links">
+            <li><a href="/">Home</a></li>
+            <li><a href="#documents">Browse Documents</a></li>
+            <li><a href="#about">About Vault</a></li>
+            <li><a href="/about">Dedicated About Page</a></li>
+          </ul>
+        </div>
+
+        <!-- Security & Control Links -->
+        <div class="footer-col">
+          <h4 class="footer-col-title">Security & Control</h4>
+          <ul class="footer-links">
+            <li><a href="#about">Built Around Trust</a></li>
+            <li><a href="/admin">Admin Portal</a></li>
+            <li><a href="/secret" style="color: #f87171;">Protected Secret Area</a></li>
+          </ul>
+        </div>
+
+      </div>
+
+      <!-- Footer Bottom Bar -->
+      <div class="footer-bottom">
+        <p class="copyright-text">
+          &copy; 2026 Vault PDF Portal. All rights reserved. Secure document storage and distribution.
+        </p>
+        <div class="footer-bottom-links">
+          <a href="#hero">Back to Top &uarr;</a>
+          <a href="#about">Privacy & Trust</a>
+          <a href="#documents">Explore Vault</a>
+        </div>
       </div>
     </div>
   </footer>
 
+  <!-- Scripts -->
   <script src="/js/app.js"></script>
 </body>
 </html>
