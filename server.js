@@ -268,6 +268,11 @@ app.get('/api/download/:filename', (req, res) => {
   }
 });
 
+// ─── Serve about page ──────────────────────────────────────────────
+app.get('/about', (req, res) => {
+  res.redirect('/about.html');
+});
+
 // ─── Serve admin page ───────────────────────────────────────────────
 app.get('/admin', (req, res) => {
   res.redirect('/admin.html');
