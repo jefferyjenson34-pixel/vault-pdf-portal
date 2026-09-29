@@ -268,6 +268,16 @@ app.get('/api/download/:filename', (req, res) => {
   }
 });
 
+// ─── Serve robots.txt & sitemap.xml ────────────────────────────────
+app.get('/robots.txt', (req, res) => {
+  res.type('text/plain');
+  res.send("User-agent: *\nAllow: /\n\nSitemap: https://vault-pdf-portal.onrender.com/sitemap.xml\n");
+});
+
+app.get('/sitemap.xml', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'sitemap.xml'));
+});
+
 // ─── Serve about page ──────────────────────────────────────────────
 app.get('/about', (req, res) => {
   res.redirect('/about.html');

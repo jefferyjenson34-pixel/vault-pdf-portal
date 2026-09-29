@@ -1,6 +1,4 @@
 User-agent: *
 Allow: /
-Disallow: /admin
-Disallow: /api/
 
 Sitemap: https://vault-pdf-portal.onrender.com/sitemap.xml
