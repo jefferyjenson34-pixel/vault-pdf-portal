@@ -17,11 +17,12 @@ const SESSION_MAX_AGE = 24 * 60 * 60 * 1000; // 24 hours
 
 // Data paths
 const DATA_DIR = path.join(__dirname, 'data');
+const PUBLIC_DIR = path.resolve(__dirname, 'public');
 const VISITORS_FILE = path.join(DATA_DIR, 'visitors.json');
 const CONTACTS_FILE = path.join(DATA_DIR, 'contacts.json');
 const DOWNLOADS_FILE = path.join(DATA_DIR, 'downloads.json');
 const CATEGORIES_FILE = path.join(DATA_DIR, 'categories.json');
-const UPLOADS_DIR = path.join(__dirname, 'public', 'uploads');
+const UPLOADS_DIR = path.join(PUBLIC_DIR, 'uploads');
 
 // Ensure directories exist
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
@@ -111,6 +112,23 @@ app.get('/sitemap.xml', (req, res) => {
   } catch (err) {
     res.status(500).send('Error loading sitemap');
   }
+});
+
+// ─── Canonical URL Normalization (Prevent Duplicate Content / 301) ──
+app.get('/index.html', (req, res) => {
+  res.redirect(301, '/');
+});
+app.get('/about.html', (req, res) => {
+  res.redirect(301, '/about');
+});
+app.get('/contact.html', (req, res) => {
+  res.redirect(301, '/contact');
+});
+app.get('/admin.html', (req, res) => {
+  res.redirect(301, '/admin');
+});
+app.get('/secret.html', (req, res) => {
+  res.redirect(301, '/secret');
 });
 
 // Body parser & static assets (with dotfiles allowed for .well-known)
@@ -437,24 +455,21 @@ app.get(['/.well-known/security.txt', '/security.txt'], (req, res) => {
 });
 
 
-// ─── Serve about page ──────────────────────────────────────────────
+// ─── Serve Clean Semantic Pages (Direct 200 OK) ─────────────────────
 app.get('/about', (req, res) => {
-  res.redirect('/about.html');
+  res.sendFile('about.html', { root: PUBLIC_DIR });
 });
 
-// ─── Serve contact page ────────────────────────────────────────────
 app.get('/contact', (req, res) => {
-  res.redirect('/contact.html');
+  res.sendFile('contact.html', { root: PUBLIC_DIR });
 });
 
-// ─── Serve admin page ───────────────────────────────────────────────
 app.get('/admin', (req, res) => {
-  res.redirect('/admin.html');
+  res.sendFile('admin.html', { root: PUBLIC_DIR });
 });
 
-// ─── Serve secret page ──────────────────────────────────────────────
 app.get('/secret', (req, res) => {
-  res.redirect('/secret.html');
+  res.sendFile('secret.html', { root: PUBLIC_DIR });
 });
 
 // ─── API: Submit Contact Message (public) ───────────────────────────
