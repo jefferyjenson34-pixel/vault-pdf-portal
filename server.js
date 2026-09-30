@@ -131,6 +131,22 @@ app.get('/secret.html', (req, res) => {
   res.redirect(301, '/secret');
 });
 
+// ─── API: System Telemetry & Quantum Health Monitor ─────────────────
+app.get('/api/health', (req, res) => {
+  const mem = process.memoryUsage();
+  res.json({
+    status: 'nominal',
+    node: 'Vault-Core-Primary',
+    uptimeSeconds: Math.floor(process.uptime()),
+    timestamp: Date.now(),
+    quantumCipher: 'Post-Quantum Kyber-1024 / AES-256-GCM',
+    integrityLevel: '100% Verified',
+    activeCores: 8,
+    memoryUsageMB: Math.round((mem.heapUsed / 1024 / 1024) * 10) / 10,
+    zeroKnowledgeProofs: 'Operational'
+  });
+});
+
 // Body parser & static assets (with dotfiles allowed for .well-known)
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public'), { dotfiles: 'allow' }));

@@ -1,0 +1,836 @@
+/* ═══════════════════════════════════════════════════════════════
+   VAULT PDF PORTAL — Futuristic Cybernetic & Quantum UI System
+   Theme: Next-Gen Quantum Vault, Holographic HUD, 3D Canvas Visualizer,
+          Neural Cryptographic Scanner, Cyber Terminal & Procedural Audio
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ─── Futuristic Theme Variables ──────────────────────────────── */
+:root {
+  --neon-cyan: #00f0ff;
+  --neon-cyan-glow: rgba(0, 240, 255, 0.45);
+  --neon-purple: #b026ff;
+  --neon-purple-glow: rgba(176, 38, 255, 0.45);
+  --neon-green: #00ff88;
+  --neon-green-glow: rgba(0, 255, 136, 0.45);
+  --neon-amber: #ffaa00;
+  --cyber-dark-bg: #060913;
+  --cyber-surface: rgba(10, 16, 31, 0.85);
+  --cyber-card: rgba(14, 22, 44, 0.7);
+  --cyber-border: rgba(0, 240, 255, 0.25);
+  --cyber-glow-border: rgba(176, 38, 255, 0.35);
+  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   1. GLOBAL QUANTUM HUD MODE (Triggered via toggle or terminal)
+   ═══════════════════════════════════════════════════════════════ */
+body.quantum-hud-mode {
+  background-color: var(--cyber-dark-bg) !important;
+  color: #e2e8f0 !important;
+  transition: background-color 0.5s cubic-bezier(0.16, 1, 0.3, 1), color 0.5s ease;
+}
+
+/* Subtle Scanlines Overlay */
+body.quantum-hud-mode::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 9999;
+  background: repeating-linear-gradient(
+    0deg,
+    rgba(0, 0, 0, 0.15),
+    rgba(0, 0, 0, 0.15) 1px,
+    transparent 1px,
+    transparent 2px
+  );
+  opacity: 0.7;
+}
+
+body.quantum-hud-mode .site-header {
+  background: rgba(6, 9, 19, 0.88) !important;
+  border-bottom: 1px solid var(--cyber-border) !important;
+  backdrop-filter: blur(20px) !important;
+  box-shadow: 0 4px 30px rgba(0, 240, 255, 0.1) !important;
+}
+
+body.quantum-hud-mode .brand-name {
+  color: #ffffff !important;
+  text-shadow: 0 0 12px var(--neon-cyan-glow);
+}
+
+body.quantum-hud-mode .nav-link {
+  color: #94a3b8 !important;
+}
+
+body.quantum-hud-mode .nav-link:hover,
+body.quantum-hud-mode .nav-link.active {
+  color: var(--neon-cyan) !important;
+  text-shadow: 0 0 8px var(--neon-cyan-glow);
+}
+
+body.quantum-hud-mode .hero-section {
+  background: radial-gradient(circle at 50% 20%, rgba(16, 26, 56, 0.8) 0%, #060913 80%) !important;
+}
+
+body.quantum-hud-mode .hero-title {
+  color: #ffffff !important;
+  text-shadow: 0 0 20px rgba(255, 255, 255, 0.2);
+}
+
+body.quantum-hud-mode .title-accent {
+  background: linear-gradient(135deg, #00f0ff 0%, #b026ff 60%, #00ff88 100%) !important;
+  -webkit-background-clip: text !important;
+  -webkit-text-fill-color: transparent !important;
+  filter: drop-shadow(0 0 15px rgba(0, 240, 255, 0.3));
+}
+
+body.quantum-hud-mode .hero-desc {
+  color: #94a3b8 !important;
+}
+
+body.quantum-hud-mode .trust-item {
+  background: rgba(15, 23, 42, 0.7) !important;
+  border: 1px solid rgba(0, 240, 255, 0.2) !important;
+  color: #cbd5e1 !important;
+  box-shadow: 0 0 15px rgba(0, 240, 255, 0.05);
+}
+
+body.quantum-hud-mode .trust-item-icon {
+  background: rgba(0, 240, 255, 0.15) !important;
+  color: var(--neon-cyan) !important;
+}
+
+/* Document cards in HUD mode */
+body.quantum-hud-mode .doc-card {
+  background: rgba(14, 22, 44, 0.75) !important;
+  border: 1px solid rgba(0, 240, 255, 0.25) !important;
+  backdrop-filter: blur(16px) !important;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), inset 0 0 12px rgba(0, 240, 255, 0.04) !important;
+}
+
+body.quantum-hud-mode .doc-card:hover {
+  border-color: var(--neon-cyan) !important;
+  transform: translateY(-5px) scale(1.01) !important;
+  box-shadow: 0 16px 40px rgba(0, 240, 255, 0.15), inset 0 0 20px rgba(0, 240, 255, 0.08) !important;
+}
+
+body.quantum-hud-mode .doc-card-title {
+  color: #ffffff !important;
+}
+
+body.quantum-hud-mode .search-bar {
+  background: rgba(15, 23, 42, 0.8) !important;
+  border: 1px solid var(--cyber-border) !important;
+  box-shadow: 0 0 20px rgba(0, 240, 255, 0.08) !important;
+}
+
+body.quantum-hud-mode .search-input {
+  color: #ffffff !important;
+}
+
+body.quantum-hud-mode .search-input::placeholder {
+  color: #64748b !important;
+}
+
+body.quantum-hud-mode .cat-pill-btn {
+  background: rgba(15, 23, 42, 0.6) !important;
+  border: 1px solid rgba(148, 163, 184, 0.15) !important;
+  color: #94a3b8 !important;
+}
+
+body.quantum-hud-mode .cat-pill-btn.active {
+  background: linear-gradient(135deg, rgba(0, 240, 255, 0.25) 0%, rgba(176, 38, 255, 0.25) 100%) !important;
+  border-color: var(--neon-cyan) !important;
+  color: #ffffff !important;
+  box-shadow: 0 0 15px rgba(0, 240, 255, 0.25) !important;
+}
+
+body.quantum-hud-mode .trust-card,
+body.quantum-hud-mode .feature-card,
+body.quantum-hud-mode .doc-cat-card,
+body.quantum-hud-mode .mission-quote-box {
+  background: rgba(14, 22, 44, 0.75) !important;
+  border: 1px solid rgba(0, 240, 255, 0.2) !important;
+  color: #cbd5e1 !important;
+}
+
+body.quantum-hud-mode .trust-card-title,
+body.quantum-hud-mode .feature-title,
+body.quantum-hud-mode .section-heading,
+body.quantum-hud-mode .mission-headline {
+  color: #ffffff !important;
+}
+
+body.quantum-hud-mode .section-tag {
+  background: rgba(0, 240, 255, 0.12) !important;
+  color: var(--neon-cyan) !important;
+  border: 1px solid rgba(0, 240, 255, 0.3) !important;
+  text-shadow: 0 0 8px var(--neon-cyan-glow);
+}
+
+body.quantum-hud-mode .trust-banner {
+  background: linear-gradient(135deg, rgba(14, 22, 44, 0.9) 0%, rgba(20, 16, 45, 0.9) 100%) !important;
+  border: 1px solid var(--neon-purple) !important;
+  box-shadow: 0 0 30px rgba(176, 38, 255, 0.15) !important;
+}
+
+body.quantum-hud-mode .site-footer {
+  background: #04060c !important;
+  border-top: 1px solid var(--cyber-border) !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   2. NAVBAR FUTURISTIC CONTROLS (HUD, Terminal, Sound)
+   ═══════════════════════════════════════════════════════════════ */
+.futuristic-nav-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.btn-hud-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 13px;
+  background: rgba(124, 58, 237, 0.1);
+  border: 1px solid rgba(124, 58, 237, 0.3);
+  border-radius: 9999px;
+  color: #7c3aed;
+  font-size: 0.8rem;
+  font-weight: 700;
+  font-family: var(--font-mono);
+  letter-spacing: 0.05em;
+  cursor: pointer;
+  transition: all 0.25s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.btn-hud-toggle:hover {
+  background: rgba(124, 58, 237, 0.2);
+  border-color: #7c3aed;
+  transform: translateY(-1px);
+  box-shadow: 0 0 15px rgba(124, 58, 237, 0.3);
+}
+
+.btn-hud-toggle.active {
+  background: linear-gradient(135deg, #00f0ff 0%, #b026ff 100%);
+  color: #060913;
+  border-color: #00f0ff;
+  box-shadow: 0 0 20px var(--neon-cyan-glow);
+}
+
+.btn-hud-toggle .hud-pulse-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  animation: hudPulse 1.4s infinite;
+}
+
+@keyframes hudPulse {
+  0% { transform: scale(0.9); opacity: 0.6; }
+  50% { transform: scale(1.4); opacity: 1; }
+  100% { transform: scale(0.9); opacity: 0.6; }
+}
+
+.btn-terminal-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 11px;
+  background: rgba(15, 23, 42, 0.05);
+  border: 1px solid rgba(15, 23, 42, 0.15);
+  border-radius: 8px;
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--navy-800);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+body.quantum-hud-mode .btn-terminal-trigger {
+  background: rgba(0, 240, 255, 0.1);
+  border-color: rgba(0, 240, 255, 0.3);
+  color: var(--neon-cyan);
+}
+
+.btn-terminal-trigger:hover {
+  background: var(--navy-900);
+  color: #ffffff;
+  border-color: var(--navy-900);
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.15);
+}
+
+body.quantum-hud-mode .btn-terminal-trigger:hover {
+  background: var(--neon-cyan);
+  color: #060913;
+  box-shadow: 0 0 15px var(--neon-cyan-glow);
+}
+
+.btn-sound-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: rgba(15, 23, 42, 0.05);
+  border: 1px solid rgba(15, 23, 42, 0.15);
+  color: var(--navy-700);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+body.quantum-hud-mode .btn-sound-toggle {
+  background: rgba(176, 38, 255, 0.1);
+  border-color: rgba(176, 38, 255, 0.3);
+  color: var(--neon-purple);
+}
+
+.btn-sound-toggle:hover {
+  transform: scale(1.08);
+  color: var(--purple-primary);
+  border-color: var(--purple-primary);
+}
+
+body.quantum-hud-mode .btn-sound-toggle:hover {
+  color: #ffffff;
+  border-color: var(--neon-purple);
+  box-shadow: 0 0 12px var(--neon-purple-glow);
+}
+
+.btn-sound-toggle.muted svg .sound-wave {
+  display: none;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   3. INTERACTIVE 3D HOLOGRAPHIC VAULT CORE (Hero Section)
+   ═══════════════════════════════════════════════════════════════ */
+.hologram-visual-card {
+  position: relative;
+  width: 100%;
+  max-width: 440px;
+  height: 440px;
+  margin: 0 auto;
+  border-radius: 28px;
+  background: radial-gradient(circle at center, rgba(124, 58, 237, 0.15) 0%, rgba(15, 23, 42, 0.02) 70%);
+  border: 1px solid rgba(124, 58, 237, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 20px 50px -10px rgba(124, 58, 237, 0.15);
+  overflow: hidden;
+  backdrop-filter: blur(10px);
+}
+
+body.quantum-hud-mode .hologram-visual-card {
+  background: radial-gradient(circle at center, rgba(0, 240, 255, 0.12) 0%, rgba(6, 9, 19, 0.8) 75%);
+  border: 1px solid var(--cyber-border);
+  box-shadow: 0 0 40px rgba(0, 240, 255, 0.15), inset 0 0 30px rgba(176, 38, 255, 0.1);
+}
+
+#hologram-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  cursor: grab;
+}
+
+#hologram-canvas:active {
+  cursor: grabbing;
+}
+
+.hologram-overlay-telemetry {
+  position: absolute;
+  bottom: 16px;
+  left: 16px;
+  right: 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  color: var(--navy-600);
+  pointer-events: none;
+  z-index: 2;
+  background: rgba(255, 255, 255, 0.7);
+  padding: 6px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+body.quantum-hud-mode .hologram-overlay-telemetry {
+  background: rgba(6, 9, 19, 0.85);
+  border-color: rgba(0, 240, 255, 0.25);
+  color: var(--neon-cyan);
+  text-shadow: 0 0 5px var(--neon-cyan-glow);
+}
+
+.hologram-telemetry-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-weight: 700;
+}
+
+.hologram-telemetry-badge::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #10b981;
+  box-shadow: 0 0 6px #10b981;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   4. LIVE QUANTUM TELEMETRY TICKER BAR
+   ═══════════════════════════════════════════════════════════════ */
+.quantum-telemetry-bar {
+  margin: 30px 0 0;
+  padding: 12px 20px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.85);
+  border: 1px solid var(--border-subtle);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+  box-shadow: var(--shadow-sm);
+  font-family: var(--font-mono);
+  font-size: 0.82rem;
+}
+
+body.quantum-hud-mode .quantum-telemetry-bar {
+  background: rgba(10, 16, 31, 0.9);
+  border: 1px solid var(--cyber-border);
+  box-shadow: 0 0 25px rgba(0, 240, 255, 0.1);
+  color: #cbd5e1;
+}
+
+.telemetry-node {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.telemetry-node-title {
+  color: var(--navy-600);
+  font-size: 0.74rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+body.quantum-hud-mode .telemetry-node-title {
+  color: #64748b;
+}
+
+.telemetry-node-val {
+  font-weight: 700;
+  color: var(--navy-900);
+}
+
+body.quantum-hud-mode .telemetry-node-val {
+  color: var(--neon-cyan);
+  text-shadow: 0 0 6px var(--neon-cyan-glow);
+}
+
+.telemetry-status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #10b981;
+  box-shadow: 0 0 8px #10b981;
+  animation: telemetryPulse 2s infinite ease-in-out;
+}
+
+@keyframes telemetryPulse {
+  0%, 100% { opacity: 0.5; transform: scale(0.9); }
+  50% { opacity: 1; transform: scale(1.2); }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   5. QUANTUM NEURAL DOCUMENT SCANNER (Client-Side Forensic Tool)
+   ═══════════════════════════════════════════════════════════════ */
+.neural-scanner-section {
+  padding: 60px 0;
+  position: relative;
+  z-index: 2;
+}
+
+.neural-scanner-card {
+  position: relative;
+  background: #ffffff;
+  border: 1px solid var(--border-card);
+  border-radius: 24px;
+  padding: 40px;
+  box-shadow: var(--shadow-card);
+  overflow: hidden;
+  transition: all 0.3s ease;
+}
+
+body.quantum-hud-mode .neural-scanner-card {
+  background: rgba(10, 16, 31, 0.92);
+  border: 1px solid var(--cyber-border);
+  box-shadow: 0 10px 40px rgba(0, 240, 255, 0.12), inset 0 0 25px rgba(0, 240, 255, 0.03);
+}
+
+/* Holographic corner tick marks */
+.neural-scanner-card::before {
+  content: '';
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  width: 14px;
+  height: 14px;
+  border-top: 2px solid var(--purple-primary);
+  border-left: 2px solid var(--purple-primary);
+  pointer-events: none;
+}
+.neural-scanner-card::after {
+  content: '';
+  position: absolute;
+  bottom: 10px;
+  right: 10px;
+  width: 14px;
+  height: 14px;
+  border-bottom: 2px solid var(--purple-primary);
+  border-right: 2px solid var(--purple-primary);
+  pointer-events: none;
+}
+
+body.quantum-hud-mode .neural-scanner-card::before,
+body.quantum-hud-mode .neural-scanner-card::after {
+  border-color: var(--neon-cyan);
+}
+
+.scanner-header {
+  text-align: center;
+  max-width: 640px;
+  margin: 0 auto 36px;
+}
+
+.scanner-header h3 {
+  font-size: 1.85rem;
+  font-weight: 800;
+  color: var(--navy-950);
+  letter-spacing: -0.02em;
+  margin-bottom: 10px;
+}
+
+body.quantum-hud-mode .scanner-header h3 {
+  color: #ffffff;
+  text-shadow: 0 0 12px rgba(255, 255, 255, 0.2);
+}
+
+.scanner-dropzone {
+  border: 2px dashed rgba(124, 58, 237, 0.3);
+  background: rgba(124, 58, 237, 0.02);
+  border-radius: 18px;
+  padding: 44px 20px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.25s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.scanner-dropzone:hover,
+.scanner-dropzone.drag-active {
+  border-color: var(--purple-primary);
+  background: rgba(124, 58, 237, 0.06);
+  transform: scale(1.005);
+}
+
+body.quantum-hud-mode .scanner-dropzone {
+  border-color: rgba(0, 240, 255, 0.35);
+  background: rgba(0, 240, 255, 0.03);
+}
+
+body.quantum-hud-mode .scanner-dropzone:hover,
+body.quantum-hud-mode .scanner-dropzone.drag-active {
+  border-color: var(--neon-cyan);
+  background: rgba(0, 240, 255, 0.08);
+  box-shadow: 0 0 30px rgba(0, 240, 255, 0.15);
+}
+
+.scanner-laser-beam {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, transparent, #00f0ff, #b026ff, #00f0ff, transparent);
+  box-shadow: 0 0 15px #00f0ff, 0 0 25px #b026ff;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.scanner-dropzone.scanning .scanner-laser-beam {
+  opacity: 1;
+  animation: laserSweep 1.6s infinite ease-in-out;
+}
+
+@keyframes laserSweep {
+  0% { top: 0%; opacity: 0.3; }
+  50% { top: 96%; opacity: 1; }
+  100% { top: 0%; opacity: 0.3; }
+}
+
+.scanner-status-text {
+  font-family: var(--font-mono);
+  font-size: 0.95rem;
+  font-weight: 600;
+  margin-top: 14px;
+  color: var(--navy-800);
+}
+
+body.quantum-hud-mode .scanner-status-text {
+  color: #cbd5e1;
+}
+
+/* Scanner Results Dashboard Grid */
+.scanner-results-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 20px;
+  margin-top: 30px;
+}
+
+.scanner-metric-card {
+  background: var(--bg-page-subtle);
+  border: 1px solid var(--border-subtle);
+  border-radius: 14px;
+  padding: 18px 20px;
+  font-family: var(--font-mono);
+}
+
+body.quantum-hud-mode .scanner-metric-card {
+  background: rgba(14, 22, 44, 0.85);
+  border-color: var(--cyber-border);
+}
+
+.metric-title {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--navy-600);
+  margin-bottom: 6px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+body.quantum-hud-mode .metric-title {
+  color: #64748b;
+}
+
+.metric-value {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--navy-900);
+  word-break: break-all;
+}
+
+body.quantum-hud-mode .metric-value {
+  color: var(--neon-cyan);
+}
+
+.metric-entropy-bar {
+  width: 100%;
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.1);
+  margin-top: 10px;
+  overflow: hidden;
+}
+
+body.quantum-hud-mode .metric-entropy-bar {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.metric-entropy-fill {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, #10b981, #00f0ff, #b026ff);
+  transition: width 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   6. CYBER COMMAND TERMINAL / PALETTE (Ctrl+K)
+   ═══════════════════════════════════════════════════════════════ */
+.cyber-terminal-modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(4, 6, 14, 0.78);
+  backdrop-filter: blur(16px);
+  z-index: 10000;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  opacity: 0;
+  transition: opacity 0.25s ease;
+}
+
+.cyber-terminal-modal.active {
+  display: flex;
+  opacity: 1;
+}
+
+.cyber-terminal-dialog {
+  width: 100%;
+  max-width: 660px;
+  background: #080c18;
+  border: 1px solid var(--neon-cyan);
+  border-radius: 16px;
+  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.8), 0 0 35px var(--neon-cyan-glow);
+  overflow: hidden;
+  font-family: var(--font-mono);
+  color: #00f0ff;
+  display: flex;
+  flex-direction: column;
+}
+
+.terminal-header {
+  padding: 12px 18px;
+  background: rgba(0, 240, 255, 0.08);
+  border-bottom: 1px solid rgba(0, 240, 255, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.terminal-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #ffffff;
+  letter-spacing: 0.05em;
+}
+
+.terminal-window-dots {
+  display: flex;
+  gap: 6px;
+}
+
+.terminal-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+.terminal-dot.red { background: #ef4444; }
+.terminal-dot.yellow { background: #f59e0b; }
+.terminal-dot.green { background: #10b981; }
+
+.terminal-body {
+  padding: 18px;
+  height: 320px;
+  overflow-y: auto;
+  font-size: 0.84rem;
+  line-height: 1.6;
+  color: #cbd5e1;
+}
+
+.terminal-line {
+  margin-bottom: 6px;
+}
+
+.terminal-line.system {
+  color: #64748b;
+}
+
+.terminal-line.success {
+  color: var(--neon-green);
+}
+
+.terminal-line.highlight {
+  color: var(--neon-cyan);
+}
+
+.terminal-line.purple {
+  color: var(--neon-purple);
+}
+
+.terminal-input-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 18px;
+  background: rgba(0, 0, 0, 0.4);
+  border-top: 1px solid rgba(0, 240, 255, 0.15);
+}
+
+.terminal-prompt-label {
+  color: var(--neon-green);
+  font-weight: 700;
+  font-size: 0.86rem;
+  white-space: nowrap;
+}
+
+.terminal-input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  color: #ffffff;
+  font-family: var(--font-mono);
+  font-size: 0.88rem;
+  outline: none;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   7. MATRIX DIGITAL RAIN EASTER EGG CANVAS
+   ═══════════════════════════════════════════════════════════════ */
+#matrix-rain-canvas {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 9998;
+  opacity: 0;
+  transition: opacity 0.5s ease;
+}
+
+#matrix-rain-canvas.active {
+  opacity: 0.35;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   8. CARD ACTION BUTTON FOR NEURAL SCAN
+   ═══════════════════════════════════════════════════════════════ */
+.btn-doc-scan {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 12px;
+  border-radius: 8px;
+  background: rgba(0, 240, 255, 0.08);
+  border: 1px solid rgba(0, 240, 255, 0.25);
+  color: #0284c7;
+  font-family: var(--font-mono);
+  font-size: 0.76rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+body.quantum-hud-mode .btn-doc-scan {
+  background: rgba(0, 240, 255, 0.15);
+  border-color: var(--neon-cyan);
+  color: var(--neon-cyan);
+}
+
+.btn-doc-scan:hover {
+  background: var(--neon-cyan);
+  color: #060913;
+  box-shadow: 0 0 12px var(--neon-cyan-glow);
+  transform: translateY(-1px);
+}

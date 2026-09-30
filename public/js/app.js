@@ -280,6 +280,14 @@
         </div>
 
         <div class="doc-card-actions">
+          <button class="btn-doc-scan" title="Neural Forensic Integrity Scan" aria-label="Neural scan ${escapeHtml(file.originalName)}">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+              <polyline points="9 12 11 14 15 10"/>
+            </svg>
+            <span>Scan</span>
+          </button>
+
           <button class="doc-share-btn" title="Copy shareable link" aria-label="Share ${escapeHtml(file.originalName)}">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path>
@@ -311,6 +319,17 @@
     card.addEventListener('click', (e) => {
       openPdfModal(file);
     });
+
+    // Neural scan button
+    const scanBtn = card.querySelector('.btn-doc-scan');
+    if (scanBtn) {
+      scanBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (window.VaultForensicScanner) {
+          window.VaultForensicScanner.scanFile(`/api/preview/${encodeURIComponent(file.filename)}`, file.originalName);
+        }
+      });
+    }
 
     // Preview button
     const previewBtn = card.querySelector('.doc-preview-btn');
@@ -382,6 +401,13 @@
       </td>
       <td class="table-actions-cell">
         <div class="table-actions-group">
+          <button class="btn-doc-scan btn-table-scan" title="Neural Forensic Integrity Scan" aria-label="Neural scan ${escapeHtml(file.originalName)}">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+              <polyline points="9 12 11 14 15 10"/>
+            </svg>
+            <span>Scan</span>
+          </button>
           <button class="doc-share-btn btn-table-share" title="Copy shareable link" aria-label="Share ${escapeHtml(file.originalName)}">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path>
@@ -409,6 +435,13 @@
 
     // Row click opens preview
     tr.addEventListener('click', () => openPdfModal(file));
+
+    tr.querySelector('.btn-table-scan').addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (window.VaultForensicScanner) {
+        window.VaultForensicScanner.scanFile(`/api/preview/${encodeURIComponent(file.filename)}`, file.originalName);
+      }
+    });
 
     tr.querySelector('.btn-table-share').addEventListener('click', (e) => {
       e.stopPropagation();
