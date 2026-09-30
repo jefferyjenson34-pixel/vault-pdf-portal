@@ -215,14 +215,42 @@
 
         <!-- Visitors Panel -->
         <div class="admin-panel" id="panel-visitors">
-          <div class="visitors-toolbar">
-            <h3>Visitor Activity <span class="file-count-badge" id="visitor-count">0</span></h3>
-            <div style="display:flex;gap:8px;">
-              <button class="browse-btn" id="refresh-visitors" style="background:var(--bg-glass-strong);border:1px solid var(--border-subtle);color:var(--text-primary);font-size:0.8rem;padding:8px 16px;">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M1 4V10H7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M3.51 15A9 9 0 105.64 5.64L1 10" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                Refresh
-              </button>
-              <button class="clear-btn" id="clear-visitors">Clear All</button>
+          <div class="visitors-toolbar" style="flex-direction:column; align-items:stretch; gap:16px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
+              <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+                <h3 style="margin:0;">Visitor Logs <span class="file-count-badge" id="visitor-count">0</span></h3>
+                <span style="background:rgba(52,211,153,0.12); color:#34d399; border:1px solid rgba(52,211,153,0.25); border-radius:12px; padding:3px 10px; font-size:0.75rem; font-weight:600; display:inline-flex; align-items:center; gap:5px;">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                  Permanent Retention &bull; Never Deleted
+                </span>
+              </div>
+
+              <div style="display:flex; gap:8px; align-items:center;">
+                <button class="browse-btn" id="export-visitors" style="background:var(--bg-glass-strong); border:1px solid var(--border-subtle); color:var(--text-primary); font-size:0.8rem; padding:8px 14px; display:inline-flex; align-items:center; gap:6px;">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                  <span>Export CSV</span>
+                </button>
+                <button class="browse-btn" id="refresh-visitors" style="background:var(--bg-glass-strong); border:1px solid var(--border-subtle); color:var(--text-primary); font-size:0.8rem; padding:8px 14px; display:inline-flex; align-items:center; gap:6px;">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 4V10H7"/><path d="M3.51 15A9 9 0 105.64 5.64L1 10"/></svg>
+                  <span>Refresh</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Filter & Sort Bar -->
+            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; background:var(--bg-card); border:1px solid var(--border-medium); border-radius:12px; padding:10px 14px;">
+              <div style="display:flex; align-items:center; gap:10px; flex:1; min-width:240px;">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--text-secondary);"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                <input type="text" id="visitor-search" placeholder="Search by IP, visited page, or browser..." style="background:transparent; border:none; color:var(--text-primary); font-size:0.85rem; width:100%; outline:none;" autocomplete="off">
+              </div>
+
+              <div style="display:flex; align-items:center; gap:10px;">
+                <label for="visitor-sort-select" style="font-size:0.8rem; color:var(--text-secondary); white-space:nowrap;">Sort by:</label>
+                <select id="visitor-sort-select" style="background:var(--bg-glass-strong); border:1px solid var(--border-medium); color:var(--text-primary); border-radius:8px; padding:6px 12px; font-size:0.82rem; outline:none; cursor:pointer;">
+                  <option value="desc">Date (Newest First)</option>
+                  <option value="asc">Date (Oldest First)</option>
+                </select>
+              </div>
             </div>
           </div>
 

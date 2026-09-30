@@ -512,13 +512,71 @@
     }
   };
 
-  // ─── Load & Render Visitors ──────────────────────────────────
-  async function loadVisitors() {
+  // ─── Permanent Visitor Logs & Date Sorting ──────────────────
+  let allVisitors = [];
+  let currentVisitorSort = 'desc';
+  let currentVisitorSearch = '';
+
+  function renderVisitorsTable() {
     const tbody = document.getElementById('visitors-tbody');
     const emptyEl = document.getElementById('visitors-empty');
     const countEl = document.getElementById('visitor-count');
     const tableWrapper = document.querySelector('.visitors-table-wrapper');
+    if (!tbody) return;
 
+    let filtered = allVisitors.slice();
+
+    // 1. Search Filter
+    if (currentVisitorSearch) {
+      const q = currentVisitorSearch.toLowerCase();
+      filtered = filtered.filter(v => {
+        const ip = (v.ip || '').toLowerCase();
+        const page = (v.page || '').toLowerCase();
+        const browser = parseBrowser(v.userAgent).toLowerCase();
+        const dateStr = formatDate(v.timestamp).toLowerCase();
+        return ip.includes(q) || page.includes(q) || browser.includes(q) || dateStr.includes(q);
+      });
+    }
+
+    // 2. Date Sort (Newest vs Oldest)
+    filtered.sort((a, b) => {
+      const timeA = new Date(a.timestamp || 0).getTime();
+      const timeB = new Date(b.timestamp || 0).getTime();
+      return currentVisitorSort === 'asc' ? timeA - timeB : timeB - timeA;
+    });
+
+    if (countEl) {
+      if (currentVisitorSearch) {
+        countEl.textContent = `${filtered.length} of ${allVisitors.length}`;
+      } else {
+        countEl.textContent = `${allVisitors.length} total`;
+      }
+    }
+
+    if (filtered.length === 0) {
+      if (tableWrapper) tableWrapper.style.display = 'none';
+      if (emptyEl) {
+        emptyEl.style.display = 'block';
+        const p = emptyEl.querySelector('p');
+        if (p) p.textContent = currentVisitorSearch ? 'No logs match your search filter.' : 'Activity will appear here when users visit the site.';
+      }
+      return;
+    }
+
+    if (tableWrapper) tableWrapper.style.display = '';
+    if (emptyEl) emptyEl.style.display = 'none';
+
+    tbody.innerHTML = filtered.map(v => `
+      <tr>
+        <td><span class="ip-badge">${escapeHtml(v.ip)}</span></td>
+        <td><span class="page-badge">${escapeHtml(v.page || '/')}</span></td>
+        <td>${escapeHtml(parseBrowser(v.userAgent))}</td>
+        <td style="font-weight:500; color:var(--text-primary);">${formatDate(v.timestamp)}</td>
+      </tr>
+    `).join('');
+  }
+
+  async function loadVisitors() {
     try {
       const res = await authFetch('/api/visitors');
       if (res.status === 401) {
@@ -527,51 +585,74 @@
         showLogin();
         return;
       }
-      const visitors = await res.json();
-
-      countEl.textContent = visitors.length;
-
-      if (visitors.length === 0) {
-        tableWrapper.style.display = 'none';
-        emptyEl.style.display = 'block';
-        return;
-      }
-
-      tableWrapper.style.display = '';
-      emptyEl.style.display = 'none';
-
-      tbody.innerHTML = visitors.map(v => `
-        <tr>
-          <td><span class="ip-badge">${escapeHtml(v.ip)}</span></td>
-          <td><span class="page-badge">${escapeHtml(v.page || '/')}</span></td>
-          <td>${escapeHtml(parseBrowser(v.userAgent))}</td>
-          <td>${formatDate(v.timestamp)}</td>
-        </tr>
-      `).join('');
-
+      allVisitors = await res.json();
+      if (!Array.isArray(allVisitors)) allVisitors = [];
+      renderVisitorsTable();
     } catch (e) {
       showToast('Failed to load visitor data', 'error');
     }
   }
 
-  // ─── Clear Visitors ──────────────────────────────────────────
-  function initVisitorControls() {
-    document.getElementById('clear-visitors').addEventListener('click', async () => {
-      if (!confirm('Clear all visitor logs?')) return;
-      try {
-        const res = await authFetch('/api/visitors/clear', { method: 'POST' });
-        if (res.status === 401) { showLogin(); return; }
-        showToast('Visitor logs cleared', 'success');
-        loadVisitors();
-      } catch (e) {
-        showToast('Failed to clear logs', 'error');
-      }
-    });
+  // ─── Export Visitors to CSV ──────────────────────────────────
+  function exportVisitorsCSV() {
+    if (!allVisitors || allVisitors.length === 0) {
+      showToast('No visitor logs to export', 'error');
+      return;
+    }
 
-    document.getElementById('refresh-visitors').addEventListener('click', () => {
-      loadVisitors();
-      showToast('Refreshed', 'success');
-    });
+    const headers = ['IP Address', 'Page / Action', 'Browser', 'User Agent', 'Timestamp (ISO)', 'Local Date'];
+    const rows = allVisitors.map(v => [
+      `"${(v.ip || '').replace(/"/g, '""')}"`,
+      `"${(v.page || '/').replace(/"/g, '""')}"`,
+      `"${parseBrowser(v.userAgent)}"`,
+      `"${(v.userAgent || '').replace(/"/g, '""')}"`,
+      `"${v.timestamp || ''}"`,
+      `"${formatDate(v.timestamp)}"`
+    ]);
+
+    const csvContent = [headers.join(','), ...rows.map(r => r.join(','))].join('\r\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `vault_visitor_logs_${new Date().toISOString().slice(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    showToast(`Exported ${allVisitors.length} visitor records to CSV`, 'success');
+  }
+
+  // ─── Visitor Controls ────────────────────────────────────────
+  function initVisitorControls() {
+    const refreshBtn = document.getElementById('refresh-visitors');
+    if (refreshBtn) {
+      refreshBtn.addEventListener('click', () => {
+        loadVisitors();
+        showToast('Visitor logs refreshed', 'success');
+      });
+    }
+
+    const sortSelect = document.getElementById('visitor-sort-select');
+    if (sortSelect) {
+      sortSelect.addEventListener('change', () => {
+        currentVisitorSort = sortSelect.value;
+        renderVisitorsTable();
+      });
+    }
+
+    const searchInput = document.getElementById('visitor-search');
+    if (searchInput) {
+      searchInput.addEventListener('input', () => {
+        currentVisitorSearch = searchInput.value.trim();
+        renderVisitorsTable();
+      });
+    }
+
+    const exportBtn = document.getElementById('export-visitors');
+    if (exportBtn) {
+      exportBtn.addEventListener('click', exportVisitorsCSV);
+    }
   }
 
   // ─── Secret Prank Sound Management ───────────────────────────

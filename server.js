@@ -184,23 +184,26 @@ app.post('/api/visit', (req, res) => {
     page: req.body.page || '/'
   });
 
-  // Keep last 500 entries
-  if (visitors.length > 500) visitors.splice(0, visitors.length - 500);
-
+  // Permanent retention: Never truncate or delete visitor records
   writeVisitors(visitors);
   res.json({ success: true });
 });
 
-// ─── API: Get all visitors (admin, PROTECTED) ───────────────────────
+// ─── API: Get all visitors (admin, PROTECTED - permanent sorted) ────
 app.get('/api/visitors', requireAdmin, (req, res) => {
   const visitors = readVisitors();
-  res.json(visitors.reverse());
+  const sort = (req.query.sort || 'desc').toLowerCase();
+  visitors.sort((a, b) => {
+    const tA = new Date(a.timestamp || 0).getTime();
+    const tB = new Date(b.timestamp || 0).getTime();
+    return sort === 'asc' ? tA - tB : tB - tA;
+  });
+  res.json(visitors);
 });
 
-// ─── API: Clear visitors (admin, PROTECTED) ─────────────────────────
+// ─── API: Clear visitors DISABLED for permanent retention ─────────
 app.post('/api/visitors/clear', requireAdmin, (req, res) => {
-  writeVisitors([]);
-  res.json({ success: true });
+  res.status(403).json({ error: 'Visitor logs are permanent and deletion is permanently disabled.' });
 });
 
 // ─── API: Upload PDF (admin, PROTECTED) ─────────────────────────────
