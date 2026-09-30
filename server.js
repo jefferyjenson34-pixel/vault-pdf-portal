@@ -91,6 +91,28 @@ app.use((req, res, next) => {
 // Trust proxy for real IP behind reverse proxy (Render, Cloudflare, etc.)
 app.set('trust proxy', true);
 
+// ─── Dedicated Clean Routes for Crawlers & SEO (Robots.txt & Sitemap.xml) ─
+app.get('/robots.txt', (req, res) => {
+  res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+  res.setHeader('Cache-Control', 'public, max-age=3600');
+  res.removeHeader('X-Frame-Options');
+  res.removeHeader('Content-Security-Policy');
+  res.send("User-agent: *\nAllow: /\n\nSitemap: https://vault-pdf-portal.onrender.com/sitemap.xml\n");
+});
+
+app.get('/sitemap.xml', (req, res) => {
+  res.setHeader('Content-Type', 'application/xml; charset=utf-8');
+  res.setHeader('Cache-Control', 'public, max-age=3600');
+  res.removeHeader('X-Frame-Options');
+  res.removeHeader('Content-Security-Policy');
+  try {
+    const sitemapContent = fs.readFileSync(path.join(__dirname, 'public', 'sitemap.xml'), 'utf-8');
+    res.send(sitemapContent);
+  } catch (err) {
+    res.status(500).send('Error loading sitemap');
+  }
+});
+
 // Body parser & static assets (with dotfiles allowed for .well-known)
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public'), { dotfiles: 'allow' }));
@@ -414,15 +436,6 @@ app.get(['/.well-known/security.txt', '/security.txt'], (req, res) => {
   res.send(SECURITY_TXT_CONTENT);
 });
 
-// ─── Serve robots.txt & sitemap.xml ────────────────────────────────
-app.get('/robots.txt', (req, res) => {
-  res.type('text/plain');
-  res.send("User-agent: *\nAllow: /\n\nSitemap: https://vault-pdf-portal.onrender.com/sitemap.xml\n");
-});
-
-app.get('/sitemap.xml', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'sitemap.xml'));
-});
 
 // ─── Serve about page ──────────────────────────────────────────────
 app.get('/about', (req, res) => {
