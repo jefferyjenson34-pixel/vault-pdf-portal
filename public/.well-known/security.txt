@@ -1,0 +1,7 @@
+# RFC 9116 Security Policy for Vault PDF Portal
+Contact: mailto:security@vault-pdf-portal.onrender.com
+Expires: 2027-12-31T23:59:59.000Z
+Preferred-Languages: en
+Canonical: https://vault-pdf-portal.onrender.com/.well-known/security.txt
+Policy: https://vault-pdf-portal.onrender.com/about
+Acknowledgments: https://vault-pdf-portal.onrender.com/about

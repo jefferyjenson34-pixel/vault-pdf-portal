@@ -58,12 +58,41 @@ const uploadSound = multer({
   limits: { fileSize: 30 * 1024 * 1024 } // 30MB
 });
 
-// Middleware
-app.use(express.json());
-app.use(express.static(path.join(__dirname, 'public')));
+// ─── Disable technology fingerprinting (Express / X-Powered-By) ─────
+app.disable('x-powered-by');
+
+// ─── Global Security Headers Middleware (OWASP, SOC 2, CWE-693) ────
+app.use((req, res, next) => {
+  res.removeHeader('X-Powered-By');
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'SAMEORIGIN');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains; preload');
+  res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=(), payment=()');
+  res.setHeader(
+    'Content-Security-Policy',
+    "default-src 'self'; " +
+    "script-src 'self' 'unsafe-inline' https://fonts.googleapis.com; " +
+    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; " +
+    "font-src 'self' https://fonts.gstatic.com data:; " +
+    "img-src 'self' data: https: blob:; " +
+    "media-src 'self' data: blob:; " +
+    "frame-src 'self' blob: data:; " +
+    "connect-src 'self'; " +
+    "object-src 'self' blob:; " +
+    "base-uri 'self'; " +
+    "form-action 'self'; " +
+    "frame-ancestors 'self';"
+  );
+  next();
+});
 
 // Trust proxy for real IP behind reverse proxy (Render, Cloudflare, etc.)
 app.set('trust proxy', true);
+
+// Body parser & static assets (with dotfiles allowed for .well-known)
+app.use(express.json());
+app.use(express.static(path.join(__dirname, 'public'), { dotfiles: 'allow' }));
 
 // ─── Auth helpers ───────────────────────────────────────────────────
 function generateToken() {
@@ -145,15 +174,74 @@ function writeCategories(categories) {
   fs.writeFileSync(CATEGORIES_FILE, JSON.stringify(categories, null, 2));
 }
 
-// ─── API: Admin Login ───────────────────────────────────────────────
-app.post('/api/admin/login', (req, res) => {
-  const { username, password } = req.body;
+// ─── Brute-force Login Protection & Rate Limiting ───────────────────
+const loginAttempts = new Map(); // ip -> { count, firstAttempt, lockedUntil }
+const MAX_LOGIN_ATTEMPTS = 5;
+const LOCKOUT_TIME = 15 * 60 * 1000; // 15 mins lockout
 
-  if (username === ADMIN_USERNAME && password === ADMIN_PASSWORD) {
+function checkLoginRateLimit(ip) {
+  const now = Date.now();
+  const record = loginAttempts.get(ip);
+  if (!record) return { allowed: true };
+  if (record.lockedUntil && now < record.lockedUntil) {
+    const remainingMins = Math.ceil((record.lockedUntil - now) / 60000);
+    return { allowed: false, remainingMins };
+  }
+  if (now - record.firstAttempt > LOCKOUT_TIME) {
+    loginAttempts.delete(ip);
+    return { allowed: true };
+  }
+  return { allowed: true };
+}
+
+function recordFailedLogin(ip) {
+  const now = Date.now();
+  const record = loginAttempts.get(ip) || { count: 0, firstAttempt: now };
+  record.count += 1;
+  if (record.count >= MAX_LOGIN_ATTEMPTS) {
+    record.lockedUntil = now + LOCKOUT_TIME;
+  }
+  loginAttempts.set(ip, record);
+}
+
+function clearLoginAttempts(ip) {
+  loginAttempts.delete(ip);
+}
+
+function timingSafeMatch(provided, expected) {
+  const a = Buffer.from(String(provided || ''));
+  const b = Buffer.from(String(expected || ''));
+  if (a.length !== b.length) {
+    const dummy = Buffer.alloc(b.length);
+    crypto.timingSafeEqual(dummy, b);
+    return false;
+  }
+  return crypto.timingSafeEqual(a, b);
+}
+
+// ─── API: Admin Login (Hardened with rate-limiting & timing protection) ──
+app.post('/api/admin/login', async (req, res) => {
+  const ip = getVisitorIP(req);
+  const rateLimit = checkLoginRateLimit(ip);
+  if (!rateLimit.allowed) {
+    return res.status(429).json({
+      error: `Too many failed attempts. Login locked for ${rateLimit.remainingMins} minute(s).`
+    });
+  }
+
+  const { username, password } = req.body || {};
+  const userOk = timingSafeMatch(username, ADMIN_USERNAME);
+  const passOk = timingSafeMatch(password, ADMIN_PASSWORD);
+
+  if (userOk && passOk) {
+    clearLoginAttempts(ip);
     const token = generateToken();
     activeSessions.set(token, { createdAt: Date.now() });
     res.json({ success: true, token });
   } else {
+    recordFailedLogin(ip);
+    // Artificial delay to prevent automated high-frequency brute-forcing
+    await new Promise(resolve => setTimeout(resolve, 500));
     res.status(401).json({ error: 'Invalid username or password' });
   }
 });
@@ -308,6 +396,21 @@ app.get('/api/download/:filename', (req, res) => {
   } else {
     res.status(404).json({ error: 'File not found' });
   }
+});
+
+// ─── Serve RFC 9116 security.txt ───────────────────────────────────
+const SECURITY_TXT_CONTENT = [
+  'Contact: mailto:security@vault-pdf-portal.onrender.com',
+  'Expires: 2027-12-31T23:59:59.000Z',
+  'Preferred-Languages: en',
+  'Canonical: https://vault-pdf-portal.onrender.com/.well-known/security.txt',
+  'Policy: https://vault-pdf-portal.onrender.com/about',
+  'Acknowledgments: https://vault-pdf-portal.onrender.com/about'
+].join('\n') + '\n';
+
+app.get(['/.well-known/security.txt', '/security.txt'], (req, res) => {
+  res.type('text/plain; charset=utf-8');
+  res.send(SECURITY_TXT_CONTENT);
 });
 
 // ─── Serve robots.txt & sitemap.xml ────────────────────────────────
