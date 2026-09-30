@@ -83,6 +83,7 @@
         <nav class="nav-menu" id="nav-menu" aria-label="Main Navigation">
           <a href="#documents" class="nav-link active" id="nav-link-docs">Documents</a>
           <a href="#about" class="nav-link" id="nav-link-about">About</a>
+          <a href="/contact" class="nav-link" id="nav-link-contact">Contact</a>
           <a href="/secret" class="nav-link nav-link-secret">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
               <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
@@ -286,8 +287,10 @@
           </p>
         </div>
 
-        <!-- Search Bar -->
-        <div class="search-wrapper reveal-fade-up delay-100">
+        <!-- Search & Filter Controls -->
+        <div class="docs-controls-wrapper reveal-fade-up delay-100">
+          
+          <!-- Live Search Bar -->
           <div class="search-bar" id="search-bar">
             <svg class="search-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <circle cx="11" cy="11" r="8"></circle>
@@ -295,11 +298,105 @@
             </svg>
             <input type="text" id="search-input" class="search-input" placeholder="Search documents by name, type, or keyword..." autocomplete="off">
           </div>
+
+          <!-- Category Filter Pills -->
+          <div class="category-filter-bar" id="category-filter-bar" role="tablist" aria-label="Filter documents by category">
+            <button class="cat-pill-btn active" data-category="all" role="tab" aria-selected="true">
+              <span>All Documents</span>
+              <span class="pill-count" id="count-all">0</span>
+            </button>
+            <button class="cat-pill-btn" data-category="legal" role="tab" aria-selected="false">
+              <span>Legal &amp; Contracts</span>
+              <span class="pill-count" id="count-legal">0</span>
+            </button>
+            <button class="cat-pill-btn" data-category="reports" role="tab" aria-selected="false">
+              <span>Reports &amp; Financials</span>
+              <span class="pill-count" id="count-reports">0</span>
+            </button>
+            <button class="cat-pill-btn" data-category="academic" role="tab" aria-selected="false">
+              <span>Academic &amp; Records</span>
+              <span class="pill-count" id="count-academic">0</span>
+            </button>
+            <button class="cat-pill-btn" data-category="invoices" role="tab" aria-selected="false">
+              <span>Invoices &amp; Receipts</span>
+              <span class="pill-count" id="count-invoices">0</span>
+            </button>
+            <button class="cat-pill-btn" data-category="general" role="tab" aria-selected="false">
+              <span>General</span>
+              <span class="pill-count" id="count-general">0</span>
+            </button>
+          </div>
+
+          <!-- Toolbar: Results Count, Sort Dropdown & View Mode Switcher -->
+          <div class="docs-toolbar">
+            <div class="docs-count-info">
+              <span>Showing <strong id="docs-count-num">0</strong> verified documents</span>
+            </div>
+
+            <div class="docs-toolbar-actions">
+              <!-- Sort Dropdown -->
+              <div class="sort-select-wrapper">
+                <select id="sort-select" class="sort-select" aria-label="Sort documents">
+                  <option value="newest">Sort: Newest First</option>
+                  <option value="downloads">Sort: Most Downloaded</option>
+                  <option value="name-asc">Sort: Name (A &rarr; Z)</option>
+                  <option value="name-desc">Sort: Name (Z &rarr; A)</option>
+                  <option value="size-desc">Sort: Size (Largest)</option>
+                  <option value="size-asc">Sort: Size (Smallest)</option>
+                </select>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="6 9 12 15 18 9"></polyline>
+                </svg>
+              </div>
+
+              <!-- View Switcher -->
+              <div class="view-switch-group" role="group" aria-label="Document layout view">
+                <button class="view-btn active" id="view-grid-btn" title="Grid View" aria-pressed="true">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="3" y="3" width="7" height="7"></rect>
+                    <rect x="14" y="3" width="7" height="7"></rect>
+                    <rect x="14" y="14" width="7" height="7"></rect>
+                    <rect x="3" y="14" width="7" height="7"></rect>
+                  </svg>
+                </button>
+                <button class="view-btn" id="view-table-btn" title="Compact Table View" aria-pressed="false">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="8" y1="6" x2="21" y2="6"></line>
+                    <line x1="8" y1="12" x2="21" y2="12"></line>
+                    <line x1="8" y1="18" x2="21" y2="18"></line>
+                    <line x1="3" y1="6" x2="3.01" y2="6"></line>
+                    <line x1="3" y1="12" x2="3.01" y2="12"></line>
+                    <line x1="3" y1="18" x2="3.01" y2="18"></line>
+                  </svg>
+                </button>
+              </div>
+            </div>
+          </div>
+
         </div>
 
-        <!-- Documents Grid -->
+        <!-- Documents Grid View (Default) -->
         <div class="documents-grid" id="documents-grid">
           <!-- Dynamically populated by app.js -->
+        </div>
+
+        <!-- Documents Compact Table View -->
+        <div class="documents-table-wrapper" id="documents-table-wrapper" style="display: none;">
+          <table class="documents-table" id="documents-table">
+            <thead>
+              <tr>
+                <th>Document Name</th>
+                <th>Category</th>
+                <th>Size</th>
+                <th>Downloads</th>
+                <th>Uploaded</th>
+                <th style="text-align: right;">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="documents-tbody">
+              <!-- Dynamically populated by app.js -->
+            </tbody>
+          </table>
         </div>
 
         <!-- Loading State -->
@@ -317,8 +414,8 @@
               <line x1="9" y1="15" x2="15" y2="15"></line>
             </svg>
           </div>
-          <h3>No documents found</h3>
-          <p>Documents will appear here once uploaded by the portal administrator.</p>
+          <h3>No matching documents</h3>
+          <p id="empty-state-desc">Try choosing a different category or adjusting your search keyword.</p>
         </div>
 
       </div>
@@ -783,6 +880,7 @@
             <li><a href="#documents">Browse Documents</a></li>
             <li><a href="#about">About Vault</a></li>
             <li><a href="/about">Dedicated About Page</a></li>
+            <li><a href="/contact">Contact &amp; Feedback</a></li>
           </ul>
         </div>
 
@@ -791,6 +889,7 @@
           <h4 class="footer-col-title">Security & Control</h4>
           <ul class="footer-links">
             <li><a href="#about">Built Around Trust</a></li>
+            <li><a href="/contact">Support Inquiries</a></li>
             <li><a href="/admin">Admin Portal</a></li>
             <li><a href="/secret" style="color: #f87171;">Protected Secret Area</a></li>
           </ul>
@@ -805,12 +904,85 @@
         </p>
         <div class="footer-bottom-links">
           <a href="#hero">Back to Top &uarr;</a>
+          <a href="/contact">Get in Touch</a>
           <a href="#about">Privacy & Trust</a>
           <a href="#documents">Explore Vault</a>
         </div>
       </div>
     </div>
   </footer>
+
+  <!-- ═══════════════════════════════════════════════════════════════
+       INTERACTIVE IN-BROWSER PDF PREVIEW MODAL
+       ═══════════════════════════════════════════════════════════════ -->
+  <div class="pdf-modal-overlay" id="pdf-preview-modal" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="modal-doc-title">
+    <div class="pdf-modal-dialog">
+      <div class="pdf-modal-header">
+        <div class="pdf-modal-title-wrap">
+          <div class="pdf-modal-icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+              <polyline points="14 2 14 8 20 8"></polyline>
+              <line x1="16" y1="13" x2="8" y2="13"></line>
+              <line x1="16" y1="17" x2="8" y2="17"></line>
+            </svg>
+          </div>
+          <div class="pdf-modal-info">
+            <h3 class="pdf-modal-filename" id="modal-doc-title">Document Preview</h3>
+            <div class="pdf-modal-meta">
+              <span id="modal-doc-category" class="category-tag general">General</span>
+              <span id="modal-doc-size">0 KB</span>
+              <span>&bull;</span>
+              <span id="modal-doc-downloads">0 downloads</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="pdf-modal-controls">
+          <button class="modal-action-btn secondary" id="modal-copy-link-btn" title="Copy Direct Share Link">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path>
+              <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path>
+            </svg>
+            <span>Share</span>
+          </button>
+          <a href="#" target="_blank" class="modal-action-btn secondary" id="modal-open-tab-btn" title="Open in New Tab">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+              <polyline points="15 3 21 3 21 9"></polyline>
+              <line x1="10" y1="14" x2="21" y2="3"></line>
+            </svg>
+            <span>New Tab</span>
+          </a>
+          <a href="#" class="modal-action-btn primary" id="modal-download-btn" title="Download PDF File">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+              <polyline points="7 10 12 15 17 10"></polyline>
+              <line x1="12" y1="15" x2="12" y2="3"></line>
+            </svg>
+            <span>Download</span>
+          </a>
+          <button class="modal-close-btn" id="modal-close-btn" aria-label="Close modal preview (Esc)">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="18" y1="6" x2="6" y2="18"></line>
+              <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <div class="pdf-modal-body">
+        <div class="pdf-modal-loader" id="modal-loader">
+          <div class="loader-dual"></div>
+          <span>Rendering PDF preview...</span>
+        </div>
+        <iframe class="pdf-modal-iframe" id="modal-pdf-frame" title="PDF Document Viewer"></iframe>
+      </div>
+    </div>
+  </div>
+
+  <!-- Floating Toast Notification System -->
+  <div class="portal-toast-container" id="portal-toast-container" aria-live="polite"></div>
 
   <!-- Scripts -->
   <script src="/js/app.js"></script>

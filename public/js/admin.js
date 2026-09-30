@@ -87,7 +87,9 @@
   function showDashboard() {
     document.getElementById('login-overlay').style.display = 'none';
     document.getElementById('admin-dashboard').style.display = 'block';
+    loadStats();
     loadFiles();
+    loadInquiries();
   }
 
   async function checkAuth() {
@@ -179,13 +181,21 @@
 
         tab.classList.add('active');
         const panelId = 'panel-' + tab.getAttribute('data-tab');
-        document.getElementById(panelId).classList.add('active');
+        const panel = document.getElementById(panelId);
+        if (panel) panel.classList.add('active');
 
+        loadStats();
         if (tab.getAttribute('data-tab') === 'files') loadFiles();
+        if (tab.getAttribute('data-tab') === 'inquiries') loadInquiries();
         if (tab.getAttribute('data-tab') === 'visitors') loadVisitors();
         if (tab.getAttribute('data-tab') === 'secret') checkSoundStatus();
       });
     });
+
+    const refreshInquiriesBtn = document.getElementById('refresh-inquiries');
+    if (refreshInquiriesBtn) {
+      refreshInquiriesBtn.addEventListener('click', loadInquiries);
+    }
   }
 
   // ─── File Upload ─────────────────────────────────────────────
@@ -287,6 +297,39 @@
     }
   }
 
+  // ─── Load Analytics Stats ───────────────────────────────────
+  async function loadStats() {
+    try {
+      const res = await authFetch('/api/stats');
+      if (!res.ok) return;
+      const data = await res.json();
+
+      const filesVal = document.getElementById('stat-files-val');
+      const downloadsVal = document.getElementById('stat-downloads-val');
+      const sizeVal = document.getElementById('stat-size-val');
+      const visitorsVal = document.getElementById('stat-visitors-val');
+      const contactsVal = document.getElementById('stat-contacts-val');
+      const badge = document.getElementById('inquiries-badge');
+
+      if (filesVal) filesVal.textContent = data.totalFiles || 0;
+      if (downloadsVal) downloadsVal.textContent = data.totalDownloads || 0;
+      if (sizeVal) sizeVal.textContent = formatSize(data.totalSize || 0);
+      if (visitorsVal) visitorsVal.textContent = data.totalVisitors || 0;
+      if (contactsVal) contactsVal.textContent = data.totalContacts || 0;
+
+      if (badge) {
+        if (data.unreadContacts > 0) {
+          badge.style.display = 'inline-block';
+          badge.textContent = data.unreadContacts;
+        } else {
+          badge.style.display = 'none';
+        }
+      }
+    } catch (e) {
+      // non-blocking
+    }
+  }
+
   // ─── Load & Render Files ─────────────────────────────────────
   async function loadFiles() {
     const listEl = document.getElementById('admin-files-list');
@@ -316,14 +359,29 @@
           </div>
           <div class="admin-file-info">
             <div class="admin-file-name">${escapeHtml(file.originalName)}</div>
-            <div class="admin-file-meta">${formatSize(file.size)} · ${formatRelative(file.uploadedAt)}</div>
+            <div class="admin-file-meta">
+              <span>${formatSize(file.size)}</span>
+              <span>&bull;</span>
+              <span>${formatRelative(file.uploadedAt)}</span>
+              <span>&bull;</span>
+              <span style="color:#818cf8; font-weight:600;">${file.downloads || 0} downloads</span>
+            </div>
           </div>
-          <button class="admin-file-delete" onclick="deleteFile('${escapeHtml(file.filename)}')" title="Delete">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-              <polyline points="3,6 5,6 21,6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-              <path d="M19 6V20A2 2 0 0117 22H7A2 2 0 015 20V6M8 6V4A2 2 0 0110 2H14A2 2 0 0116 4V6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
-          </button>
+          <div style="display:flex; align-items:center; gap:8px;">
+            <select class="admin-category-select" onchange="updateFileCategory('${escapeHtml(file.filename)}', this.value)" style="background:var(--bg-glass-strong); border:1px solid var(--border-medium); color:var(--text-primary); border-radius:8px; padding:6px 10px; font-size:0.78rem; outline:none; cursor:pointer;" title="Assign Document Category">
+              <option value="general" ${(file.category || 'general') === 'general' ? 'selected' : ''}>General</option>
+              <option value="legal" ${file.category === 'legal' ? 'selected' : ''}>Legal &amp; Contracts</option>
+              <option value="reports" ${file.category === 'reports' ? 'selected' : ''}>Reports &amp; Financials</option>
+              <option value="academic" ${file.category === 'academic' ? 'selected' : ''}>Academic &amp; Records</option>
+              <option value="invoices" ${file.category === 'invoices' ? 'selected' : ''}>Invoices &amp; Receipts</option>
+            </select>
+            <button class="admin-file-delete" onclick="deleteFile('${escapeHtml(file.filename)}')" title="Delete File">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                <polyline points="3,6 5,6 21,6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                <path d="M19 6V20A2 2 0 0117 22H7A2 2 0 015 20V6M8 6V4A2 2 0 0110 2H14A2 2 0 0116 4V6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </button>
+          </div>
         </div>
       `).join('');
 
@@ -331,6 +389,104 @@
       showToast('Failed to load files', 'error');
     }
   }
+
+  // ─── Update File Category (global) ───────────────────────────
+  window.updateFileCategory = async function (filename, category) {
+    try {
+      const res = await authFetch('/api/pdfs/' + encodeURIComponent(filename) + '/category', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ category })
+      });
+      if (res.ok) {
+        showToast('Category updated successfully', 'success');
+      } else {
+        showToast('Failed to update category', 'error');
+      }
+    } catch {
+      showToast('Category update failed', 'error');
+    }
+  };
+
+  // ─── Load & Render Inquiries ─────────────────────────────────
+  async function loadInquiries() {
+    const listEl = document.getElementById('inquiries-list');
+    const emptyEl = document.getElementById('inquiries-empty');
+    const countEl = document.getElementById('inquiry-count');
+    if (!listEl) return;
+
+    try {
+      const res = await authFetch('/api/contacts');
+      if (res.status === 401) {
+        adminToken = null;
+        localStorage.removeItem('vault_admin_token');
+        showLogin();
+        return;
+      }
+      const contacts = await res.json();
+      if (countEl) countEl.textContent = contacts.length;
+
+      if (!contacts || contacts.length === 0) {
+        listEl.innerHTML = '';
+        if (emptyEl) emptyEl.style.display = 'block';
+        return;
+      }
+
+      if (emptyEl) emptyEl.style.display = 'none';
+      listEl.innerHTML = contacts.map(c => `
+        <div style="background:var(--bg-card); border:1px solid ${c.read ? 'var(--border-subtle)' : 'rgba(129,140,248,0.45)'}; border-radius:14px; padding:18px 20px; position:relative;">
+          <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:8px; gap:12px; flex-wrap:wrap;">
+            <div>
+              <span style="font-weight:700; color:var(--text-primary); font-size:1rem;">${escapeHtml(c.name)}</span>
+              <a href="mailto:${escapeHtml(c.email)}" style="color:#818cf8; font-size:0.85rem; margin-left:8px; text-decoration:underline;">${escapeHtml(c.email)}</a>
+              ${!c.read ? '<span style="background:#ec4899; color:#fff; font-size:0.68rem; font-weight:700; padding:2px 7px; border-radius:10px; margin-left:8px;">NEW</span>' : ''}
+            </div>
+            <div style="font-size:0.8rem; color:var(--text-muted);">${formatDate(c.timestamp)}</div>
+          </div>
+          ${c.subject ? `<div style="font-weight:600; color:var(--accent-violet); font-size:0.9rem; margin-bottom:6px;">Subject: ${escapeHtml(c.subject)}</div>` : ''}
+          <p style="color:var(--text-secondary); font-size:0.9rem; line-height:1.6; margin-bottom:12px; white-space:pre-wrap;">${escapeHtml(c.message)}</p>
+          <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.78rem; color:var(--text-muted); border-top:1px solid var(--border-subtle); padding-top:10px;">
+            <span>IP: ${escapeHtml(c.ip || 'Unknown')}</span>
+            <div style="display:flex; gap:8px;">
+              ${!c.read ? `<button onclick="markInquiryRead('${c.id}')" style="background:var(--bg-glass-strong); border:1px solid var(--border-medium); color:#34d399; border-radius:6px; padding:4px 10px; cursor:pointer; font-size:0.78rem;">Mark Read</button>` : ''}
+              <button onclick="deleteInquiry('${c.id}')" style="background:rgba(239,68,68,0.1); border:1px solid rgba(239,68,68,0.25); color:#ef4444; border-radius:6px; padding:4px 10px; cursor:pointer; font-size:0.78rem;">Delete</button>
+            </div>
+          </div>
+        </div>
+      `).join('');
+    } catch (e) {
+      showToast('Failed to load inquiries', 'error');
+    }
+  }
+
+  // ─── Mark Inquiry as Read ────────────────────────────────────
+  window.markInquiryRead = async function (id) {
+    try {
+      const res = await authFetch('/api/contacts/' + id + '/read', { method: 'PUT' });
+      if (res.ok) {
+        showToast('Marked inquiry as read', 'success');
+        loadInquiries();
+        loadStats();
+      }
+    } catch {
+      showToast('Failed to update inquiry', 'error');
+    }
+  };
+
+  // ─── Delete Inquiry ──────────────────────────────────────────
+  window.deleteInquiry = async function (id) {
+    if (!confirm('Are you sure you want to delete this message?')) return;
+    try {
+      const res = await authFetch('/api/contacts/' + id, { method: 'DELETE' });
+      if (res.ok) {
+        showToast('Message deleted', 'success');
+        loadInquiries();
+        loadStats();
+      }
+    } catch {
+      showToast('Failed to delete message', 'error');
+    }
+  };
 
   // ─── Delete File (global) ────────────────────────────────────
   window.deleteFile = async function (filename) {
@@ -347,6 +503,7 @@
       if (res.ok) {
         showToast('File deleted', 'success');
         loadFiles();
+        loadStats();
       } else {
         showToast('Delete failed', 'error');
       }

@@ -1,3 +1,4 @@
 node_modules/
-data/visitors.json
+data/
 .DS_Store
+

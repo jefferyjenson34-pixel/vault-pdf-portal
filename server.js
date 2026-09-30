@@ -18,12 +18,18 @@ const SESSION_MAX_AGE = 24 * 60 * 60 * 1000; // 24 hours
 // Data paths
 const DATA_DIR = path.join(__dirname, 'data');
 const VISITORS_FILE = path.join(DATA_DIR, 'visitors.json');
+const CONTACTS_FILE = path.join(DATA_DIR, 'contacts.json');
+const DOWNLOADS_FILE = path.join(DATA_DIR, 'downloads.json');
+const CATEGORIES_FILE = path.join(DATA_DIR, 'categories.json');
 const UPLOADS_DIR = path.join(__dirname, 'public', 'uploads');
 
 // Ensure directories exist
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
 if (!fs.existsSync(UPLOADS_DIR)) fs.mkdirSync(UPLOADS_DIR, { recursive: true });
 if (!fs.existsSync(VISITORS_FILE)) fs.writeFileSync(VISITORS_FILE, JSON.stringify([], null, 2));
+if (!fs.existsSync(CONTACTS_FILE)) fs.writeFileSync(CONTACTS_FILE, JSON.stringify([], null, 2));
+if (!fs.existsSync(DOWNLOADS_FILE)) fs.writeFileSync(DOWNLOADS_FILE, JSON.stringify({}, null, 2));
+if (!fs.existsSync(CATEGORIES_FILE)) fs.writeFileSync(CATEGORIES_FILE, JSON.stringify({}, null, 2));
 
 // Multer config for PDF uploads
 const storage = multer.diskStorage({
@@ -113,6 +119,30 @@ function readVisitors() {
 // Helper: write visitors
 function writeVisitors(visitors) {
   fs.writeFileSync(VISITORS_FILE, JSON.stringify(visitors, null, 2));
+}
+
+// Helper: read/write contacts
+function readContacts() {
+  try { return JSON.parse(fs.readFileSync(CONTACTS_FILE, 'utf-8')); } catch { return []; }
+}
+function writeContacts(contacts) {
+  fs.writeFileSync(CONTACTS_FILE, JSON.stringify(contacts, null, 2));
+}
+
+// Helper: read/write download counts
+function readDownloads() {
+  try { return JSON.parse(fs.readFileSync(DOWNLOADS_FILE, 'utf-8')); } catch { return {}; }
+}
+function writeDownloads(downloads) {
+  fs.writeFileSync(DOWNLOADS_FILE, JSON.stringify(downloads, null, 2));
+}
+
+// Helper: read/write categories
+function readCategories() {
+  try { return JSON.parse(fs.readFileSync(CATEGORIES_FILE, 'utf-8')); } catch { return {}; }
+}
+function writeCategories(categories) {
+  fs.writeFileSync(CATEGORIES_FILE, JSON.stringify(categories, null, 2));
 }
 
 // ─── API: Admin Login ───────────────────────────────────────────────
@@ -207,9 +237,11 @@ app.get('/api/sound-status', (req, res) => {
   res.json({ exists, path: exists ? '/sound.mp3' : null });
 });
 
-// ─── API: List PDFs (public) ────────────────────────────────────────
+// ─── API: List PDFs (public, enriched with downloads & categories) ──
 app.get('/api/pdfs', (req, res) => {
   try {
+    const downloads = readDownloads();
+    const categories = readCategories();
     const files = fs.readdirSync(UPLOADS_DIR)
       .filter(f => f.endsWith('.pdf'))
       .map(filename => {
@@ -219,7 +251,9 @@ app.get('/api/pdfs', (req, res) => {
           filename,
           originalName,
           size: stats.size,
-          uploadedAt: stats.mtime.toISOString()
+          uploadedAt: stats.mtime.toISOString(),
+          downloads: downloads[filename] || 0,
+          category: categories[filename] || 'uncategorized'
         };
       })
       .sort((a, b) => new Date(b.uploadedAt) - new Date(a.uploadedAt));
@@ -240,7 +274,7 @@ app.delete('/api/pdfs/:filename', requireAdmin, (req, res) => {
   }
 });
 
-// ─── API: Download PDF (public, logs IP) ────────────────────────────
+// ─── API: Download PDF (public, logs IP, tracks count) ──────────────
 app.get('/api/download/:filename', (req, res) => {
   const filePath = path.join(UPLOADS_DIR, req.params.filename);
   if (fs.existsSync(filePath)) {
@@ -253,6 +287,11 @@ app.get('/api/download/:filename', (req, res) => {
       page: 'Download: ' + req.params.filename.replace(/^\d+-\d+-/, '')
     });
     writeVisitors(visitors);
+
+    // Increment download counter
+    const downloads = readDownloads();
+    downloads[req.params.filename] = (downloads[req.params.filename] || 0) + 1;
+    writeDownloads(downloads);
 
     const originalName = req.params.filename.replace(/^\d+-\d+-/, '');
     const stat = fs.statSync(filePath);
@@ -283,6 +322,11 @@ app.get('/about', (req, res) => {
   res.redirect('/about.html');
 });
 
+// ─── Serve contact page ────────────────────────────────────────────
+app.get('/contact', (req, res) => {
+  res.redirect('/contact.html');
+});
+
 // ─── Serve admin page ───────────────────────────────────────────────
 app.get('/admin', (req, res) => {
   res.redirect('/admin.html');
@@ -291,6 +335,129 @@ app.get('/admin', (req, res) => {
 // ─── Serve secret page ──────────────────────────────────────────────
 app.get('/secret', (req, res) => {
   res.redirect('/secret.html');
+});
+
+// ─── API: Submit Contact Message (public) ───────────────────────────
+app.post('/api/contact', (req, res) => {
+  const { name, email, subject, message } = req.body;
+  if (!name || !email || !message) {
+    return res.status(400).json({ error: 'Name, email, and message are required' });
+  }
+  const contacts = readContacts();
+  contacts.push({
+    id: crypto.randomBytes(8).toString('hex'),
+    name: name.trim(),
+    email: email.trim(),
+    subject: (subject || '').trim(),
+    message: message.trim(),
+    ip: getVisitorIP(req),
+    timestamp: new Date().toISOString(),
+    read: false
+  });
+  if (contacts.length > 500) contacts.splice(0, contacts.length - 500);
+  writeContacts(contacts);
+  res.json({ success: true, message: 'Thank you! Your message has been received.' });
+});
+
+// ─── API: Get Contact Messages (admin, PROTECTED) ───────────────────
+app.get('/api/contacts', requireAdmin, (req, res) => {
+  const contacts = readContacts();
+  res.json(contacts.reverse());
+});
+
+// ─── API: Mark Contact as Read (admin, PROTECTED) ───────────────────
+app.put('/api/contacts/:id/read', requireAdmin, (req, res) => {
+  const contacts = readContacts();
+  const contact = contacts.find(c => c.id === req.params.id);
+  if (contact) {
+    contact.read = true;
+    writeContacts(contacts);
+    res.json({ success: true });
+  } else {
+    res.status(404).json({ error: 'Contact not found' });
+  }
+});
+
+// ─── API: Delete Contact (admin, PROTECTED) ─────────────────────────
+app.delete('/api/contacts/:id', requireAdmin, (req, res) => {
+  let contacts = readContacts();
+  contacts = contacts.filter(c => c.id !== req.params.id);
+  writeContacts(contacts);
+  res.json({ success: true });
+});
+
+// ─── API: Clear All Contacts (admin, PROTECTED) ─────────────────────
+app.post('/api/contacts/clear', requireAdmin, (req, res) => {
+  writeContacts([]);
+  res.json({ success: true });
+});
+
+// ─── API: Set Document Category (admin, PROTECTED) ──────────────────
+app.put('/api/pdfs/:filename/category', requireAdmin, (req, res) => {
+  const { category } = req.body;
+  if (!category) {
+    return res.status(400).json({ error: 'Category is required' });
+  }
+  const categories = readCategories();
+  categories[req.params.filename] = category;
+  writeCategories(categories);
+  res.json({ success: true });
+});
+
+// ─── API: Get Download Stats (admin, PROTECTED) ─────────────────────
+app.get('/api/stats', requireAdmin, (req, res) => {
+  const downloads = readDownloads();
+  const visitors = readVisitors();
+  const contacts = readContacts();
+  const files = fs.readdirSync(UPLOADS_DIR).filter(f => f.endsWith('.pdf'));
+  
+  const totalDownloads = Object.values(downloads).reduce((sum, n) => sum + n, 0);
+  const totalSize = files.reduce((sum, f) => {
+    try { return sum + fs.statSync(path.join(UPLOADS_DIR, f)).size; } catch { return sum; }
+  }, 0);
+  
+  // Top downloaded files
+  const topFiles = Object.entries(downloads)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 10)
+    .map(([filename, count]) => ({
+      filename,
+      originalName: filename.replace(/^\d+-\d+-/, ''),
+      downloads: count
+    }));
+
+  // Downloads in last 7 days
+  const sevenDaysAgo = new Date(Date.now() - 7 * 86400000);
+  const recentDownloads = visitors.filter(v => 
+    v.page && v.page.startsWith('Download:') && new Date(v.timestamp) > sevenDaysAgo
+  ).length;
+
+  res.json({
+    totalFiles: files.length,
+    totalDownloads,
+    totalSize,
+    totalVisitors: visitors.length,
+    totalContacts: contacts.length,
+    unreadContacts: contacts.filter(c => !c.read).length,
+    recentDownloads,
+    topFiles
+  });
+});
+
+// ─── API: Preview PDF (public, serves PDF inline) ───────────────────
+app.get('/api/preview/:filename', (req, res) => {
+  const filePath = path.join(UPLOADS_DIR, req.params.filename);
+  if (fs.existsSync(filePath)) {
+    const stat = fs.statSync(filePath);
+    res.set({
+      'Content-Type': 'application/pdf',
+      'Content-Disposition': 'inline',
+      'Content-Length': stat.size
+    });
+    fs.createReadStream(filePath).pipe(res);
+  } else {
+    res.status(404).json({ error: 'File not found' });
+  }
 });
 
 // ─── Start server ───────────────────────────────────────────────────

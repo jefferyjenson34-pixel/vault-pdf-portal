@@ -102,13 +102,38 @@
       <div class="section-container">
         <div class="admin-header">
           <h1 class="admin-title">Admin <span class="gradient-text">Dashboard</span></h1>
-          <p class="admin-subtitle">Upload documents and monitor visitor activity</p>
+          <p class="admin-subtitle">Upload documents, categorize files, review analytics, and manage visitor inquiries</p>
+        </div>
+
+        <!-- Analytics Overview Stats -->
+        <div class="admin-stats-grid" id="admin-stats-grid" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap:16px; margin: 24px 0 28px;">
+          <div class="stat-card" style="background:var(--bg-card); border:1px solid var(--border-medium); border-radius:14px; padding:18px 20px;">
+            <div style="font-size:0.78rem; text-transform:uppercase; letter-spacing:0.04em; color:var(--text-secondary); margin-bottom:6px;">Documents Stored</div>
+            <div id="stat-files-val" style="font-size:1.6rem; font-weight:800; color:var(--text-primary);">0</div>
+          </div>
+          <div class="stat-card" style="background:var(--bg-card); border:1px solid var(--border-medium); border-radius:14px; padding:18px 20px;">
+            <div style="font-size:0.78rem; text-transform:uppercase; letter-spacing:0.04em; color:var(--text-secondary); margin-bottom:6px;">Total Downloads</div>
+            <div id="stat-downloads-val" style="font-size:1.6rem; font-weight:800; color:#818cf8;">0</div>
+          </div>
+          <div class="stat-card" style="background:var(--bg-card); border:1px solid var(--border-medium); border-radius:14px; padding:18px 20px;">
+            <div style="font-size:0.78rem; text-transform:uppercase; letter-spacing:0.04em; color:var(--text-secondary); margin-bottom:6px;">Total Vault Storage</div>
+            <div id="stat-size-val" style="font-size:1.6rem; font-weight:800; color:#34d399;">0 B</div>
+          </div>
+          <div class="stat-card" style="background:var(--bg-card); border:1px solid var(--border-medium); border-radius:14px; padding:18px 20px;">
+            <div style="font-size:0.78rem; text-transform:uppercase; letter-spacing:0.04em; color:var(--text-secondary); margin-bottom:6px;">Visitor Activity</div>
+            <div id="stat-visitors-val" style="font-size:1.6rem; font-weight:800; color:var(--text-primary);">0</div>
+          </div>
+          <div class="stat-card" style="background:var(--bg-card); border:1px solid var(--border-medium); border-radius:14px; padding:18px 20px;">
+            <div style="font-size:0.78rem; text-transform:uppercase; letter-spacing:0.04em; color:var(--text-secondary); margin-bottom:6px;">Contact Inquiries</div>
+            <div id="stat-contacts-val" style="font-size:1.6rem; font-weight:800; color:#f472b6;">0</div>
+          </div>
         </div>
 
         <!-- Tabs -->
         <div class="admin-tabs" id="admin-tabs">
           <button class="admin-tab active" data-tab="upload">Upload PDFs</button>
           <button class="admin-tab" data-tab="files">Manage Files</button>
+          <button class="admin-tab" data-tab="inquiries">Contact Inquiries <span id="inquiries-badge" style="display:none; background:#ec4899; color:#fff; font-size:0.7rem; padding:2px 7px; border-radius:10px; margin-left:4px;">0</span></button>
           <button class="admin-tab" data-tab="visitors">Visitor Logs</button>
           <button class="admin-tab" data-tab="secret">Secret Prank</button>
         </div>
@@ -159,6 +184,32 @@
             </div>
             <h3>No files uploaded</h3>
             <p>Go to the Upload tab to add PDFs.</p>
+          </div>
+        </div>
+
+        <!-- Inquiries Panel -->
+        <div class="admin-panel" id="panel-inquiries">
+          <div class="visitors-toolbar">
+            <h3>Messages &amp; Inquiries <span class="file-count-badge" id="inquiry-count">0</span></h3>
+            <div style="display:flex;gap:8px;">
+              <button class="browse-btn" id="refresh-inquiries" style="background:var(--bg-glass-strong);border:1px solid var(--border-subtle);color:var(--text-primary);font-size:0.8rem;padding:8px 16px;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M1 4V10H7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M3.51 15A9 9 0 105.64 5.64L1 10" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                Refresh
+              </button>
+            </div>
+          </div>
+
+          <div id="inquiries-list" style="display:flex; flex-direction:column; gap:14px; margin-top:16px;"></div>
+
+          <div class="empty-state" id="inquiries-empty" style="display:none;">
+            <div class="empty-icon">
+              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
+                <polyline points="22,6 12,13 2,6"></polyline>
+              </svg>
+            </div>
+            <h3>No inquiries yet</h3>
+            <p>Messages submitted through the public Contact page will appear here.</p>
           </div>
         </div>
 
