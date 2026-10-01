@@ -14,6 +14,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/css/about.css">
+  <link rel="stylesheet" href="/css/chatbot.css">
 
   <style>
     /* ─── Contact Page Specific ─────────────────────────────── */
@@ -336,11 +337,16 @@
         <nav class="nav-menu" id="nav-menu" aria-label="Main Navigation">
           <a href="/" class="nav-link">Home</a>
           <a href="/#documents" class="nav-link">Documents</a>
-          <a href="/#about" class="nav-link">About</a>
+          <a href="/unlock" class="nav-link">Unlock PDF</a>
+          <a href="/about" class="nav-link">About</a>
           <a href="/contact" class="nav-link active">Contact</a>
+          <a href="/dashboard" class="nav-link">Dashboard</a>
         </nav>
 
         <div class="nav-actions">
+          <a href="/login" class="btn-nav-cta" style="background:var(--bg-glass-strong); border:1px solid var(--border-medium); color:var(--text-primary); margin-right:4px;">
+            <span>Sign In</span>
+          </a>
           <a href="/#documents" class="btn-nav-cta">
             <span>Explore Documents</span>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
@@ -593,5 +599,6 @@
       body: JSON.stringify({ page: '/contact' })
     }).catch(() => {});
   </script>
+  <script src="/js/chatbot.js"></script>
 </body>
 </html>

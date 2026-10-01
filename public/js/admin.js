@@ -90,6 +90,7 @@
     loadStats();
     loadFiles();
     loadInquiries();
+    loadReports();
   }
 
   async function checkAuth() {
@@ -187,6 +188,7 @@
         loadStats();
         if (tab.getAttribute('data-tab') === 'files') loadFiles();
         if (tab.getAttribute('data-tab') === 'inquiries') loadInquiries();
+        if (tab.getAttribute('data-tab') === 'reports') loadReports();
         if (tab.getAttribute('data-tab') === 'visitors') loadVisitors();
         if (tab.getAttribute('data-tab') === 'secret') checkSoundStatus();
       });
@@ -195,6 +197,11 @@
     const refreshInquiriesBtn = document.getElementById('refresh-inquiries');
     if (refreshInquiriesBtn) {
       refreshInquiriesBtn.addEventListener('click', loadInquiries);
+    }
+
+    const refreshReportsBtn = document.getElementById('refresh-reports-btn');
+    if (refreshReportsBtn) {
+      refreshReportsBtn.addEventListener('click', loadReports);
     }
   }
 
@@ -654,6 +661,153 @@
       exportBtn.addEventListener('click', exportVisitorsCSV);
     }
   }
+
+  // ─── Document Abuse Reports Moderation ───────────────────────
+  async function loadReports() {
+    const loading = document.getElementById('reports-loading');
+    const empty = document.getElementById('reports-empty');
+    const tableWrap = document.getElementById('reports-table-wrap');
+    const tbody = document.getElementById('reports-tbody');
+    const badge = document.getElementById('reports-badge');
+
+    if (!loading) return;
+
+    loading.style.display = 'block';
+    empty.style.display = 'none';
+    tableWrap.style.display = 'none';
+
+    try {
+      const res = await authFetch('/api/admin/reports');
+      const reports = await res.json();
+
+      loading.style.display = 'none';
+
+      // Update badge count with active pending reports
+      const pendingCount = reports.filter(r => r.status === 'pending').length;
+      if (badge) {
+        if (pendingCount > 0) {
+          badge.textContent = pendingCount;
+          badge.style.display = 'inline-block';
+        } else {
+          badge.style.display = 'none';
+        }
+      }
+
+      if (!reports || reports.length === 0) {
+        empty.style.display = 'block';
+        return;
+      }
+
+      tableWrap.style.display = 'block';
+      tbody.innerHTML = '';
+
+      reports.forEach(report => {
+        const tr = document.createElement('tr');
+        const isPending = report.status === 'pending';
+        const isUnpublished = report.status === 'unpublished';
+        const isDeleted = report.status === 'deleted';
+
+        let statusColor = '#ef4444';
+        if (report.status === 'dismissed') statusColor = '#94a3b8';
+        if (report.status === 'unpublished') statusColor = '#f59e0b';
+        if (report.status === 'deleted') statusColor = '#64748b';
+
+        tr.innerHTML = `
+          <td>
+            <div style="font-weight:700; color:var(--text-primary); font-size:0.9rem;">${escapeHtml(report.originalName || report.filename)}</div>
+            <div style="font-size:0.75rem; color:var(--text-secondary); font-family:monospace;">ID: ${escapeHtml(report.documentId)}</div>
+          </td>
+          <td>
+            <span style="font-size:0.78rem; font-weight:700; padding:3px 8px; border-radius:6px; background:rgba(239,68,68,0.15); color:#ef4444; border:1px solid rgba(239,68,68,0.3);">
+              ${escapeHtml(report.reason)}
+            </span>
+          </td>
+          <td style="max-width:240px; font-size:0.84rem; color:var(--text-secondary); word-break:break-word;">
+            ${escapeHtml(report.details || 'No additional details provided.')}
+          </td>
+          <td><code style="font-size:0.8rem; color:var(--text-secondary);">${escapeHtml(report.ip || 'Unknown')}</code></td>
+          <td style="font-size:0.8rem; color:var(--text-secondary);">${formatDate(report.reportedAt)}</td>
+          <td>
+            <span style="font-size:0.8rem; font-weight:700; color:${statusColor}; text-transform:uppercase;">
+              ${escapeHtml(report.status)}
+            </span>
+          </td>
+          <td style="text-align:right;">
+            <div style="display:flex; justify-content:flex-end; gap:6px;">
+              ${!isUnpublished && !isDeleted ? `
+                <button class="browse-btn" style="padding:4px 10px; font-size:0.75rem; background:linear-gradient(135deg,#f59e0b,#d97706);" onclick="window.unpublishReport('${report.id}')">
+                  Unpublish
+                </button>
+              ` : ''}
+              ${isPending ? `
+                <button class="browse-btn" style="padding:4px 10px; font-size:0.75rem; background:var(--bg-glass-strong); border:1px solid var(--border-medium);" onclick="window.dismissReport('${report.id}')">
+                  Dismiss
+                </button>
+              ` : ''}
+              ${!isDeleted ? `
+                <button class="browse-btn" style="padding:4px 10px; font-size:0.75rem; background:linear-gradient(135deg,#ef4444,#dc2626);" onclick="window.deleteReportedFile('${report.id}')">
+                  Delete
+                </button>
+              ` : ''}
+            </div>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+    } catch (err) {
+      loading.style.display = 'none';
+      empty.style.display = 'block';
+    }
+  }
+
+  window.unpublishReport = async function(reportId) {
+    if (!confirm('Unpublish this document from the public listing?')) return;
+    try {
+      const res = await authFetch(`/api/admin/reports/${reportId}/unpublish`, { method: 'POST' });
+      const data = await res.json();
+      if (res.ok) {
+        showToast('Document unpublished successfully.');
+        loadReports();
+        loadFiles();
+      } else {
+        showToast(data.error || 'Failed to unpublish', 'error');
+      }
+    } catch (err) {
+      showToast('Network error', 'error');
+    }
+  };
+
+  window.dismissReport = async function(reportId) {
+    try {
+      const res = await authFetch(`/api/admin/reports/${reportId}/dismiss`, { method: 'POST' });
+      const data = await res.json();
+      if (res.ok) {
+        showToast('Report marked as dismissed.');
+        loadReports();
+      } else {
+        showToast(data.error || 'Failed to dismiss', 'error');
+      }
+    } catch (err) {
+      showToast('Network error', 'error');
+    }
+  };
+
+  window.deleteReportedFile = async function(reportId) {
+    if (!confirm('Are you sure you want to permanently delete this file from storage and records?')) return;
+    try {
+      const res = await authFetch(`/api/admin/reports/${reportId}/delete-file`, { method: 'DELETE' });
+      const data = await res.json();
+      if (res.ok) {
+        showToast('Document deleted permanently.');
+        loadReports();
+        loadFiles();
+      } else {
+        showToast(data.error || 'Failed to delete file', 'error');
+      }
+    } catch (err) {
+      showToast('Network error', 'error');
+    }
+  };
 
   // ─── Secret Prank Sound Management ───────────────────────────
   let previewAudio = null;

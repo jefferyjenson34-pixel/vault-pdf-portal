@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Unlock a Private Document — Vault PDF Portal</title>
+  <meta name="description" content="Enter your 12+ character secret code to unlock and securely download a private PDF document.">
+  <link rel="canonical" href="https://vault-pdf-portal.onrender.com/unlock">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/about.css">
+  <link rel="stylesheet" href="/css/futuristic.css">
+  <link rel="stylesheet" href="/css/auth.css">
+  <link rel="stylesheet" href="/css/chatbot.css">
+  <style>
+    .unlock-box {
+      max-width: 520px;
+    }
+    .code-input-field {
+      font-family: var(--font-mono, monospace) !important;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      font-weight: 700;
+      font-size: 1.1rem !important;
+      text-align: center;
+      padding: 14px !important;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Ambient Light Accents -->
+  <div class="bg-ambient" aria-hidden="true">
+    <div class="ambient-orb orb-1"></div>
+    <div class="ambient-orb orb-2"></div>
+    <div class="ambient-orb orb-3"></div>
+  </div>
+
+  <!-- Header / Navigation -->
+  <header class="site-header" id="site-header">
+    <div class="container">
+      <div class="nav-wrapper">
+        <a href="/" class="brand-link" aria-label="Vault PDF Portal Home">
+          <div class="brand-icon">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+              <path d="m9 12 2 2 4-4"/>
+            </svg>
+          </div>
+          <span class="brand-name">Vault <span class="brand-highlight">PDF</span></span>
+        </a>
+
+        <nav class="nav-menu" id="nav-menu">
+          <a href="/" class="nav-link">Home</a>
+          <a href="/#documents" class="nav-link">Available Documents</a>
+          <a href="/unlock" class="nav-link active">Unlock a PDF</a>
+          <a href="/about" class="nav-link">About</a>
+          <a href="/contact" class="nav-link">Contact</a>
+        </nav>
+
+        <div class="nav-actions">
+          <div class="futuristic-nav-group">
+            <button class="btn-hud-toggle" id="btn-hud-toggle" title="Toggle Quantum Cyber-Deck HUD Mode">
+              <span class="hud-pulse-dot"></span>
+              <span>HUD</span>
+            </button>
+          </div>
+          <a href="/login" class="btn-nav-cta">
+            <span>Sign In</span>
+          </a>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main class="auth-page-wrapper">
+    <div class="auth-card unlock-box">
+      <div class="auth-card-header">
+        <div class="auth-icon-badge">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+            <path d="M7 11V7a5 5 0 0 1 9.9-1"></path>
+          </svg>
+        </div>
+        <h1 class="auth-title">Unlock a Document</h1>
+        <p class="auth-subtitle">Enter the secret 12+ character unlock code provided by the document owner to verify authorization and decrypt the file.</p>
+      </div>
+
+      <div class="auth-alert" id="unlock-alert"></div>
+
+      <form class="auth-form" id="unlock-form">
+        <div class="auth-field">
+          <label class="auth-label" for="secret-code-input" style="justify-content:center;">Secret Unlock Code</label>
+          <input type="text" id="secret-code-input" class="auth-input code-input-field" placeholder="XXXX-XXXX-XXXX" minlength="12" maxlength="32" required autocomplete="off" spellcheck="false">
+          <p style="text-align:center; font-size:0.78rem; color:var(--text-muted); margin:4px 0 0;">
+            Protected by anti-brute-force rate limiting. Failed attempts will temporarily lock your IP.
+          </p>
+        </div>
+
+        <button type="submit" class="auth-btn-submit" id="btn-submit-unlock">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+            <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+          </svg>
+          <span>Unlock &amp; Download File</span>
+        </button>
+      </form>
+
+      <!-- Decryption success preview card -->
+      <div id="unlock-result-card" style="display:none; margin-top:24px; padding:20px; border-radius:14px; background:var(--bg-page-subtle); border:1px solid var(--border-subtle); text-align:center;">
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2.2" style="margin-bottom:8px;">
+          <polyline points="20 6 9 17 4 12"></polyline>
+        </svg>
+        <h4 id="result-filename" style="font-size:1.05rem; font-weight:700; margin-bottom:4px; color:var(--navy-950);">Document.pdf</h4>
+        <p id="result-meta" style="font-size:0.82rem; color:var(--text-muted); margin-bottom:16px;">Verified Private Document</p>
+        <div style="display:flex; justify-content:center; gap:10px;">
+          <a href="#" id="result-download-btn" class="btn-primary" style="text-decoration:none; padding:8px 18px; font-size:0.9rem;">
+            <span>Download PDF</span>
+          </a>
+        </div>
+      </div>
+
+      <div class="auth-footer">
+        Are you the document owner? <a href="/dashboard">Access Dashboard</a>
+      </div>
+    </div>
+  </main>
+
+  <script src="/js/futuristic.js"></script>
+  <script>
+    const form = document.getElementById('unlock-form');
+    const alertBox = document.getElementById('unlock-alert');
+    const btnSubmit = document.getElementById('btn-submit-unlock');
+    const resultCard = document.getElementById('unlock-result-card');
+    const resultFilename = document.getElementById('result-filename');
+    const resultMeta = document.getElementById('result-meta');
+    const resultDownloadBtn = document.getElementById('result-download-btn');
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      alertBox.className = 'auth-alert';
+      alertBox.style.display = 'none';
+      resultCard.style.display = 'none';
+
+      const code = document.getElementById('secret-code-input').value.trim();
+      if (!code || code.length < 12) {
+        alertBox.className = 'auth-alert error';
+        alertBox.textContent = 'Secret codes must be at least 12 characters long.';
+        alertBox.style.display = 'flex';
+        return;
+      }
+
+      btnSubmit.disabled = true;
+      btnSubmit.innerHTML = '<span>Verifying Code &amp; Decrypting...</span>';
+
+      try {
+        const res = await fetch('/api/unlock/verify', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ code })
+        });
+        const data = await res.json();
+
+        if (res.ok) {
+          resultFilename.textContent = data.document.originalName;
+          resultMeta.textContent = `Size: ${data.document.sizeFormatted} • Category: ${data.document.category || 'General'}`;
+          resultDownloadBtn.href = `/api/unlock/download?token=${encodeURIComponent(data.downloadToken)}`;
+          resultCard.style.display = 'block';
+
+          // Trigger download automatically
+          window.location.href = resultDownloadBtn.href;
+        } else {
+          alertBox.className = 'auth-alert error';
+          alertBox.textContent = data.error || 'Invalid secret unlock code.';
+          alertBox.style.display = 'flex';
+        }
+      } catch (err) {
+        alertBox.className = 'auth-alert error';
+        alertBox.textContent = 'Network error while unlocking file.';
+        alertBox.style.display = 'flex';
+      } finally {
+        btnSubmit.disabled = false;
+        btnSubmit.innerHTML = `
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+            <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+          </svg>
+          <span>Unlock &amp; Download File</span>
+        `;
+      }
+    });
+  </script>
+  <script src="/js/chatbot.js"></script>
+</body>
+</html>

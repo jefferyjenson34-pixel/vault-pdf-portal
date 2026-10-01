@@ -134,6 +134,7 @@
           <button class="admin-tab active" data-tab="upload">Upload PDFs</button>
           <button class="admin-tab" data-tab="files">Manage Files</button>
           <button class="admin-tab" data-tab="inquiries">Contact Inquiries <span id="inquiries-badge" style="display:none; background:#ec4899; color:#fff; font-size:0.7rem; padding:2px 7px; border-radius:10px; margin-left:4px;">0</span></button>
+          <button class="admin-tab" data-tab="reports">Reports <span id="reports-badge" style="display:none; background:#ef4444; color:#fff; font-size:0.7rem; padding:2px 7px; border-radius:10px; margin-left:4px;">0</span></button>
           <button class="admin-tab" data-tab="visitors">Visitor Logs</button>
           <button class="admin-tab" data-tab="secret">Secret Prank</button>
         </div>
@@ -321,6 +322,52 @@
             <div id="sound-upload-msg" style="margin-top:1rem;font-size:0.85rem;display:none;"></div>
           </div>
         </div>
+
+        <!-- Reports Moderation Panel -->
+        <div class="admin-panel" id="panel-reports">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem; flex-wrap:wrap; gap:12px;">
+            <div>
+              <h2 style="font-size:1.3rem; font-weight:800; color:var(--text-primary); margin-bottom:4px;">Document Abuse Reports</h2>
+              <p style="color:var(--text-secondary); font-size:0.9rem; margin:0;">Review reported public documents, unpublish violating files, or dismiss reports.</p>
+            </div>
+            <button class="browse-btn" id="refresh-reports-btn" style="padding:8px 16px; font-size:0.85rem; display:inline-flex; align-items:center; gap:6px;">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"></polyline><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg>
+              <span>Refresh Reports</span>
+            </button>
+          </div>
+
+          <div id="reports-loading" style="text-align:center; padding:2.5rem; color:var(--text-secondary);">
+            Loading abuse reports...
+          </div>
+
+          <div id="reports-empty" style="display:none; text-align:center; padding:3rem 1rem; background:var(--bg-card); border:1px solid var(--border-medium); border-radius:16px;">
+            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2" style="margin-bottom:12px;">
+              <polyline points="20 6 9 17 4 12"></polyline>
+            </svg>
+            <h3 style="font-size:1.1rem; font-weight:700; color:var(--text-primary); margin-bottom:4px;">No Pending Reports</h3>
+            <p style="color:var(--text-secondary); font-size:0.88rem; margin:0;">All public files are in good standing with zero active abuse reports.</p>
+          </div>
+
+          <div id="reports-table-wrap" style="display:none; overflow-x:auto;">
+            <table class="files-table" style="width:100%;">
+              <thead>
+                <tr>
+                  <th>Document</th>
+                  <th>Reason</th>
+                  <th>Details</th>
+                  <th>Reporter IP</th>
+                  <th>Date</th>
+                  <th>Status</th>
+                  <th style="text-align:right;">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="reports-tbody">
+                <!-- Dynamically populated -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
       </div>
     </div>
 

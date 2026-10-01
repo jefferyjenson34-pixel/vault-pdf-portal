@@ -216,6 +216,93 @@
     });
   }
 
+  // ─── 8b. Report Document Modal Handling ────────────────────────
+  function openReportModal(file) {
+    const modal = document.getElementById('doc-report-modal');
+    const docIdInput = document.getElementById('report-doc-id');
+    const docNameDisplay = document.getElementById('report-modal-filename');
+    const reasonSelect = document.getElementById('report-reason-select');
+    const detailsInput = document.getElementById('report-details-input');
+
+    if (!modal) return;
+
+    if (docIdInput) docIdInput.value = file.id || file.filename;
+    if (docNameDisplay) docNameDisplay.textContent = file.originalName;
+    if (reasonSelect) reasonSelect.selectedIndex = 0;
+    if (detailsInput) detailsInput.value = '';
+
+    modal.style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+  }
+
+  function closeReportModal() {
+    const modal = document.getElementById('doc-report-modal');
+    if (modal) {
+      modal.style.display = 'none';
+      document.body.style.overflow = '';
+    }
+  }
+
+  function initReportModal() {
+    const modal = document.getElementById('doc-report-modal');
+    const closeBtn = document.getElementById('btn-close-report');
+    const cancelBtn = document.getElementById('btn-cancel-report');
+    const form = document.getElementById('doc-report-form');
+    const submitBtn = document.getElementById('btn-submit-report');
+
+    if (!modal) return;
+
+    if (closeBtn) closeBtn.addEventListener('click', closeReportModal);
+    if (cancelBtn) cancelBtn.addEventListener('click', closeReportModal);
+
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) closeReportModal();
+    });
+
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && modal.style.display === 'flex') {
+        closeReportModal();
+      }
+    });
+
+    if (form) {
+      form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const docId = document.getElementById('report-doc-id').value;
+        const reason = document.getElementById('report-reason-select').value;
+        const details = document.getElementById('report-details-input').value;
+
+        if (submitBtn) {
+          submitBtn.disabled = true;
+          submitBtn.innerHTML = '<span>Submitting...</span>';
+        }
+
+        try {
+          const res = await fetch(`/api/documents/${encodeURIComponent(docId)}/report`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ reason, details })
+          });
+          const data = await res.json();
+
+          if (res.ok) {
+            closeReportModal();
+            showPortalToast('Report submitted. Administrators will review this document.');
+          } else {
+            alert(data.error || 'Failed to submit report.');
+          }
+        } catch (err) {
+          alert('Network error while submitting report.');
+        } finally {
+          if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = '<span>Submit Report</span>';
+          }
+        }
+      });
+    }
+  }
+
   // ─── 9. Build Modern Grid Card ────────────────────────────────
   function createDocCard(file) {
     const category = resolveCategory(file);
@@ -311,6 +398,13 @@
               <line x1="12" y1="15" x2="12" y2="3"></line>
             </svg>
           </button>
+
+          <button class="doc-report-btn" title="Report this document" aria-label="Report ${escapeHtml(file.originalName)}" style="background:none; border:none; color:var(--text-muted); padding:6px 8px; cursor:pointer; border-radius:6px; display:inline-flex; align-items:center; transition:color 0.2s;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"></path>
+              <line x1="4" y1="22" x2="4" y2="15"></line>
+            </svg>
+          </button>
         </div>
       </div>
     `;
@@ -357,6 +451,15 @@
         file.downloads = (file.downloads || 0) + 1;
         window.location.href = '/api/download/' + encodeURIComponent(file.filename);
         setTimeout(renderDocuments, 500);
+      });
+    }
+
+    // Report button
+    const reportBtn = card.querySelector('.doc-report-btn');
+    if (reportBtn) {
+      reportBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        openReportModal(file);
       });
     }
 
@@ -778,6 +881,7 @@
     loadDocuments();
     initControls();
     initPdfModal();
+    initReportModal();
     initHeader();
     initMobileMenu();
     initScrollSpy();

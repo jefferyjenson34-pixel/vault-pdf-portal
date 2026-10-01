@@ -1,0 +1,591 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>User Dashboard — Vault PDF Portal</title>
+  <meta name="description" content="Manage your private encrypted documents, secret sharing codes, and account settings.">
+  <link rel="canonical" href="https://vault-pdf-portal.onrender.com/dashboard">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/about.css">
+  <link rel="stylesheet" href="/css/futuristic.css">
+  <link rel="stylesheet" href="/css/auth.css">
+  <link rel="stylesheet" href="/css/chatbot.css">
+  <style>
+    .code-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      border-radius: 6px;
+      background: rgba(124, 58, 237, 0.1);
+      border: 1px solid rgba(124, 58, 237, 0.25);
+      font-family: var(--font-mono, monospace);
+      font-size: 0.85rem;
+      font-weight: 700;
+      color: var(--purple-primary);
+    }
+    body.quantum-hud-mode .code-badge {
+      background: rgba(0, 240, 255, 0.12);
+      border-color: rgba(0, 240, 255, 0.3);
+      color: var(--neon-cyan);
+    }
+    .visibility-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 3px 8px;
+      border-radius: 999px;
+      font-size: 0.75rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    .visibility-pill.private {
+      background: #fef3c7;
+      color: #92400e;
+      border: 1px solid #fde68a;
+    }
+    .visibility-pill.public {
+      background: #ecfdf5;
+      color: #065f46;
+      border: 1px solid #a7f3d0;
+    }
+    body.quantum-hud-mode .visibility-pill.private {
+      background: rgba(245, 158, 11, 0.2);
+      color: #fcd34d;
+      border-color: rgba(245, 158, 11, 0.35);
+    }
+    body.quantum-hud-mode .visibility-pill.public {
+      background: rgba(16, 185, 129, 0.2);
+      color: #6ee7b7;
+      border-color: rgba(16, 185, 129, 0.35);
+    }
+    .btn-action-sm {
+      padding: 5px 10px;
+      border-radius: 6px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      border: 1px solid var(--border-subtle);
+      background: var(--bg-card);
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      transition: all 0.2s ease;
+    }
+    .btn-action-sm:hover {
+      background: var(--bg-page-subtle);
+      border-color: var(--purple-primary);
+      color: var(--purple-primary);
+    }
+    body.quantum-hud-mode .btn-action-sm {
+      background: rgba(10, 16, 31, 0.9);
+      border-color: rgba(0, 240, 255, 0.2);
+      color: #cbd5e1;
+    }
+    body.quantum-hud-mode .btn-action-sm:hover {
+      border-color: var(--neon-cyan);
+      color: var(--neon-cyan);
+    }
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(10, 15, 29, 0.7);
+      backdrop-filter: blur(10px);
+      z-index: 1000;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .modal-overlay.active {
+      display: flex;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Ambient Light Accents -->
+  <div class="bg-ambient" aria-hidden="true">
+    <div class="ambient-orb orb-1"></div>
+    <div class="ambient-orb orb-2"></div>
+    <div class="ambient-orb orb-3"></div>
+  </div>
+
+  <!-- Header / Navigation -->
+  <header class="site-header" id="site-header">
+    <div class="container">
+      <div class="nav-wrapper">
+        <a href="/" class="brand-link" aria-label="Vault PDF Portal Home">
+          <div class="brand-icon">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+              <path d="m9 12 2 2 4-4"/>
+            </svg>
+          </div>
+          <span class="brand-name">Vault <span class="brand-highlight">PDF</span></span>
+        </a>
+
+        <nav class="nav-menu" id="nav-menu">
+          <a href="/" class="nav-link">Home</a>
+          <a href="/#documents" class="nav-link">Available Documents</a>
+          <a href="/unlock" class="nav-link">Unlock a PDF</a>
+          <a href="/about" class="nav-link">About</a>
+          <a href="/contact" class="nav-link">Contact</a>
+        </nav>
+
+        <div class="nav-actions">
+          <div class="futuristic-nav-group">
+            <button class="btn-hud-toggle" id="btn-hud-toggle" title="Toggle Quantum Cyber-Deck HUD Mode">
+              <span class="hud-pulse-dot"></span>
+              <span>HUD</span>
+            </button>
+          </div>
+          <button class="btn-logout" id="btn-logout-nav" title="Sign out of your account">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+              <polyline points="16 17 21 12 16 7"></polyline>
+              <line x1="21" y1="12" x2="9" y2="12"></line>
+            </svg>
+            <span>Sign Out</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main class="dashboard-wrapper">
+    <div class="container">
+      
+      <!-- User Profile Card -->
+      <div class="dashboard-header-card reveal-fade-up">
+        <div class="dashboard-user-info">
+          <div class="dashboard-avatar" id="user-avatar">U</div>
+          <div>
+            <div style="display:flex; align-items:center; gap:8px; margin-bottom:4px;">
+              <h2 style="font-size:1.35rem; font-weight:800; color:var(--navy-950);" id="user-email-display">user@example.com</h2>
+              <span class="visibility-pill public" id="user-verified-badge">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+                  <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+                Verified
+              </span>
+            </div>
+            <p style="font-size:0.85rem; color:var(--text-muted); margin:0;">
+              Account Active &bull; AES-256 Cloud Vault Storage
+            </p>
+          </div>
+        </div>
+
+        <div class="dashboard-actions">
+          <button class="btn-upload-trigger" id="btn-open-upload">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+              <polyline points="17 8 12 3 7 8"></polyline>
+              <line x1="12" y1="3" x2="12" y2="15"></line>
+            </svg>
+            <span>Upload New PDF</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- User Documents Section -->
+      <div class="user-docs-container reveal-fade-up delay-100">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:24px; flex-wrap:wrap; gap:16px;">
+          <div>
+            <h3 style="font-size:1.25rem; font-weight:800; color:var(--navy-950); margin-bottom:4px;">My Stored Documents</h3>
+            <p style="font-size:0.88rem; color:var(--text-muted); margin:0;">Manage private secret codes and public availability for your PDFs.</p>
+          </div>
+          <div style="display:flex; gap:10px;">
+            <button class="btn-action-sm" id="btn-refresh-docs">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+                <polyline points="23 4 23 10 17 10"></polyline>
+                <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
+              </svg>
+              <span>Refresh</span>
+            </button>
+          </div>
+        </div>
+
+        <div id="user-docs-loading" style="text-align:center; padding:40px 0;">
+          <div class="loader-dual"></div>
+          <p style="margin-top:12px; color:var(--text-muted); font-size:0.9rem;">Decrypting user vault records...</p>
+        </div>
+
+        <div id="user-docs-empty" class="user-docs-empty" style="display:none;">
+          <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" style="color:var(--text-muted); margin-bottom:12px;">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+            <polyline points="14 2 14 8 20 8"></polyline>
+          </svg>
+          <h4 style="font-size:1.1rem; font-weight:700; color:var(--navy-900); margin-bottom:6px;">No Documents Uploaded Yet</h4>
+          <p style="max-width:440px; margin:0 auto 18px; font-size:0.9rem;">Upload your first document to generate a private 12-character unlock code or publish it publicly.</p>
+          <button class="btn-upload-trigger" onclick="document.getElementById('btn-open-upload').click()">
+            Upload First PDF
+          </button>
+        </div>
+
+        <div id="user-docs-table-wrap" style="display:none; overflow-x:auto;">
+          <table class="documents-table" style="width:100%;">
+            <thead>
+              <tr>
+                <th>Document Name</th>
+                <th>Visibility</th>
+                <th>Secret Unlock Code</th>
+                <th>Downloads</th>
+                <th>Uploaded</th>
+                <th style="text-align:right;">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="user-docs-tbody">
+              <!-- Dynamically populated -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </div>
+  </main>
+
+  <!-- Upload Modal -->
+  <div class="modal-overlay" id="upload-modal" role="dialog" aria-modal="true" aria-labelledby="modal-upload-title">
+    <div class="auth-card" style="max-width:540px;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+        <h3 id="modal-upload-title" style="font-size:1.3rem; font-weight:800; margin:0;">Upload PDF Document</h3>
+        <button id="btn-close-upload" style="background:none; border:none; cursor:pointer; color:var(--text-muted); padding:4px;">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
+      </div>
+
+      <div class="auth-alert" id="upload-alert"></div>
+
+      <form id="upload-form" class="auth-form">
+        <div class="auth-field">
+          <label class="auth-label" for="pdf-file-input">Select PDF Document (Max 50MB)</label>
+          <input type="file" id="pdf-file-input" accept="application/pdf" required class="auth-input" style="padding:10px 14px;">
+        </div>
+
+        <div class="auth-field">
+          <label class="auth-label" for="pdf-category-input">Category</label>
+          <select id="pdf-category-input" class="auth-input" style="padding:10px 14px;">
+            <option value="legal">Legal & Contracts</option>
+            <option value="reports">Reports & Financials</option>
+            <option value="academic">Academic & Records</option>
+            <option value="invoices">Invoices & Receipts</option>
+            <option value="general" selected>General</option>
+          </select>
+        </div>
+
+        <div class="auth-field">
+          <label class="auth-label">Visibility & Access Mode</label>
+          <div style="display:flex; gap:16px; margin-top:4px;">
+            <label style="display:flex; align-items:center; gap:8px; cursor:pointer; font-size:0.9rem;">
+              <input type="radio" name="visibility" value="private" checked>
+              <span><strong>Private</strong> (Secret Code Only)</span>
+            </label>
+            <label style="display:flex; align-items:center; gap:8px; cursor:pointer; font-size:0.9rem;">
+              <input type="radio" name="visibility" value="public">
+              <span><strong>Public</strong> (Listed in Repository)</span>
+            </label>
+          </div>
+          <p style="font-size:0.78rem; color:var(--text-muted); margin:4px 0 0;">
+            Private files can only be downloaded by entering the 12+ character secret code. You can switch this at any time.
+          </p>
+        </div>
+
+        <div class="auth-field" id="private-opts-field">
+          <label class="auth-label" for="code-expiry-input">Code Expiry & Limits (Optional)</label>
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+            <input type="number" id="code-max-downloads" class="auth-input" placeholder="Max downloads (e.g. 5)" min="1" style="padding:10px 14px;">
+            <input type="date" id="code-expiry-date" class="auth-input" style="padding:10px 14px;">
+          </div>
+        </div>
+
+        <button type="submit" class="auth-btn-submit" id="btn-submit-upload">
+          <span>Upload Document</span>
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Toast Notification Container -->
+  <div class="portal-toast-container" id="portal-toast-container"></div>
+
+  <script src="/js/futuristic.js"></script>
+  <script>
+    let currentUser = null;
+    let userDocuments = [];
+
+    // Helper: Toast
+    function showToast(msg) {
+      const container = document.getElementById('portal-toast-container');
+      if (!container) return;
+      const toast = document.createElement('div');
+      toast.className = 'portal-toast';
+      toast.innerHTML = `<span>${msg}</span>`;
+      container.appendChild(toast);
+      setTimeout(() => {
+        toast.classList.add('toast-out');
+        setTimeout(() => toast.remove(), 260);
+      }, 3000);
+    }
+
+    // 1. Check Auth Status on Load
+    async function checkAuth() {
+      try {
+        const res = await fetch('/api/auth/me');
+        const data = await res.json();
+        if (!data.loggedIn) {
+          window.location.href = '/login';
+          return;
+        }
+        currentUser = data.user;
+        document.getElementById('user-email-display').textContent = currentUser.email;
+        document.getElementById('user-avatar').textContent = currentUser.email.charAt(0).toUpperCase();
+        loadUserDocuments();
+      } catch (e) {
+        window.location.href = '/login';
+      }
+    }
+
+    // 2. Load User Documents
+    async function loadUserDocuments() {
+      const loading = document.getElementById('user-docs-loading');
+      const empty = document.getElementById('user-docs-empty');
+      const tableWrap = document.getElementById('user-docs-table-wrap');
+      const tbody = document.getElementById('user-docs-tbody');
+
+      loading.style.display = 'block';
+      empty.style.display = 'none';
+      tableWrap.style.display = 'none';
+
+      try {
+        const res = await fetch('/api/user/documents');
+        const data = await res.json();
+        userDocuments = data.documents || [];
+
+        loading.style.display = 'none';
+        if (userDocuments.length === 0) {
+          empty.style.display = 'block';
+          return;
+        }
+
+        tableWrap.style.display = 'block';
+        tbody.innerHTML = '';
+
+        userDocuments.forEach(doc => {
+          const tr = document.createElement('tr');
+          const isPrivate = doc.visibility !== 'public';
+          const codeDisplay = doc.secretCode ? `
+            <div style="display:flex; align-items:center; gap:6px;">
+              <span class="code-badge">${doc.secretCode}</span>
+              <button class="btn-action-sm" onclick="copyCode('${doc.secretCode}')" title="Copy Secret Code">Copy</button>
+            </div>
+          ` : `<span style="color:var(--text-muted); font-size:0.85rem;">None (Public)</span>`;
+
+          tr.innerHTML = `
+            <td>
+              <div style="font-weight:600; color:var(--navy-950);">${escapeHtml(doc.originalName)}</div>
+              <div style="font-size:0.75rem; color:var(--text-muted);">${formatSize(doc.size)} &bull; ${doc.category || 'General'}</div>
+            </td>
+            <td>
+              <span class="visibility-pill ${isPrivate ? 'private' : 'public'}">
+                ${isPrivate ? 'Private' : 'Public'}
+              </span>
+            </td>
+            <td>${codeDisplay}</td>
+            <td><strong style="color:var(--navy-900);">${doc.downloads || 0}</strong></td>
+            <td style="font-size:0.82rem; color:var(--text-muted);">${new Date(doc.uploadedAt).toLocaleDateString()}</td>
+            <td style="text-align:right;">
+              <div style="display:flex; justify-content:flex-end; gap:6px;">
+                <button class="btn-action-sm" onclick="toggleVisibility('${doc.id}', '${isPrivate ? 'public' : 'private'}')">
+                  ${isPrivate ? 'Make Public' : 'Make Private'}
+                </button>
+                ${isPrivate ? `
+                  <button class="btn-action-sm" onclick="regenerateCode('${doc.id}')" title="Generate New Secret Code">
+                    Regen Code
+                  </button>
+                ` : ''}
+                <button class="btn-action-sm" style="color:#ef4444;" onclick="deleteDoc('${doc.id}')" title="Delete file">
+                  Delete
+                </button>
+              </div>
+            </td>
+          `;
+          tbody.appendChild(tr);
+        });
+      } catch (e) {
+        loading.style.display = 'none';
+        empty.style.display = 'block';
+      }
+    }
+
+    function formatSize(bytes) {
+      if (!bytes) return '0 B';
+      const k = 1024;
+      const s = ['B', 'KB', 'MB', 'GB'];
+      const i = Math.floor(Math.log(bytes) / Math.log(k));
+      return (bytes / Math.pow(k, i)).toFixed(1) + ' ' + s[i];
+    }
+
+    function escapeHtml(str) {
+      const d = document.createElement('div');
+      d.textContent = str || '';
+      return d.innerHTML;
+    }
+
+    function copyCode(code) {
+      navigator.clipboard.writeText(code);
+      showToast(`Copied secret code: ${code}`);
+    }
+
+    // Toggle Public/Private
+    async function toggleVisibility(docId, newVisibility) {
+      try {
+        const res = await fetch(`/api/user/documents/${docId}/visibility`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ visibility: newVisibility })
+        });
+        const data = await res.json();
+        if (res.ok) {
+          showToast(`Document visibility set to ${newVisibility}.`);
+          loadUserDocuments();
+        } else {
+          alert(data.error || 'Failed to update visibility.');
+        }
+      } catch (e) {
+        alert('Network error.');
+      }
+    }
+
+    // Regenerate Code
+    async function regenerateCode(docId) {
+      if (!confirm('Generating a new secret code will invalidate the previous code. Continue?')) return;
+      try {
+        const res = await fetch(`/api/user/documents/${docId}/regenerate-code`, {
+          method: 'POST'
+        });
+        const data = await res.json();
+        if (res.ok) {
+          showToast(`New code: ${data.secretCode}`);
+          loadUserDocuments();
+        } else {
+          alert(data.error || 'Failed to regenerate code.');
+        }
+      } catch (e) {
+        alert('Network error.');
+      }
+    }
+
+    // Delete Document
+    async function deleteDoc(docId) {
+      if (!confirm('Are you sure you want to permanently delete this document?')) return;
+      try {
+        const res = await fetch(`/api/user/documents/${docId}`, {
+          method: 'DELETE'
+        });
+        const data = await res.json();
+        if (res.ok) {
+          showToast('Document deleted.');
+          loadUserDocuments();
+        } else {
+          alert(data.error || 'Failed to delete document.');
+        }
+      } catch (e) {
+        alert('Network error.');
+      }
+    }
+
+    // 3. Upload Modal Controls
+    const uploadModal = document.getElementById('upload-modal');
+    document.getElementById('btn-open-upload').addEventListener('click', () => {
+      uploadModal.classList.add('active');
+    });
+    document.getElementById('btn-close-upload').addEventListener('click', () => {
+      uploadModal.classList.remove('active');
+    });
+
+    document.getElementById('upload-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const fileInput = document.getElementById('pdf-file-input');
+      const category = document.getElementById('pdf-category-input').value;
+      const visibility = document.querySelector('input[name="visibility"]:checked').value;
+      const maxDownloads = document.getElementById('code-max-downloads').value;
+      const expiryDate = document.getElementById('code-expiry-date').value;
+      const alertBox = document.getElementById('upload-alert');
+      const btnSubmit = document.getElementById('btn-submit-upload');
+
+      if (!fileInput.files || !fileInput.files[0]) {
+        alert('Please choose a PDF file.');
+        return;
+      }
+
+      const file = fileInput.files[0];
+      if (file.type !== 'application/pdf' && !file.name.toLowerCase().endsWith('.pdf')) {
+        alert('Only PDF files are supported.');
+        return;
+      }
+
+      btnSubmit.disabled = true;
+      btnSubmit.innerHTML = '<span>Uploading and encrypting...</span>';
+      alertBox.style.display = 'none';
+
+      const formData = new FormData();
+      formData.append('pdf', file);
+      formData.append('category', category);
+      formData.append('visibility', visibility);
+      if (maxDownloads) formData.append('maxDownloads', maxDownloads);
+      if (expiryDate) formData.append('expiryDate', expiryDate);
+
+      try {
+        const res = await fetch('/api/user/upload', {
+          method: 'POST',
+          body: formData
+        });
+        const data = await res.json();
+
+        if (res.ok) {
+          showToast('File uploaded successfully!');
+          uploadModal.classList.remove('active');
+          document.getElementById('upload-form').reset();
+          if (data.secretCode) {
+            alert(`Document uploaded! Your private unlock code is:\n\n${data.secretCode}\n\nKeep this code safe to share this document.`);
+          }
+          loadUserDocuments();
+        } else {
+          alertBox.className = 'auth-alert error';
+          alertBox.textContent = data.error || 'Upload failed.';
+          alertBox.style.display = 'flex';
+        }
+      } catch (err) {
+        alertBox.className = 'auth-alert error';
+        alertBox.textContent = 'Upload network error.';
+        alertBox.style.display = 'flex';
+      } finally {
+        btnSubmit.disabled = false;
+        btnSubmit.innerHTML = '<span>Upload Document</span>';
+      }
+    });
+
+    // 4. Logout
+    document.getElementById('btn-logout-nav').addEventListener('click', async () => {
+      await fetch('/api/auth/logout', { method: 'POST' });
+      window.location.href = '/login';
+    });
+
+    document.getElementById('btn-refresh-docs').addEventListener('click', () => {
+      loadUserDocuments();
+      showToast('Document list refreshed.');
+    });
+
+    checkAuth();
+  </script>
+  <script src="/js/chatbot.js"></script>
+</body>
+</html>

@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Email Verification — Vault PDF Portal</title>
+  <meta name="description" content="Verify your Vault PDF Portal account email.">
+  <link rel="canonical" href="https://vault-pdf-portal.onrender.com/verify-email">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/about.css">
+  <link rel="stylesheet" href="/css/futuristic.css">
+  <link rel="stylesheet" href="/css/auth.css">
+</head>
+<body>
+
+  <!-- Ambient Light Accents -->
+  <div class="bg-ambient" aria-hidden="true">
+    <div class="ambient-orb orb-1"></div>
+    <div class="ambient-orb orb-2"></div>
+  </div>
+
+  <main class="auth-page-wrapper">
+    <div class="auth-card" style="text-align: center;">
+      <div class="auth-icon-badge" id="status-icon">
+        <div class="loader-dual" id="spinner"></div>
+      </div>
+
+      <h1 class="auth-title" id="verify-title">Verifying Email...</h1>
+      <p class="auth-subtitle" id="verify-desc">Please wait while we validate your activation token against the quantum vault registry.</p>
+
+      <div class="auth-alert" id="auth-alert"></div>
+
+      <div style="margin-top: 24px;" id="action-area">
+        <a href="/login" class="auth-btn-submit" id="btn-login" style="display: none; text-decoration: none;">
+          <span>Proceed to Sign In</span>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+            <path d="M5 12h14"></path>
+            <path d="m12 5 7 7-7 7"></path>
+          </svg>
+        </a>
+      </div>
+    </div>
+  </main>
+
+  <script src="/js/futuristic.js"></script>
+  <script>
+    (async function() {
+      const urlParams = new URLSearchParams(window.location.search);
+      const token = urlParams.get('token');
+      const icon = document.getElementById('status-icon');
+      const title = document.getElementById('verify-title');
+      const desc = document.getElementById('verify-desc');
+      const alertBox = document.getElementById('auth-alert');
+      const btnLogin = document.getElementById('btn-login');
+
+      if (!token) {
+        icon.innerHTML = '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="15" y1="9" x2="9" y2="15"></line><line x1="9" y1="9" x2="15" y2="15"></line></svg>';
+        title.textContent = 'Missing Token';
+        desc.textContent = 'No verification token was provided in the request link.';
+        alertBox.className = 'auth-alert error';
+        alertBox.textContent = 'Please check the link in your email or register again.';
+        alertBox.style.display = 'flex';
+        btnLogin.style.display = 'inline-flex';
+        return;
+      }
+
+      try {
+        const res = await fetch(`/api/auth/verify-email?token=${encodeURIComponent(token)}`);
+        const data = await res.json();
+
+        if (res.ok) {
+          icon.innerHTML = '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>';
+          title.textContent = 'Email Verified!';
+          desc.textContent = 'Your account has been fully verified. You can now access your private vault documents.';
+          alertBox.className = 'auth-alert success';
+          alertBox.textContent = data.message || 'Verification complete.';
+          alertBox.style.display = 'flex';
+          btnLogin.style.display = 'inline-flex';
+        } else {
+          icon.innerHTML = '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="15" y1="9" x2="9" y2="15"></line><line x1="9" y1="9" x2="15" y2="15"></line></svg>';
+          title.textContent = 'Verification Failed';
+          desc.textContent = data.error || 'The verification link is invalid or has expired.';
+          alertBox.className = 'auth-alert error';
+          alertBox.textContent = data.error;
+          alertBox.style.display = 'flex';
+          btnLogin.style.display = 'inline-flex';
+        }
+      } catch (err) {
+        icon.innerHTML = '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>';
+        title.textContent = 'Network Error';
+        desc.textContent = 'Could not contact server to complete verification.';
+        btnLogin.style.display = 'inline-flex';
+      }
+    })();
+  </script>
+</body>
+</html>

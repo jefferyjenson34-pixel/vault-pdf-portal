@@ -47,6 +47,8 @@
 
   <!-- Dedicated Stylesheet -->
   <link rel="stylesheet" href="/css/about.css">
+  <!-- Floating AI Assistant Chatbot Stylesheet -->
+  <link rel="stylesheet" href="/css/chatbot.css">
 </head>
 <body>
 
@@ -76,8 +78,10 @@
         <nav class="nav-menu" id="nav-menu" aria-label="Main Navigation">
           <a href="/" class="nav-link">Home</a>
           <a href="/#documents" class="nav-link">Documents</a>
+          <a href="/unlock" class="nav-link">Unlock PDF</a>
           <a href="/about" class="nav-link active" aria-current="page">About</a>
           <a href="/contact" class="nav-link">Contact</a>
+          <a href="/dashboard" class="nav-link">Dashboard</a>
           <a href="/secret" class="nav-link nav-link-secret">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
               <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
@@ -89,6 +93,9 @@
 
         <!-- Right Side Nav Actions -->
         <div class="nav-actions">
+          <a href="/login" class="btn-nav-cta" style="background:var(--bg-glass-strong); border:1px solid var(--border-medium); color:var(--text-primary);">
+            <span>Sign In</span>
+          </a>
           <a href="/#documents" class="btn-nav-cta">
             <span>Explore Documents</span>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
@@ -174,7 +181,7 @@
                     <polyline points="20 6 9 17 4 12"></polyline>
                   </svg>
                 </span>
-                <span>Zero Data Tracking</span>
+                <span>Transparent Security Logging</span>
               </div>
             </div>
           </div>
@@ -290,9 +297,9 @@
                 <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
               </svg>
             </div>
-            <h3 class="trust-card-title">Absolute Privacy</h3>
+            <h3 class="trust-card-title">Document Privacy</h3>
             <p class="trust-card-desc">
-              Your files belong solely to you. We enforce rigorous isolation and zero unauthorized tracking, data harvesting, or ad-targeting on your stored documents.
+              Your files belong solely to you. We log essential network request telemetry (IP address, timestamps, and page requests) strictly for security auditing, rate limiting, and abuse prevention, with zero ad-targeting or third-party data selling.
             </p>
           </div>
 
@@ -762,5 +769,6 @@
 
   <!-- Scripts -->
   <script src="/js/about.js"></script>
+  <script src="/js/chatbot.js"></script>
 </body>
 </html>

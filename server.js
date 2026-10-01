@@ -3,15 +3,17 @@ const multer = require('multer');
 const crypto = require('crypto');
 const path = require('path');
 const fs = require('fs');
+const bcrypt = require('bcryptjs');
+const cookieParser = require('cookie-parser');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// ─── Admin Credentials (single user, no database) ──────────────────
+// ─── Admin Credentials (single user, completely separate from user accounts) ─
 const ADMIN_USERNAME = 'halimon';
 const ADMIN_PASSWORD = 'halimon@2011';
 
-// ─── Active sessions (in-memory) ────────────────────────────────────
+// ─── Active admin sessions (in-memory) ──────────────────────────────
 const activeSessions = new Map(); // token -> { createdAt }
 const SESSION_MAX_AGE = 24 * 60 * 60 * 1000; // 24 hours
 
@@ -24,13 +26,25 @@ const DOWNLOADS_FILE = path.join(DATA_DIR, 'downloads.json');
 const CATEGORIES_FILE = path.join(DATA_DIR, 'categories.json');
 const UPLOADS_DIR = path.join(PUBLIC_DIR, 'uploads');
 
+// Phase 1, 2, 3 User & Security Data Paths
+const USERS_FILE = path.join(DATA_DIR, 'users.json');
+const USER_SESSIONS_FILE = path.join(DATA_DIR, 'user_sessions.json');
+const USER_DOCUMENTS_FILE = path.join(DATA_DIR, 'user_documents.json');
+const PRIVATE_UPLOADS_DIR = path.join(DATA_DIR, 'private_uploads');
+const REPORTS_FILE = path.join(DATA_DIR, 'reports.json');
+
 // Ensure directories exist
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
 if (!fs.existsSync(UPLOADS_DIR)) fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+if (!fs.existsSync(PRIVATE_UPLOADS_DIR)) fs.mkdirSync(PRIVATE_UPLOADS_DIR, { recursive: true });
 if (!fs.existsSync(VISITORS_FILE)) fs.writeFileSync(VISITORS_FILE, JSON.stringify([], null, 2));
 if (!fs.existsSync(CONTACTS_FILE)) fs.writeFileSync(CONTACTS_FILE, JSON.stringify([], null, 2));
 if (!fs.existsSync(DOWNLOADS_FILE)) fs.writeFileSync(DOWNLOADS_FILE, JSON.stringify({}, null, 2));
 if (!fs.existsSync(CATEGORIES_FILE)) fs.writeFileSync(CATEGORIES_FILE, JSON.stringify({}, null, 2));
+if (!fs.existsSync(USERS_FILE)) fs.writeFileSync(USERS_FILE, JSON.stringify([], null, 2));
+if (!fs.existsSync(USER_SESSIONS_FILE)) fs.writeFileSync(USER_SESSIONS_FILE, JSON.stringify({}, null, 2));
+if (!fs.existsSync(USER_DOCUMENTS_FILE)) fs.writeFileSync(USER_DOCUMENTS_FILE, JSON.stringify([], null, 2));
+if (!fs.existsSync(REPORTS_FILE)) fs.writeFileSync(REPORTS_FILE, JSON.stringify([], null, 2));
 
 // Multer config for PDF uploads
 const storage = multer.diskStorage({
@@ -57,6 +71,24 @@ const soundStorage = multer.diskStorage({
 const uploadSound = multer({
   storage: soundStorage,
   limits: { fileSize: 30 * 1024 * 1024 } // 30MB
+});
+
+// Multer config for User Private PDF uploads (stored in data/private_uploads outside public web root)
+const privateStorage = multer.diskStorage({
+  destination: (req, file, cb) => cb(null, PRIVATE_UPLOADS_DIR),
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+    const safeName = file.originalname.replace(/[^a-zA-Z0-9._-]/g, '_');
+    cb(null, 'priv-' + uniqueSuffix + '-' + safeName);
+  }
+});
+const uploadPrivate = multer({
+  storage: privateStorage,
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype === 'application/pdf') cb(null, true);
+    else cb(new Error('Only PDF files are allowed'), false);
+  },
+  limits: { fileSize: 50 * 1024 * 1024 } // 50MB
 });
 
 // ─── Disable technology fingerprinting (Express / X-Powered-By) ─────
@@ -130,6 +162,27 @@ app.get('/admin.html', (req, res) => {
 app.get('/secret.html', (req, res) => {
   res.redirect(301, '/secret');
 });
+app.get('/register.html', (req, res) => {
+  res.redirect(301, '/register');
+});
+app.get('/login.html', (req, res) => {
+  res.redirect(301, '/login');
+});
+app.get('/dashboard.html', (req, res) => {
+  res.redirect(301, '/dashboard');
+});
+app.get('/unlock.html', (req, res) => {
+  res.redirect(301, '/unlock');
+});
+app.get('/forgot-password.html', (req, res) => {
+  res.redirect(301, '/forgot-password');
+});
+app.get('/reset-password.html', (req, res) => {
+  res.redirect(301, '/reset-password');
+});
+app.get('/verify-email.html', (req, res) => {
+  res.redirect(301, '/verify-email');
+});
 
 // ─── API: System Telemetry & Quantum Health Monitor ─────────────────
 app.get('/api/health', (req, res) => {
@@ -147,8 +200,10 @@ app.get('/api/health', (req, res) => {
   });
 });
 
-// Body parser & static assets (with dotfiles allowed for .well-known)
+// Body parser, cookies & static assets (with dotfiles allowed for .well-known)
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+app.use(cookieParser());
 app.use(express.static(path.join(__dirname, 'public'), { dotfiles: 'allow' }));
 
 // ─── Auth helpers ───────────────────────────────────────────────────
@@ -231,6 +286,87 @@ function writeCategories(categories) {
   fs.writeFileSync(CATEGORIES_FILE, JSON.stringify(categories, null, 2));
 }
 
+// ─── Phase 1, 2, 3 Data Helpers ─────────────────────────────────────
+function readUsers() {
+  try { return JSON.parse(fs.readFileSync(USERS_FILE, 'utf-8')); } catch { return []; }
+}
+function writeUsers(users) {
+  fs.writeFileSync(USERS_FILE, JSON.stringify(users, null, 2));
+}
+
+function readUserSessions() {
+  try { return JSON.parse(fs.readFileSync(USER_SESSIONS_FILE, 'utf-8')); } catch { return {}; }
+}
+function writeUserSessions(sessions) {
+  fs.writeFileSync(USER_SESSIONS_FILE, JSON.stringify(sessions, null, 2));
+}
+
+function readUserDocuments() {
+  try { return JSON.parse(fs.readFileSync(USER_DOCUMENTS_FILE, 'utf-8')); } catch { return []; }
+}
+function writeUserDocuments(docs) {
+  fs.writeFileSync(USER_DOCUMENTS_FILE, JSON.stringify(docs, null, 2));
+}
+
+function readReports() {
+  try { return JSON.parse(fs.readFileSync(REPORTS_FILE, 'utf-8')); } catch { return []; }
+}
+function writeReports(reports) {
+  fs.writeFileSync(REPORTS_FILE, JSON.stringify(reports, null, 2));
+}
+
+// ─── User Authentication & Session Helpers ───────────────────────────
+function getUserSession(req) {
+  const token = req.cookies?.vault_user_session;
+  if (!token) return null;
+  const sessions = readUserSessions();
+  const session = sessions[token];
+  if (!session) return null;
+  if (Date.now() - session.createdAt > 7 * 24 * 60 * 60 * 1000) {
+    delete sessions[token];
+    writeUserSessions(sessions);
+    return null;
+  }
+  return session;
+}
+
+function requireUser(req, res, next) {
+  const session = getUserSession(req);
+  if (!session) {
+    return res.status(401).json({ error: 'Authentication required. Please sign in.' });
+  }
+  req.user = session;
+  next();
+}
+
+// ─── Secret Code Generation & Salted Hash (Stored HASHED ONLY) ───────
+const CODE_SALT = 'vault_sec_k9x21_v2_entropy_salt!';
+function normalizeCode(code) {
+  return String(code || '').replace(/[\s-]/g, '').toUpperCase();
+}
+function hashCode(code) {
+  return crypto.createHash('sha256').update(normalizeCode(code) + CODE_SALT).digest('hex');
+}
+function generateSecretCode() {
+  const chars = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ';
+  const bytes = crypto.randomBytes(16);
+  let code = '';
+  for (let i = 0; i < 16; i++) {
+    if (i > 0 && i % 4 === 0) code += '-';
+    code += chars[bytes[i] % chars.length];
+  }
+  return code;
+}
+
+// ─── Short-lived Download Tokens (In-Memory, Single-use) ────────────
+const downloadTokens = new Map(); // token -> { docId, filename, originalName, expiresAt }
+setInterval(() => {
+  const now = Date.now();
+  for (const [token, data] of downloadTokens) {
+    if (now > data.expiresAt) downloadTokens.delete(token);
+  }
+}, 5 * 60 * 1000);
+
 // ─── Brute-force Login Protection & Rate Limiting ───────────────────
 const loginAttempts = new Map(); // ip -> { count, firstAttempt, lockedUntil }
 const MAX_LOGIN_ATTEMPTS = 5;
@@ -263,6 +399,85 @@ function recordFailedLogin(ip) {
 
 function clearLoginAttempts(ip) {
   loginAttempts.delete(ip);
+}
+
+// User Portal Login Rate Limiting
+const userLoginAttempts = new Map(); // ip -> { count, firstAttempt, lockedUntil }
+function checkUserLoginRateLimit(ip) {
+  const now = Date.now();
+  const record = userLoginAttempts.get(ip);
+  if (!record) return { allowed: true };
+  if (record.lockedUntil && now < record.lockedUntil) {
+    const remainingMins = Math.ceil((record.lockedUntil - now) / 60000);
+    return { allowed: false, remainingMins };
+  }
+  if (now - record.firstAttempt > LOCKOUT_TIME) {
+    userLoginAttempts.delete(ip);
+    return { allowed: true };
+  }
+  return { allowed: true };
+}
+function recordUserFailedLogin(ip) {
+  const now = Date.now();
+  const record = userLoginAttempts.get(ip) || { count: 0, firstAttempt: now };
+  record.count += 1;
+  if (record.count >= MAX_LOGIN_ATTEMPTS) {
+    record.lockedUntil = now + LOCKOUT_TIME;
+  }
+  userLoginAttempts.set(ip, record);
+}
+function clearUserLoginAttempts(ip) {
+  userLoginAttempts.delete(ip);
+}
+
+// Unlock Secret Code Rate Limiting (5 failures = 15m lockout)
+const unlockAttempts = new Map(); // ip -> { count, firstAttempt, lockedUntil }
+function checkUnlockRateLimit(ip) {
+  const now = Date.now();
+  const record = unlockAttempts.get(ip);
+  if (!record) return { allowed: true };
+  if (record.lockedUntil && now < record.lockedUntil) {
+    const remainingMins = Math.ceil((record.lockedUntil - now) / 60000);
+    return { allowed: false, remainingMins };
+  }
+  if (now - record.firstAttempt > LOCKOUT_TIME) {
+    unlockAttempts.delete(ip);
+    return { allowed: true };
+  }
+  return { allowed: true };
+}
+function recordUnlockFailed(ip) {
+  const now = Date.now();
+  const record = unlockAttempts.get(ip) || { count: 0, firstAttempt: now };
+  record.count += 1;
+  if (record.count >= 5) {
+    record.lockedUntil = now + LOCKOUT_TIME;
+  }
+  unlockAttempts.set(ip, record);
+}
+function clearUnlockAttempts(ip) {
+  unlockAttempts.delete(ip);
+}
+
+// Chatbot Message Cap per IP (20 per hour)
+const chatRateLimits = new Map(); // ip -> { count, resetAt }
+const CHAT_MSG_CAP_PER_HOUR = 20;
+function checkChatCap(ip) {
+  const now = Date.now();
+  let record = chatRateLimits.get(ip);
+  if (!record || now > record.resetAt) {
+    record = { count: 0, resetAt: now + 60 * 60 * 1000 };
+    chatRateLimits.set(ip, record);
+  }
+  if (record.count >= CHAT_MSG_CAP_PER_HOUR) {
+    const remainingMins = Math.ceil((record.resetAt - now) / 60000);
+    return { allowed: false, remainingMins, remaining: 0 };
+  }
+  return { allowed: true, remaining: CHAT_MSG_CAP_PER_HOUR - record.count };
+}
+function recordChatMessage(ip) {
+  const record = chatRateLimits.get(ip);
+  if (record) record.count += 1;
 }
 
 function timingSafeMatch(provided, expected) {
@@ -385,27 +600,83 @@ app.get('/api/sound-status', (req, res) => {
   res.json({ exists, path: exists ? '/sound.mp3' : null });
 });
 
+// Helper: Locate PDF file across admin uploads and user private uploads
+function locatePdfFile(identifier) {
+  // 1. Check in UPLOADS_DIR (admin files)
+  const adminPath = path.join(UPLOADS_DIR, identifier);
+  if (fs.existsSync(adminPath)) {
+    const originalName = identifier.replace(/^\d+-\d+-/, '');
+    const stat = fs.statSync(adminPath);
+    return {
+      filePath: adminPath,
+      originalName,
+      size: stat.size,
+      isUserDoc: false,
+      isPublic: true
+    };
+  }
+
+  // 2. Check in PRIVATE_UPLOADS_DIR (user files)
+  const userDocs = readUserDocuments();
+  const doc = userDocs.find(d => d.storedFilename === identifier || d.id === identifier);
+  if (doc) {
+    const privPath = path.join(PRIVATE_UPLOADS_DIR, doc.storedFilename);
+    if (fs.existsSync(privPath)) {
+      const stat = fs.statSync(privPath);
+      return {
+        filePath: privPath,
+        originalName: doc.originalName,
+        size: stat.size,
+        isUserDoc: true,
+        userDoc: doc,
+        isPublic: doc.visibility === 'public' && doc.status !== 'unshared'
+      };
+    }
+  }
+
+  return null;
+}
+
 // ─── API: List PDFs (public, enriched with downloads & categories) ──
 app.get('/api/pdfs', (req, res) => {
   try {
     const downloads = readDownloads();
     const categories = readCategories();
-    const files = fs.readdirSync(UPLOADS_DIR)
+
+    // 1. Files uploaded via admin panel
+    const adminFiles = fs.readdirSync(UPLOADS_DIR)
       .filter(f => f.endsWith('.pdf'))
       .map(filename => {
         const stats = fs.statSync(path.join(UPLOADS_DIR, filename));
         const originalName = filename.replace(/^\d+-\d+-/, '');
         return {
+          id: filename,
           filename,
           originalName,
           size: stats.size,
           uploadedAt: stats.mtime.toISOString(),
           downloads: downloads[filename] || 0,
-          category: categories[filename] || 'uncategorized'
+          category: categories[filename] || 'uncategorized',
+          isUserDoc: false
         };
-      })
-      .sort((a, b) => new Date(b.uploadedAt) - new Date(a.uploadedAt));
-    res.json(files);
+      });
+
+    // 2. User files that have been marked PUBLIC
+    const userDocs = readUserDocuments()
+      .filter(doc => doc.visibility === 'public' && doc.status !== 'unshared')
+      .map(doc => ({
+        id: doc.id,
+        filename: doc.storedFilename,
+        originalName: doc.originalName,
+        size: doc.size,
+        uploadedAt: doc.uploadedAt,
+        downloads: doc.downloads || 0,
+        category: doc.category || 'general',
+        isUserDoc: true
+      }));
+
+    const allFiles = [...adminFiles, ...userDocs].sort((a, b) => new Date(b.uploadedAt) - new Date(a.uploadedAt));
+    res.json(allFiles);
   } catch {
     res.json([]);
   }
@@ -413,46 +684,65 @@ app.get('/api/pdfs', (req, res) => {
 
 // ─── API: Delete PDF (admin, PROTECTED) ─────────────────────────────
 app.delete('/api/pdfs/:filename', requireAdmin, (req, res) => {
-  const filePath = path.join(UPLOADS_DIR, req.params.filename);
-  if (fs.existsSync(filePath)) {
-    fs.unlinkSync(filePath);
-    res.json({ success: true });
-  } else {
-    res.status(404).json({ error: 'File not found' });
+  const fileInfo = locatePdfFile(req.params.filename);
+  if (!fileInfo) {
+    return res.status(404).json({ error: 'File not found' });
   }
+
+  if (fileInfo.isUserDoc) {
+    let docs = readUserDocuments();
+    docs = docs.filter(d => d.id !== fileInfo.userDoc.id && d.storedFilename !== req.params.filename);
+    writeUserDocuments(docs);
+  }
+
+  if (fs.existsSync(fileInfo.filePath)) {
+    fs.unlinkSync(fileInfo.filePath);
+  }
+  res.json({ success: true });
 });
 
 // ─── API: Download PDF (public, logs IP, tracks count) ──────────────
 app.get('/api/download/:filename', (req, res) => {
-  const filePath = path.join(UPLOADS_DIR, req.params.filename);
-  if (fs.existsSync(filePath)) {
-    const ip = getVisitorIP(req);
-    const visitors = readVisitors();
-    visitors.push({
-      ip,
-      userAgent: req.headers['user-agent'] || 'Unknown',
-      timestamp: new Date().toISOString(),
-      page: 'Download: ' + req.params.filename.replace(/^\d+-\d+-/, '')
-    });
-    writeVisitors(visitors);
+  const fileInfo = locatePdfFile(req.params.filename);
+  if (!fileInfo) {
+    return res.status(404).json({ error: 'File not found' });
+  }
 
-    // Increment download counter
+  // If it's a private user document, require secret unlock code
+  if (fileInfo.isUserDoc && !fileInfo.isPublic) {
+    return res.status(403).json({ error: 'Document is private. Unlock code required.' });
+  }
+
+  const ip = getVisitorIP(req);
+  const visitors = readVisitors();
+  visitors.push({
+    ip,
+    userAgent: req.headers['user-agent'] || 'Unknown',
+    timestamp: new Date().toISOString(),
+    page: 'Download: ' + fileInfo.originalName
+  });
+  writeVisitors(visitors);
+
+  // Increment download counter
+  if (fileInfo.isUserDoc) {
+    const userDocs = readUserDocuments();
+    const d = userDocs.find(x => x.id === fileInfo.userDoc.id);
+    if (d) {
+      d.downloads = (d.downloads || 0) + 1;
+      writeUserDocuments(userDocs);
+    }
+  } else {
     const downloads = readDownloads();
     downloads[req.params.filename] = (downloads[req.params.filename] || 0) + 1;
     writeDownloads(downloads);
-
-    const originalName = req.params.filename.replace(/^\d+-\d+-/, '');
-    const stat = fs.statSync(filePath);
-
-    res.set({
-      'Content-Type': 'application/pdf',
-      'Content-Disposition': `attachment; filename="${encodeURIComponent(originalName)}"`,
-      'Content-Length': stat.size
-    });
-    fs.createReadStream(filePath).pipe(res);
-  } else {
-    res.status(404).json({ error: 'File not found' });
   }
+
+  res.set({
+    'Content-Type': 'application/pdf',
+    'Content-Disposition': `attachment; filename="${encodeURIComponent(fileInfo.originalName)}"`,
+    'Content-Length': fileInfo.size
+  });
+  fs.createReadStream(fileInfo.filePath).pipe(res);
 });
 
 // ─── Serve RFC 9116 security.txt ───────────────────────────────────
@@ -470,7 +760,6 @@ app.get(['/.well-known/security.txt', '/security.txt'], (req, res) => {
   res.send(SECURITY_TXT_CONTENT);
 });
 
-
 // ─── Serve Clean Semantic Pages (Direct 200 OK) ─────────────────────
 app.get('/about', (req, res) => {
   res.sendFile('about.html', { root: PUBLIC_DIR });
@@ -486,6 +775,34 @@ app.get('/admin', (req, res) => {
 
 app.get('/secret', (req, res) => {
   res.sendFile('secret.html', { root: PUBLIC_DIR });
+});
+
+app.get('/register', (req, res) => {
+  res.sendFile('register.html', { root: PUBLIC_DIR });
+});
+
+app.get('/login', (req, res) => {
+  res.sendFile('login.html', { root: PUBLIC_DIR });
+});
+
+app.get('/dashboard', (req, res) => {
+  res.sendFile('dashboard.html', { root: PUBLIC_DIR });
+});
+
+app.get('/unlock', (req, res) => {
+  res.sendFile('unlock.html', { root: PUBLIC_DIR });
+});
+
+app.get('/forgot-password', (req, res) => {
+  res.sendFile('forgot-password.html', { root: PUBLIC_DIR });
+});
+
+app.get('/reset-password', (req, res) => {
+  res.sendFile('reset-password.html', { root: PUBLIC_DIR });
+});
+
+app.get('/verify-email', (req, res) => {
+  res.sendFile('verify-email.html', { root: PUBLIC_DIR });
 });
 
 // ─── API: Submit Contact Message (public) ───────────────────────────
@@ -597,18 +914,699 @@ app.get('/api/stats', requireAdmin, (req, res) => {
 
 // ─── API: Preview PDF (public, serves PDF inline) ───────────────────
 app.get('/api/preview/:filename', (req, res) => {
-  const filePath = path.join(UPLOADS_DIR, req.params.filename);
-  if (fs.existsSync(filePath)) {
-    const stat = fs.statSync(filePath);
-    res.set({
-      'Content-Type': 'application/pdf',
-      'Content-Disposition': 'inline',
-      'Content-Length': stat.size
-    });
-    fs.createReadStream(filePath).pipe(res);
-  } else {
-    res.status(404).json({ error: 'File not found' });
+  const fileInfo = locatePdfFile(req.params.filename);
+  if (!fileInfo) {
+    return res.status(404).json({ error: 'File not found' });
   }
+
+  if (fileInfo.isUserDoc && !fileInfo.isPublic) {
+    return res.status(403).json({ error: 'Document is private. Secret unlock code required.' });
+  }
+
+  res.set({
+    'Content-Type': 'application/pdf',
+    'Content-Disposition': 'inline',
+    'Content-Length': fileInfo.size
+  });
+  fs.createReadStream(fileInfo.filePath).pipe(res);
+});
+
+// ═════════════════════════════════════════════════════════════════════
+// ─── PHASE 1: User Authentication Endpoints ─────────────────────────
+// ═════════════════════════════════════════════════════════════════════
+
+// POST /api/auth/register
+app.post('/api/auth/register', (req, res) => {
+  const { email, password } = req.body || {};
+  if (!email || !password) {
+    return res.status(400).json({ error: 'Email and password are required.' });
+  }
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(email.trim())) {
+    return res.status(400).json({ error: 'Invalid email address format.' });
+  }
+  if (password.length < 8) {
+    return res.status(400).json({ error: 'Password must be at least 8 characters long.' });
+  }
+
+  const users = readUsers();
+  const normalizedEmail = email.trim().toLowerCase();
+  if (users.some(u => u.email.toLowerCase() === normalizedEmail)) {
+    return res.status(400).json({ error: 'An account with this email already exists.' });
+  }
+
+  const salt = bcrypt.genSaltSync(10);
+  const passwordHash = bcrypt.hashSync(password, salt);
+  const verificationToken = crypto.randomBytes(32).toString('hex');
+
+  const newUser = {
+    id: 'usr_' + crypto.randomBytes(12).toString('hex'),
+    email: normalizedEmail,
+    passwordHash,
+    verified: false,
+    verificationToken,
+    verificationTokenExpires: Date.now() + 24 * 60 * 60 * 1000,
+    createdAt: new Date().toISOString()
+  };
+
+  users.push(newUser);
+  writeUsers(users);
+
+  res.json({
+    success: true,
+    message: 'Account registered successfully. Please verify your email to activate your account.',
+    verifyLink: `/verify-email?token=${verificationToken}`
+  });
+});
+
+// GET /api/auth/verify-email
+app.get('/api/auth/verify-email', (req, res) => {
+  const token = req.query.token;
+  if (!token) {
+    return res.status(400).json({ error: 'Verification token is required.' });
+  }
+
+  const users = readUsers();
+  const user = users.find(u => u.verificationToken === token);
+  if (!user) {
+    return res.status(400).json({ error: 'Invalid verification token.' });
+  }
+  if (user.verificationTokenExpires && Date.now() > user.verificationTokenExpires) {
+    return res.status(400).json({ error: 'Verification token has expired. Please sign in to request a new link.' });
+  }
+
+  user.verified = true;
+  user.verificationToken = null;
+  user.verificationTokenExpires = null;
+  writeUsers(users);
+
+  res.json({ success: true, message: 'Email address successfully verified! You may now sign in.' });
+});
+
+// POST /api/auth/login (Hardened rate-limiting & HttpOnly/Secure/SameSite cookie)
+app.post('/api/auth/login', async (req, res) => {
+  const ip = getVisitorIP(req);
+  const rateLimit = checkUserLoginRateLimit(ip);
+  if (!rateLimit.allowed) {
+    return res.status(429).json({
+      error: `Too many failed login attempts. Account access locked for ${rateLimit.remainingMins} minute(s).`
+    });
+  }
+
+  const { email, password } = req.body || {};
+  if (!email || !password) {
+    return res.status(400).json({ error: 'Email and password are required.' });
+  }
+
+  const users = readUsers();
+  const normalizedEmail = email.trim().toLowerCase();
+  const user = users.find(u => u.email.toLowerCase() === normalizedEmail);
+
+  if (!user || !bcrypt.compareSync(password, user.passwordHash)) {
+    recordUserFailedLogin(ip);
+    await new Promise(r => setTimeout(r, 400));
+    return res.status(401).json({ error: 'Invalid email or password.' });
+  }
+
+  if (!user.verified) {
+    return res.status(403).json({
+      error: 'Your email address has not been verified yet.',
+      unverified: true,
+      verifyLink: user.verificationToken ? `/verify-email?token=${user.verificationToken}` : null
+    });
+  }
+
+  clearUserLoginAttempts(ip);
+
+  // Issue session token
+  const sessionToken = crypto.randomBytes(32).toString('hex');
+  const sessions = readUserSessions();
+  sessions[sessionToken] = {
+    userId: user.id,
+    email: user.email,
+    createdAt: Date.now()
+  };
+  writeUserSessions(sessions);
+
+  // Set HttpOnly, Secure, SameSite session cookie
+  const isSecure = req.secure || req.headers['x-forwarded-proto'] === 'https';
+  res.cookie('vault_user_session', sessionToken, {
+    httpOnly: true,
+    secure: isSecure,
+    sameSite: 'lax',
+    maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
+  });
+
+  res.json({
+    success: true,
+    user: { id: user.id, email: user.email }
+  });
+});
+
+// POST /api/auth/logout
+app.post('/api/auth/logout', (req, res) => {
+  const token = req.cookies?.vault_user_session;
+  if (token) {
+    const sessions = readUserSessions();
+    delete sessions[token];
+    writeUserSessions(sessions);
+  }
+  res.clearCookie('vault_user_session');
+  res.json({ success: true });
+});
+
+// GET /api/auth/me
+app.get('/api/auth/me', (req, res) => {
+  const session = getUserSession(req);
+  if (!session) {
+    return res.json({ loggedIn: false });
+  }
+  res.json({
+    loggedIn: true,
+    user: { id: session.userId, email: session.email }
+  });
+});
+
+// POST /api/auth/forgot-password
+app.post('/api/auth/forgot-password', (req, res) => {
+  const { email } = req.body || {};
+  if (!email) {
+    return res.status(400).json({ error: 'Email address is required.' });
+  }
+
+  const users = readUsers();
+  const user = users.find(u => u.email.toLowerCase() === email.trim().toLowerCase());
+  let resetLink = null;
+
+  if (user) {
+    const resetToken = crypto.randomBytes(32).toString('hex');
+    user.resetToken = resetToken;
+    user.resetTokenExpires = Date.now() + 60 * 60 * 1000; // 1 hour
+    writeUsers(users);
+    resetLink = `/reset-password?token=${resetToken}`;
+  }
+
+  res.json({
+    success: true,
+    message: 'If an account exists with that email address, a password recovery link has been generated.',
+    resetLink: resetLink
+  });
+});
+
+// POST /api/auth/reset-password
+app.post('/api/auth/reset-password', (req, res) => {
+  const { token, newPassword } = req.body || {};
+  if (!token || !newPassword) {
+    return res.status(400).json({ error: 'Token and new password are required.' });
+  }
+  if (newPassword.length < 8) {
+    return res.status(400).json({ error: 'Password must be at least 8 characters long.' });
+  }
+
+  const users = readUsers();
+  const user = users.find(u => u.resetToken === token);
+  if (!user || !user.resetTokenExpires || Date.now() > user.resetTokenExpires) {
+    return res.status(400).json({ error: 'Invalid or expired password reset token.' });
+  }
+
+  user.passwordHash = bcrypt.hashSync(newPassword, 10);
+  user.resetToken = null;
+  user.resetTokenExpires = null;
+  writeUsers(users);
+
+  res.json({ success: true, message: 'Password has been updated successfully. You can now log in.' });
+});
+
+// ═════════════════════════════════════════════════════════════════════
+// ─── PHASE 2 & 3: User Documents & Secret Code Sharing ───────────────
+// ═════════════════════════════════════════════════════════════════════
+
+// POST /api/user/upload (Upload PDF, private storage, secret code generation)
+app.post('/api/user/upload', requireUser, uploadPrivate.single('pdf'), (req, res) => {
+  if (!req.file) {
+    return res.status(400).json({ error: 'No PDF file uploaded.' });
+  }
+
+  const { category, visibility, maxDownloads, expiryDate } = req.body || {};
+  const isPublic = visibility === 'public';
+
+  // Generate 16-character secret code (stored HASHED ONLY)
+  const rawSecretCode = generateSecretCode();
+  const codeHash = hashCode(rawSecretCode);
+
+  const docId = 'doc_' + crypto.randomBytes(12).toString('hex');
+  const userDoc = {
+    id: docId,
+    userId: req.user.userId,
+    storedFilename: req.file.filename,
+    originalName: req.file.originalname,
+    size: req.file.size,
+    category: category || 'general',
+    visibility: isPublic ? 'public' : 'private',
+    codeHash: codeHash,
+    maxDownloads: maxDownloads ? parseInt(maxDownloads, 10) : null,
+    downloads: 0,
+    expiryDate: expiryDate || null,
+    revoked: false,
+    status: 'active',
+    uploadedAt: new Date().toISOString()
+  };
+
+  const docs = readUserDocuments();
+  docs.push(userDoc);
+  writeUserDocuments(docs);
+
+  // Return raw secret code ONCE to user; server never stores raw code on disk
+  res.json({
+    success: true,
+    document: {
+      id: userDoc.id,
+      originalName: userDoc.originalName,
+      size: userDoc.size,
+      visibility: userDoc.visibility,
+      category: userDoc.category,
+      uploadedAt: userDoc.uploadedAt
+    },
+    secretCode: rawSecretCode
+  });
+});
+
+// GET /api/user/documents (List logged in user's documents)
+app.get('/api/user/documents', requireUser, (req, res) => {
+  const docs = readUserDocuments();
+  const userDocs = docs
+    .filter(d => d.userId === req.user.userId)
+    .sort((a, b) => new Date(b.uploadedAt) - new Date(a.uploadedAt))
+    .map(d => ({
+      id: d.id,
+      originalName: d.originalName,
+      size: d.size,
+      category: d.category,
+      visibility: d.visibility,
+      downloads: d.downloads,
+      maxDownloads: d.maxDownloads,
+      expiryDate: d.expiryDate,
+      revoked: d.revoked,
+      uploadedAt: d.uploadedAt,
+      codeStatus: d.revoked ? 'Revoked' : 'Active (Encrypted Hash)',
+      secretCode: d.revoked ? 'Revoked' : '••••-••••-••••-••••'
+    }));
+
+  res.json({ success: true, documents: userDocs });
+});
+
+// PATCH /api/user/documents/:id/visibility (Switch public / private)
+app.patch('/api/user/documents/:id/visibility', requireUser, (req, res) => {
+  const { visibility } = req.body || {};
+  if (!['public', 'private'].includes(visibility)) {
+    return res.status(400).json({ error: 'Invalid visibility value. Must be public or private.' });
+  }
+
+  const docs = readUserDocuments();
+  const doc = docs.find(d => d.id === req.params.id && d.userId === req.user.userId);
+  if (!doc) {
+    return res.status(404).json({ error: 'Document not found or unauthorized.' });
+  }
+
+  doc.visibility = visibility;
+  writeUserDocuments(docs);
+
+  res.json({ success: true, visibility: doc.visibility });
+});
+
+// POST /api/user/documents/:id/regenerate-code (Generate new secret code)
+app.post('/api/user/documents/:id/regenerate-code', requireUser, (req, res) => {
+  const docs = readUserDocuments();
+  const doc = docs.find(d => d.id === req.params.id && d.userId === req.user.userId);
+  if (!doc) {
+    return res.status(404).json({ error: 'Document not found or unauthorized.' });
+  }
+
+  const newRawCode = generateSecretCode();
+  doc.codeHash = hashCode(newRawCode);
+  doc.revoked = false;
+  writeUserDocuments(docs);
+
+  res.json({
+    success: true,
+    message: 'New secret unlock code generated.',
+    secretCode: newRawCode
+  });
+});
+
+// POST /api/user/documents/:id/revoke-code (Revoke secret code)
+app.post('/api/user/documents/:id/revoke-code', requireUser, (req, res) => {
+  const docs = readUserDocuments();
+  const doc = docs.find(d => d.id === req.params.id && d.userId === req.user.userId);
+  if (!doc) {
+    return res.status(404).json({ error: 'Document not found or unauthorized.' });
+  }
+
+  doc.revoked = true;
+  writeUserDocuments(docs);
+
+  res.json({ success: true, message: 'Secret code revoked.' });
+});
+
+// DELETE /api/user/documents/:id (Delete document permanently)
+app.delete('/api/user/documents/:id', requireUser, (req, res) => {
+  let docs = readUserDocuments();
+  const doc = docs.find(d => d.id === req.params.id && d.userId === req.user.userId);
+  if (!doc) {
+    return res.status(404).json({ error: 'Document not found or unauthorized.' });
+  }
+
+  const filePath = path.join(PRIVATE_UPLOADS_DIR, doc.storedFilename);
+  if (fs.existsSync(filePath)) {
+    fs.unlinkSync(filePath);
+  }
+
+  docs = docs.filter(d => d.id !== doc.id);
+  writeUserDocuments(docs);
+
+  res.json({ success: true });
+});
+
+// ═════════════════════════════════════════════════════════════════════
+// ─── PHASE 2: Unlock a PDF with Secret Code ──────────────────────────
+// ═════════════════════════════════════════════════════════════════════
+
+// POST /api/unlock/verify (Rate-limited, code validation, creates download token)
+app.post('/api/unlock/verify', async (req, res) => {
+  const ip = getVisitorIP(req);
+  const rateLimit = checkUnlockRateLimit(ip);
+  if (!rateLimit.allowed) {
+    return res.status(429).json({
+      error: `Too many failed code attempts. Unlocking locked for ${rateLimit.remainingMins} minute(s).`
+    });
+  }
+
+  const { code } = req.body || {};
+  if (!code || typeof code !== 'string' || normalizeCode(code).length < 12) {
+    return res.status(400).json({ error: 'Invalid secret code. Codes are at least 12 characters long.' });
+  }
+
+  const submittedHash = hashCode(code);
+  const docs = readUserDocuments();
+  const doc = docs.find(d => d.codeHash === submittedHash);
+
+  if (!doc || doc.revoked) {
+    recordUnlockFailed(ip);
+    await new Promise(r => setTimeout(r, 400));
+    return res.status(401).json({ error: 'Invalid or revoked secret unlock code.' });
+  }
+
+  // Expiry check
+  if (doc.expiryDate) {
+    const exp = new Date(doc.expiryDate);
+    exp.setHours(23, 59, 59, 999);
+    if (new Date() > exp) {
+      return res.status(400).json({ error: 'This secret code has expired and is no longer valid.' });
+    }
+  }
+
+  // Max download limit check
+  if (doc.maxDownloads && doc.downloads >= doc.maxDownloads) {
+    return res.status(400).json({ error: 'Maximum download limit has been reached for this secret code.' });
+  }
+
+  clearUnlockAttempts(ip);
+
+  // Generate short-lived (5 min) download token
+  const downloadToken = crypto.randomBytes(32).toString('hex');
+  downloadTokens.set(downloadToken, {
+    docId: doc.id,
+    storedFilename: doc.storedFilename,
+    originalName: doc.originalName,
+    expiresAt: Date.now() + 5 * 60 * 1000
+  });
+
+  const k = 1024;
+  const sizes = ['B', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(doc.size || 1) / Math.log(k));
+  const sizeFormatted = ((doc.size || 0) / Math.pow(k, i)).toFixed(1) + ' ' + sizes[i];
+
+  res.json({
+    success: true,
+    downloadToken,
+    document: {
+      originalName: doc.originalName,
+      sizeFormatted,
+      category: doc.category
+    }
+  });
+});
+
+// GET /api/unlock/download?token=... (Streams file after code verification)
+app.get('/api/unlock/download', (req, res) => {
+  const token = req.query.token;
+  if (!token || !downloadTokens.has(token)) {
+    return res.status(403).json({ error: 'Invalid or expired download authorization token.' });
+  }
+
+  const tokenData = downloadTokens.get(token);
+  downloadTokens.delete(token);
+
+  const filePath = path.join(PRIVATE_UPLOADS_DIR, tokenData.storedFilename);
+  if (!fs.existsSync(filePath)) {
+    return res.status(404).json({ error: 'Document file not found on vault server.' });
+  }
+
+  // Update download count
+  const docs = readUserDocuments();
+  const doc = docs.find(d => d.id === tokenData.docId);
+  if (doc) {
+    doc.downloads = (doc.downloads || 0) + 1;
+    writeUserDocuments(docs);
+  }
+
+  // Log visitor download
+  const ip = getVisitorIP(req);
+  const visitors = readVisitors();
+  visitors.push({
+    ip,
+    userAgent: req.headers['user-agent'] || 'Unknown',
+    timestamp: new Date().toISOString(),
+    page: 'Unlocked Download: ' + tokenData.originalName
+  });
+  writeVisitors(visitors);
+
+  const stat = fs.statSync(filePath);
+  res.set({
+    'Content-Type': 'application/pdf',
+    'Content-Disposition': `attachment; filename="${encodeURIComponent(tokenData.originalName)}"`,
+    'Content-Length': stat.size
+  });
+  fs.createReadStream(filePath).pipe(res);
+});
+
+// ═════════════════════════════════════════════════════════════════════
+// ─── PHASE 3: Reporting & Moderation ─────────────────────────────────
+// ═════════════════════════════════════════════════════════════════════
+
+// POST /api/documents/:id/report (Public report submission)
+app.post('/api/documents/:id/report', (req, res) => {
+  const { reason, details } = req.body || {};
+  if (!reason) {
+    return res.status(400).json({ error: 'Report reason is required.' });
+  }
+
+  const fileInfo = locatePdfFile(req.params.id);
+  if (!fileInfo) {
+    return res.status(404).json({ error: 'Document not found.' });
+  }
+
+  const reports = readReports();
+  const newReport = {
+    id: 'rep_' + crypto.randomBytes(8).toString('hex'),
+    documentId: req.params.id,
+    filename: fileInfo.userDoc ? fileInfo.userDoc.storedFilename : req.params.id,
+    originalName: fileInfo.originalName,
+    reason: String(reason).trim(),
+    details: String(details || '').trim(),
+    ip: getVisitorIP(req),
+    reportedAt: new Date().toISOString(),
+    status: 'pending' // pending, unpublished, dismissed, deleted
+  };
+
+  reports.push(newReport);
+  writeReports(reports);
+
+  res.json({
+    success: true,
+    message: 'Report submitted successfully. Portal administrators will review this document.'
+  });
+});
+
+// GET /api/admin/reports (Admin only: list all reports)
+app.get('/api/admin/reports', requireAdmin, (req, res) => {
+  const reports = readReports();
+  res.json(reports.reverse());
+});
+
+// POST /api/admin/reports/:id/unpublish (Admin only: unpublish document)
+app.post('/api/admin/reports/:id/unpublish', requireAdmin, (req, res) => {
+  const reports = readReports();
+  const report = reports.find(r => r.id === req.params.id);
+  if (!report) {
+    return res.status(404).json({ error: 'Report not found.' });
+  }
+
+  // Update user document if it's a user doc
+  const userDocs = readUserDocuments();
+  const doc = userDocs.find(d => d.id === report.documentId || d.storedFilename === report.filename);
+  if (doc) {
+    doc.visibility = 'private';
+    doc.status = 'unshared';
+    writeUserDocuments(userDocs);
+  }
+
+  report.status = 'unpublished';
+  writeReports(reports);
+
+  res.json({ success: true, message: 'Document has been unpublished from public listing.' });
+});
+
+// POST /api/admin/reports/:id/dismiss (Admin only: dismiss report)
+app.post('/api/admin/reports/:id/dismiss', requireAdmin, (req, res) => {
+  const reports = readReports();
+  const report = reports.find(r => r.id === req.params.id);
+  if (!report) {
+    return res.status(404).json({ error: 'Report not found.' });
+  }
+
+  report.status = 'dismissed';
+  writeReports(reports);
+
+  res.json({ success: true, message: 'Report dismissed.' });
+});
+
+// DELETE /api/admin/reports/:id/delete-file (Admin only: delete reported file completely)
+app.delete('/api/admin/reports/:id/delete-file', requireAdmin, (req, res) => {
+  const reports = readReports();
+  const report = reports.find(r => r.id === req.params.id);
+  if (!report) {
+    return res.status(404).json({ error: 'Report not found.' });
+  }
+
+  // Delete from private uploads if user doc
+  let userDocs = readUserDocuments();
+  const doc = userDocs.find(d => d.id === report.documentId || d.storedFilename === report.filename);
+  if (doc) {
+    const privPath = path.join(PRIVATE_UPLOADS_DIR, doc.storedFilename);
+    if (fs.existsSync(privPath)) fs.unlinkSync(privPath);
+    userDocs = userDocs.filter(d => d.id !== doc.id);
+    writeUserDocuments(userDocs);
+  }
+
+  // Delete from public uploads if legacy file
+  const pubPath = path.join(UPLOADS_DIR, report.filename);
+  if (fs.existsSync(pubPath)) {
+    fs.unlinkSync(pubPath);
+  }
+
+  report.status = 'deleted';
+  writeReports(reports);
+
+  res.json({ success: true, message: 'Document permanently deleted.' });
+});
+
+// ═════════════════════════════════════════════════════════════════════
+// ─── PHASE 4: AI Chatbot (Website Q&A, In-Memory Only, Zero DB) ─────
+// ═════════════════════════════════════════════════════════════════════
+app.post('/api/chat', async (req, res) => {
+  const ip = getVisitorIP(req);
+  const cap = checkChatCap(ip);
+  if (!cap.allowed) {
+    return res.status(429).json({
+      error: `Hourly message limit reached (20/20). Please try again in ${cap.remainingMins} minute(s).`,
+      remaining: 0
+    });
+  }
+
+  const { message } = req.body || {};
+  if (!message || typeof message !== 'string' || !message.trim()) {
+    return res.status(400).json({ error: 'Message content is required.' });
+  }
+
+  const query = message.trim();
+  if (query.length > 500) {
+    return res.status(400).json({ error: 'Message exceeds 500 character limit.' });
+  }
+
+  recordChatMessage(ip);
+  const updatedCap = checkChatCap(ip);
+
+  // If server has GEMINI_API_KEY, invoke Gemini API
+  if (process.env.GEMINI_API_KEY) {
+    try {
+      const systemPrompt = `You are the official AI Assistant for Vault PDF Portal.
+Answer ONLY questions related to Vault PDF Portal: its features (secure document hosting, 16-character private sharing codes, public document publishing, in-browser PDF previewer, quantum neural forensic scanner, contact form), how to upload files (max 50MB, private storage outside web root), how secret codes work, account registration & email verification at /register, password reset, reporting inappropriate public files, and privacy & security (AES-256, bcrypt, transparent telemetry logging for security auditing).
+Strict constraints:
+1. Under no circumstance answer questions unrelated to Vault PDF Portal. If asked about off-topic subjects (general trivia, other topics), politely decline and state that you only answer questions regarding Vault PDF Portal.
+2. Keep answers concise, helpful, and under 120 words.
+3. Be professional and friendly.`;
+
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${process.env.GEMINI_API_KEY}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          systemInstruction: { parts: [{ text: systemPrompt }] },
+          contents: [{ parts: [{ text: query }] }],
+          generationConfig: { maxOutputTokens: 250, temperature: 0.2 }
+        })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        const replyText = data.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (replyText) {
+          return res.json({
+            reply: replyText.trim(),
+            remaining: updatedCap.remaining
+          });
+        }
+      }
+    } catch (e) {
+      // Fallback seamlessly to built-in knowledge engine
+    }
+  }
+
+  // Intelligent Internal Knowledge Engine (Fallback & Default)
+  const q = query.toLowerCase();
+  let reply = '';
+
+  // Off-topic filters: programming, general trivia, weather, cooking, etc.
+  const isOffTopic = /\b(python|javascript|write code|coding|scripting|weather|recipe|movie|song|joke|politics|president|capital of|translate|sports|game|crypto price|bitcoin)\b/i.test(q);
+
+  if (isOffTopic && !/\b(vault|pdf|portal)\b/i.test(q)) {
+    reply = "I am the dedicated Vault PDF Portal assistant and can only assist with questions regarding this website (document uploads, secret sharing codes, account management, unlocking files, and security). How may I assist you with your documents?";
+  } else if (/secret\s*code|unlock\s*code|sharing\s*code|unlock|private share|share privately|how.*(?:code|unlock)|private doc|enter.*code|where.*code/i.test(q)) {
+    reply = "Vault allows you to share PDFs privately using 16-character encrypted secret codes (e.g., `XXXX-XXXX-XXXX-XXXX`). Codes are stored in hashed format only on our server. To download a private document, visit the /unlock page and enter the secret code. As the document owner, you can set expiry dates, download caps, or regenerate/revoke codes anytime in your /dashboard.";
+  } else if (/upload|how to upload|file size|size limit|pdf size|max size|file format|50mb/i.test(q)) {
+    reply = "You can upload PDF files up to 50MB by creating a free account and signing in to your /dashboard. Files are encrypted with AES-256 and stored outside the public web root. During upload, you can designate your file as Private (accessed solely with a secret code) or Public (listed in the Available Documents repository).";
+  } else if (/public|available document|make public|publish|unpublish|visibility/i.test(q)) {
+    reply = "Public files appear in the Available Documents section on the home page for anyone to preview and download directly. Private documents stay hidden and require a 16-character unlock code. You can switch between Public and Private status at any time from your /dashboard.";
+  } else if (/register|sign up|create account|login|sign in|account|verify|verification|password|reset|forgot/i.test(q)) {
+    reply = "User accounts provide private vault storage and document management. You can register at /register and sign in at /login. We require email verification to activate accounts, hash all passwords with bcrypt, and offer self-service password resets at /forgot-password. Admin credentials remain strictly separate.";
+  } else if (/privacy|track|zero tracking|data|log|telemetry|retention|security|safe|encrypt/i.test(q)) {
+    reply = "Vault uses transparent security logging. We record visitor IP addresses, timestamps, and accessed paths strictly for rate limiting, DDoS defense, and security audits. We never sell data, share records, or employ third-party advertising trackers. Passwords and secret codes are hashed cryptographically.";
+  } else if (/report|abuse|flag|copyright|inappropriate|remove|take down/i.test(q)) {
+    reply = "To report a public file that violates safety, intellectual property, or community guidelines, click the Report flag icon on the document card in Available Documents. Portal administrators review all incoming reports and can instantly unpublish or permanently remove offending files.";
+  } else if (/contact|support|email|help|reach|message/i.test(q)) {
+    reply = "You can contact the Vault team directly through our secure contact form at /contact, or email us at security@vault-pdf-portal.onrender.com. Messages are encrypted and reviewed promptly by administrators.";
+  } else if (/neural|scanner|hud|cyber|quantum/i.test(q)) {
+    reply = "The Quantum Neural Scanner analyzes PDF documents for structure integrity, script detection, and cryptographic signatures. Click 'Scan' on any document or use the top navigation HUD button to switch to Cyber-Deck telemetry mode.";
+  } else if (/hello|hi|hey|greet|who are you|what do you do/i.test(q)) {
+    reply = "Hello! I am the Vault AI Assistant. I'm here to answer any questions about Vault PDF Portal—including uploading PDFs, private sharing with secret codes, account registration, public documents, and security features. How can I help you today?";
+  } else {
+    reply = "I am the dedicated Vault PDF Portal assistant and can only assist with questions regarding this website (document uploads, secret sharing codes, account management, unlocking files, and security). How may I assist you with your documents?";
+  }
+
+  res.json({
+    reply,
+    remaining: updatedCap.remaining
+  });
 });
 
 // ─── Start server ───────────────────────────────────────────────────
