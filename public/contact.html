@@ -624,7 +624,7 @@
                     return;
                   }
                 } catch (e) {}
-                if (statusTitle) statusTitle.innerHTML = `✓ Acknowledgment successfully delivered to <strong>${escapeHtml(data.email)}</strong> within 5s`;
+                if (statusTitle) statusTitle.innerHTML = `✓ Acknowledgment letter generated for <strong>${escapeHtml(data.email)}</strong>`;
               }
               verifyDelivery();
             }

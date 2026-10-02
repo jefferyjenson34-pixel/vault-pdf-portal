@@ -371,6 +371,7 @@ function writeEmailConfig(config) {
 
 function getActiveEmailConfig() {
   const fileConfig = readEmailConfig();
+  const apiKey = (process.env.BREVO_API_KEY || process.env.RESEND_API_KEY || fileConfig.apiKey || '').trim();
   const service = process.env.SMTP_SERVICE || fileConfig.service || 'gmail';
   const host = process.env.SMTP_HOST || fileConfig.host || 'smtp.gmail.com';
   const port = parseInt(process.env.SMTP_PORT || fileConfig.port || (service === 'gmail' || host.includes('gmail') ? '465' : '587'), 10);
@@ -382,10 +383,11 @@ function getActiveEmailConfig() {
   const fromName = (process.env.SMTP_FROM_NAME || fileConfig.fromName || 'Halimon (Vault PDF Portal)').trim();
   const fromEmail = (process.env.SMTP_FROM || fileConfig.fromEmail || user).trim();
 
-  const isConfigured = !!(user && pass);
+  const isConfigured = !!(apiKey || (user && pass));
 
   return {
     isConfigured,
+    apiKey,
     service,
     host,
     port,
@@ -404,18 +406,101 @@ async function sendLiveEmail({ to, subject, text, html }) {
     return {
       success: false,
       delivered: false,
-      reason: 'No SMTP credentials configured. Configure in Admin -> Email & SMTP or set SMTP_USER and SMTP_PASS.'
+      reason: 'No SMTP or Email API credentials configured. Set BREVO_API_KEY or SMTP_USER/SMTP_PASS in Admin -> Email & SMTP.'
     };
   }
 
+  // 1. Direct Brevo HTTP API (Port 443 HTTPS - Unblocked on all cloud platforms including Render free tier)
+  const isBrevoApi = !!(process.env.BREVO_API_KEY || (config.apiKey && config.apiKey.startsWith('xkeysib-')) || (config.pass && config.pass.startsWith('xkeysib-')));
+  if (isBrevoApi) {
+    const brevoKey = process.env.BREVO_API_KEY || (config.apiKey && config.apiKey.startsWith('xkeysib-') ? config.apiKey : config.pass);
+    const senderEmail = config.fromEmail || (config.user && !config.user.includes('@smtp-brevo.com') ? config.user : 'noreply@vault-pdf-portal.com');
+    try {
+      const res = await fetch('https://api.brevo.com/v3/smtp/email', {
+        method: 'POST',
+        headers: {
+          'accept': 'application/json',
+          'api-key': brevoKey,
+          'content-type': 'application/json'
+        },
+        body: JSON.stringify({
+          sender: {
+            name: config.fromName || 'Halimon (Vault PDF Portal)',
+            email: senderEmail
+          },
+          to: [{ email: to }],
+          subject,
+          htmlContent: html,
+          textContent: text
+        })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok) {
+        return {
+          success: true,
+          delivered: true,
+          messageId: data.messageId || 'brevo-api-' + Date.now(),
+          previewUrl: null,
+          response: 'Sent via Brevo REST API (HTTPS 443)'
+        };
+      } else {
+        throw new Error(data.message || `Brevo API HTTP ${res.status}`);
+      }
+    } catch (apiErr) {
+      console.error('Brevo API delivery error:', apiErr.message);
+      throw apiErr;
+    }
+  }
+
+  // 2. Resend HTTP API (Port 443 HTTPS - Unblocked on all cloud platforms)
+  const isResendApi = !!(process.env.RESEND_API_KEY || config.service === 'resend' || (config.apiKey && config.apiKey.startsWith('re_')) || (config.pass && config.pass.startsWith('re_')));
+  if (isResendApi) {
+    const resendKey = process.env.RESEND_API_KEY || (config.apiKey && config.apiKey.startsWith('re_') ? config.apiKey : config.pass);
+    try {
+      const res = await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${resendKey}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          from: `${config.fromName || 'Halimon (Vault PDF Portal)'} <onboarding@resend.dev>`,
+          to: [to],
+          subject,
+          text,
+          html
+        })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok) {
+        return {
+          success: true,
+          delivered: true,
+          messageId: data.id || 'resend-' + Date.now(),
+          previewUrl: null,
+          response: 'Sent via Resend REST API (HTTPS 443)'
+        };
+      } else {
+        throw new Error(data.message || `Resend API HTTP ${res.status}`);
+      }
+    } catch (resendErr) {
+      console.error('Resend API delivery error:', resendErr.message);
+      throw resendErr;
+    }
+  }
+
+  // 3. Fallback to Standard SMTP (with 5-second connection timeouts)
   const nodemailer = require('nodemailer');
   let transporterOptions;
   if (config.service === 'gmail' || (config.host && config.host.includes('gmail.com'))) {
     transporterOptions = {
       service: 'gmail',
+      connectionTimeout: 5000,
+      greetingTimeout: 5000,
+      socketTimeout: 5000,
       auth: {
         user: config.user,
-        pass: config.pass.replace(/\s+/g, '') // strip any whitespace e.g. "abcd efgh" -> "abcdefgh"
+        pass: config.pass.replace(/\s+/g, '')
       }
     };
   } else {
@@ -423,6 +508,9 @@ async function sendLiveEmail({ to, subject, text, html }) {
       host: config.host,
       port: config.port,
       secure: config.secure,
+      connectionTimeout: 5000,
+      greetingTimeout: 5000,
+      socketTimeout: 5000,
       auth: {
         user: config.user,
         pass: config.pass
@@ -438,23 +526,62 @@ async function sendLiveEmail({ to, subject, text, html }) {
     ? `"${config.fromName}" <${config.fromEmail}>`
     : `"${config.fromName}" <${config.user}>`;
 
-  const info = await transporter.sendMail({
-    from: fromHeader,
-    to,
-    subject,
-    text,
-    html
-  });
+  try {
+    const info = await transporter.sendMail({
+      from: fromHeader,
+      to,
+      subject,
+      text,
+      html
+    });
 
-  const previewUrl = nodemailer.getTestMessageUrl ? nodemailer.getTestMessageUrl(info) : null;
+    const previewUrl = nodemailer.getTestMessageUrl ? nodemailer.getTestMessageUrl(info) : null;
 
-  return {
-    success: true,
-    delivered: true,
-    messageId: info.messageId,
-    previewUrl: previewUrl || null,
-    response: info.response
-  };
+    return {
+      success: true,
+      delivered: true,
+      messageId: info.messageId,
+      previewUrl: previewUrl || null,
+      response: info.response
+    };
+  } catch (smtpErr) {
+    // If port 587 failed with timeout and host is Brevo, try alternative port 2525
+    if (config.host && config.host.includes('brevo.com') && config.port !== 2525) {
+      try {
+        console.log('Retrying Brevo via alternative port 2525...');
+        const altTransporter = nodemailer.createTransport({
+          host: config.host,
+          port: 2525,
+          secure: false,
+          connectionTimeout: 5000,
+          greetingTimeout: 5000,
+          socketTimeout: 5000,
+          auth: {
+            user: config.user,
+            pass: config.pass
+          },
+          tls: { rejectUnauthorized: false }
+        });
+        const altInfo = await altTransporter.sendMail({
+          from: fromHeader,
+          to,
+          subject,
+          text,
+          html
+        });
+        return {
+          success: true,
+          delivered: true,
+          messageId: altInfo.messageId,
+          previewUrl: null,
+          response: 'Sent via Brevo SMTP port 2525'
+        };
+      } catch (altErr) {
+        // Fall through to throw original error with helpful explanation
+      }
+    }
+    throw smtpErr;
+  }
 }
 
 // ─── User Authentication & Session Helpers ───────────────────────────
