@@ -79,7 +79,7 @@
 
 
       <!-- OTP Form -->
-      <form class="auth-form" id="otp-form">
+      <form class="auth-form" id="otp-form" onsubmit="return false;">
         <div class="auth-field">
           <label class="auth-label" for="verify-email-input">Registered Email Address</label>
           <div class="auth-input-wrap">
@@ -202,16 +202,6 @@
         return code;
       }
 
-      if (btnAutofill) {
-        btnAutofill.addEventListener('click', () => {
-          const code = dispatchText.textContent.trim();
-          if (/^\d{6}$/.test(code)) {
-            fillOtpBoxes(code);
-            showToast('OTP auto-filled!');
-          }
-        });
-      }
-
       // ─── Direct Token Link Auto-Verify Fallback ───────────────────
       if (tokenParam && !otpParam) {
         (async function autoVerifyToken() {
@@ -302,8 +292,6 @@
           if (res.ok) {
             showAlert('success', data.message || 'New OTP generated successfully!');
             if (data.otp) {
-              dispatchText.textContent = data.otp;
-              dispatchCard.style.display = 'flex';
               fillOtpBoxes(data.otp);
             }
             startCooldown(30);
@@ -348,7 +336,6 @@
         document.getElementById('page-subtitle').textContent = 'Your encrypted vault access is fully activated.';
         showAlert('success', `${msg || 'Verification complete!'} Redirecting to your dashboard in 1.5 seconds...`);
         form.style.display = 'none';
-        dispatchCard.style.display = 'none';
 
         setTimeout(() => {
           window.location.href = '/dashboard';
