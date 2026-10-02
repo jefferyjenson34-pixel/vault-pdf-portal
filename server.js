@@ -260,6 +260,17 @@ function requireAdmin(req, res, next) {
   next();
 }
 
+function isAdmin(req) {
+  let token = req.headers['x-admin-token'];
+  if (!token && req.headers['authorization']) {
+    const parts = req.headers['authorization'].split(' ');
+    if (parts.length === 2 && /^bearer$/i.test(parts[0])) {
+      token = parts[1];
+    }
+  }
+  return isValidSession(token);
+}
+
 // Clean expired sessions periodically
 setInterval(() => {
   const now = Date.now();
@@ -1552,6 +1563,72 @@ app.get('/api/preview/:filename', (req, res) => {
   fs.createReadStream(fileInfo.filePath).pipe(res);
 });
 
+// ─── API: Extract Text & Chapters for Neural Voice Reader ───────────
+const pdfAudioCache = new Map();
+
+app.get('/api/pdf/audio-content/:filename', async (req, res) => {
+  try {
+    const fileInfo = locatePdfFile(req.params.filename);
+    if (!fileInfo) {
+      return res.status(404).json({ error: 'Document not found' });
+    }
+
+    if (fileInfo.isUserDoc && !fileInfo.isPublic) {
+      const session = getUserSession(req);
+      if (!session && !isAdmin(req)) {
+        return res.status(403).json({ error: 'This document is private. Please sign in or unlock it with your code.' });
+      }
+    }
+
+    const cacheKey = `${fileInfo.filePath}:${fileInfo.size}`;
+    if (pdfAudioCache.has(cacheKey)) {
+      return res.json(pdfAudioCache.get(cacheKey));
+    }
+
+    const { PDFParse } = require('pdf-parse');
+    const fileBuffer = fs.readFileSync(fileInfo.filePath);
+    const parser = new PDFParse({ data: fileBuffer });
+    const parsed = await parser.getText();
+    await parser.destroy();
+
+    const pages = (parsed.pages || []).map((p, idx) => {
+      const clean = (p.text || '').replace(/\r\n/g, '\n').replace(/\t/g, ' ').replace(/\s+/g, ' ').trim();
+      const words = clean ? clean.split(/\s+/).length : 0;
+      return {
+        pageNum: p.num || (idx + 1),
+        text: clean,
+        wordCount: words
+      };
+    }).filter(p => p.text.length > 0);
+
+    const fullText = pages.map(p => p.text).join('\n\n');
+    const totalWords = pages.reduce((sum, p) => sum + p.wordCount, 0);
+    const estimatedMinutes = Math.max(1, Math.round(totalWords / 150));
+
+    const result = {
+      success: true,
+      filename: req.params.filename,
+      title: fileInfo.originalName || req.params.filename,
+      totalPages: pages.length,
+      totalWords,
+      estimatedMinutes,
+      pages,
+      fullText
+    };
+
+    pdfAudioCache.set(cacheKey, result);
+    if (pdfAudioCache.size > 100) {
+      const firstKey = pdfAudioCache.keys().next().value;
+      pdfAudioCache.delete(firstKey);
+    }
+
+    res.json(result);
+  } catch (err) {
+    console.error('Error extracting audio content from PDF:', err);
+    res.status(500).json({ error: 'Failed to process document for Neural Voice Reader: ' + err.message });
+  }
+});
+
 // ═════════════════════════════════════════════════════════════════════
 // ─── PHASE 1: User Authentication Endpoints ─────────────────────────
 // ═════════════════════════════════════════════════════════════════════
@@ -1985,6 +2062,7 @@ app.get('/api/user/documents', requireUser, (req, res) => {
     .sort((a, b) => new Date(b.uploadedAt) - new Date(a.uploadedAt))
     .map(d => ({
       id: d.id,
+      storedFilename: d.storedFilename,
       originalName: d.originalName,
       size: d.size,
       category: d.category,

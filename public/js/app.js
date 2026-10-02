@@ -171,6 +171,14 @@
     if (copyLinkBtn) {
       copyLinkBtn.onclick = () => copyDocumentLink(file);
     }
+    const modalListenBtn = document.getElementById('modal-listen-btn');
+    if (modalListenBtn) {
+      modalListenBtn.onclick = () => {
+        if (window.VaultAudioReader) {
+          window.VaultAudioReader.playPdf(file.filename, file.originalName);
+        }
+      };
+    }
 
     if (loader) loader.style.display = 'flex';
     iframe.onload = () => {
@@ -311,6 +319,7 @@
     const card = document.createElement('div');
     card.className = 'doc-card reveal-fade-up is-revealed';
     card.setAttribute('data-name', (file.originalName || '').toLowerCase());
+    card.setAttribute('data-filename', file.filename || '');
     card.setAttribute('data-category', category);
     card.setAttribute('tabindex', '0');
     card.setAttribute('role', 'article');
@@ -382,6 +391,15 @@
             </svg>
           </button>
 
+          <button class="btn-doc-listen" title="Neural Voice Reader (Listen Hands-Free)" aria-label="Listen to ${escapeHtml(file.originalName)}">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
+              <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+              <line x1="12" y1="19" x2="12" y2="23"></line>
+            </svg>
+            <span>Listen</span>
+          </button>
+
           <button class="doc-preview-btn" aria-label="Preview ${escapeHtml(file.originalName)}">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
@@ -421,6 +439,17 @@
         e.stopPropagation();
         if (window.VaultForensicScanner) {
           window.VaultForensicScanner.scanFile(`/api/preview/${encodeURIComponent(file.filename)}`, file.originalName);
+        }
+      });
+    }
+
+    // Neural Voice Reader button
+    const cardListenBtn = card.querySelector('.btn-doc-listen');
+    if (cardListenBtn) {
+      cardListenBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (window.VaultAudioReader) {
+          window.VaultAudioReader.playPdf(file.filename, file.originalName);
         }
       });
     }
@@ -517,6 +546,14 @@
               <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path>
             </svg>
           </button>
+          <button class="btn-table-listen" title="Neural Voice Reader (Listen Hands-Free)" aria-label="Listen to ${escapeHtml(file.originalName)}">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
+              <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+              <line x1="12" y1="19" x2="12" y2="23"></line>
+            </svg>
+            <span>Listen</span>
+          </button>
           <button class="doc-preview-btn btn-table-preview" aria-label="Preview ${escapeHtml(file.originalName)}">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
               <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
@@ -550,6 +587,16 @@
       e.stopPropagation();
       copyDocumentLink(file);
     });
+
+    const tableListenBtn = tr.querySelector('.btn-table-listen');
+    if (tableListenBtn) {
+      tableListenBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (window.VaultAudioReader) {
+          window.VaultAudioReader.playPdf(file.filename, file.originalName);
+        }
+      });
+    }
 
     tr.querySelector('.btn-table-preview').addEventListener('click', (e) => {
       e.stopPropagation();
