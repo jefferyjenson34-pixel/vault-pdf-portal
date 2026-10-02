@@ -163,11 +163,16 @@
             <div>
               <strong>Account Created!</strong><br>
               ${data.message}<br><br>
-              <a href="${data.verifyLink}" class="btn-primary" style="display:inline-block; padding: 6px 14px; font-size:0.85rem; text-decoration:none; margin-top:6px;">Click to Verify Email Now &rarr;</a>
+              ${data.otp ? `<div style="margin: 8px 0; padding: 8px 12px; background: rgba(124, 58, 237, 0.12); border-radius: 8px; font-size: 0.95rem;">Your 6-Digit OTP Code: <strong style="font-family: monospace; font-size: 1.25rem; color: var(--purple-primary); letter-spacing: 0.1em;">${data.otp}</strong></div>` : ''}
+              <a href="${data.verifyLink}" class="auth-btn-submit" style="display:inline-flex; width:auto; padding: 8px 18px; font-size:0.9rem; text-decoration:none; margin-top:8px;">Enter 6-Digit OTP Code &rarr;</a>
             </div>
           `;
           alertBox.style.display = 'flex';
           form.reset();
+          // Auto-navigate to OTP verification page after 1.8s
+          setTimeout(() => {
+            window.location.href = data.verifyLink;
+          }, 1800);
         } else {
           alertBox.className = 'auth-alert error';
           alertBox.textContent = data.error || 'Registration failed.';

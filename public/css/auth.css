@@ -376,3 +376,117 @@ body.quantum-hud-mode .user-docs-container {
   padding: 60px 20px;
   color: var(--text-muted);
 }
+
+/* ─── 6-Digit OTP Verification Section Styles ──────────────── */
+.otp-container {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  margin: 22px 0 26px;
+}
+
+.otp-digit-input {
+  width: 48px;
+  height: 58px;
+  border-radius: 12px;
+  border: 1.5px solid var(--border-subtle);
+  background: var(--bg-card);
+  text-align: center;
+  font-family: var(--font-mono, monospace);
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: var(--navy-950);
+  outline: none;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: var(--shadow-sm);
+}
+
+.otp-digit-input:focus {
+  border-color: var(--purple-primary);
+  box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.2);
+  transform: translateY(-2px);
+}
+
+body.quantum-hud-mode .otp-digit-input {
+  background: rgba(10, 16, 31, 0.85);
+  border-color: rgba(0, 240, 255, 0.3);
+  color: var(--neon-cyan);
+}
+
+body.quantum-hud-mode .otp-digit-input:focus {
+  border-color: var(--neon-cyan);
+  box-shadow: 0 0 15px rgba(0, 240, 255, 0.4);
+}
+
+.otp-dispatch-card {
+  padding: 12px 16px;
+  background: rgba(124, 58, 237, 0.08);
+  border: 1px dashed rgba(124, 58, 237, 0.35);
+  border-radius: 12px;
+  font-size: 0.86rem;
+  color: var(--navy-900);
+  margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-align: left;
+}
+
+body.quantum-hud-mode .otp-dispatch-card {
+  background: rgba(0, 240, 255, 0.08);
+  border-color: rgba(0, 240, 255, 0.35);
+  color: #e2e8f0;
+}
+
+.otp-dispatch-code {
+  font-family: var(--font-mono, monospace);
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: var(--purple-primary);
+  background: rgba(124, 58, 237, 0.15);
+  padding: 2px 8px;
+  border-radius: 6px;
+  letter-spacing: 0.08em;
+}
+
+body.quantum-hud-mode .otp-dispatch-code {
+  color: var(--neon-cyan);
+  background: rgba(0, 240, 255, 0.15);
+}
+
+.otp-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 20px;
+  font-size: 0.88rem;
+  color: var(--text-muted);
+}
+
+.btn-resend-otp {
+  background: none;
+  border: none;
+  color: var(--purple-primary);
+  font-weight: 600;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 6px;
+  transition: all 0.2s ease;
+  font-family: inherit;
+  font-size: 0.88rem;
+}
+
+.btn-resend-otp:hover:not(:disabled) {
+  background: rgba(124, 58, 237, 0.08);
+  text-decoration: underline;
+}
+
+.btn-resend-otp:disabled {
+  color: var(--text-muted);
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+body.quantum-hud-mode .btn-resend-otp {
+  color: var(--neon-cyan);
+}

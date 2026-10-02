@@ -958,6 +958,7 @@ app.post('/api/auth/register', (req, res) => {
   const salt = bcrypt.genSaltSync(10);
   const passwordHash = bcrypt.hashSync(password, salt);
   const verificationToken = crypto.randomBytes(32).toString('hex');
+  const otpCode = Math.floor(100000 + Math.random() * 900000).toString(); // Cryptographic 6-digit OTP
 
   const newUser = {
     id: 'usr_' + crypto.randomBytes(12).toString('hex'),
@@ -966,6 +967,9 @@ app.post('/api/auth/register', (req, res) => {
     verified: false,
     verificationToken,
     verificationTokenExpires: Date.now() + 24 * 60 * 60 * 1000,
+    otpCode,
+    otpExpires: Date.now() + 15 * 60 * 1000, // 15 minutes
+    otpAttempts: 0,
     createdAt: new Date().toISOString()
   };
 
@@ -974,30 +978,152 @@ app.post('/api/auth/register', (req, res) => {
 
   res.json({
     success: true,
-    message: 'Account registered successfully. Please verify your email to activate your account.',
-    verifyLink: `/verify-email?token=${verificationToken}`
+    message: 'Account registered successfully. Please verify your email with the 6-digit OTP.',
+    email: normalizedEmail,
+    otp: otpCode, // Provided for instant testing/simulation
+    verifyLink: `/verify-email?email=${encodeURIComponent(normalizedEmail)}&otp=${otpCode}&token=${verificationToken}`
   });
 });
 
-// GET /api/auth/verify-email
-app.get('/api/auth/verify-email', (req, res) => {
-  const token = req.query.token;
-  if (!token) {
-    return res.status(400).json({ error: 'Verification token is required.' });
+// POST /api/auth/verify-otp (Verify 6-digit OTP and activate account)
+app.post('/api/auth/verify-otp', async (req, res) => {
+  const { email, otp } = req.body || {};
+  if (!email || !otp) {
+    return res.status(400).json({ error: 'Email and 6-digit OTP code are required.' });
+  }
+
+  const cleanOtp = String(otp).trim().replace(/\s+/g, '');
+  if (!/^\d{6}$/.test(cleanOtp)) {
+    return res.status(400).json({ error: 'Please enter a valid 6-digit numeric OTP code.' });
   }
 
   const users = readUsers();
-  const user = users.find(u => u.verificationToken === token);
+  const normalizedEmail = email.trim().toLowerCase();
+  const user = users.find(u => u.email.toLowerCase() === normalizedEmail);
+
   if (!user) {
-    return res.status(400).json({ error: 'Invalid verification token.' });
+    return res.status(404).json({ error: 'No account found with this email address.' });
   }
-  if (user.verificationTokenExpires && Date.now() > user.verificationTokenExpires) {
-    return res.status(400).json({ error: 'Verification token has expired. Please sign in to request a new link.' });
+
+  if (user.verified) {
+    return res.json({ success: true, alreadyVerified: true, message: 'Account is already verified! You may log in directly.' });
+  }
+
+  user.otpAttempts = (user.otpAttempts || 0) + 1;
+  if (user.otpAttempts > 5) {
+    writeUsers(users);
+    return res.status(429).json({ error: 'Too many incorrect attempts. Please click "Resend OTP" to request a fresh code.' });
+  }
+
+  if (user.otpExpires && Date.now() > user.otpExpires) {
+    writeUsers(users);
+    return res.status(400).json({ error: 'OTP code has expired. Please request a new code.' });
+  }
+
+  if (user.otpCode !== cleanOtp) {
+    writeUsers(users);
+    const remaining = Math.max(0, 5 - user.otpAttempts);
+    return res.status(400).json({ error: `Incorrect OTP code. (${remaining} attempt(s) remaining)` });
+  }
+
+  // OTP is correct! Mark verified
+  user.verified = true;
+  user.otpCode = null;
+  user.otpExpires = null;
+  user.otpAttempts = 0;
+  user.verificationToken = null;
+  user.verificationTokenExpires = null;
+  writeUsers(users);
+
+  // Automatically sign the user in with session cookie
+  const sessionToken = crypto.randomBytes(32).toString('hex');
+  const sessions = readUserSessions();
+  sessions[sessionToken] = {
+    userId: user.id,
+    email: user.email,
+    createdAt: Date.now()
+  };
+  writeUserSessions(sessions);
+
+  const isHttps = Boolean(req.secure || req.headers['x-forwarded-proto'] === 'https');
+  res.cookie('vault_user_session', sessionToken, {
+    httpOnly: true,
+    secure: isHttps,
+    sameSite: 'lax',
+    maxAge: 7 * 24 * 60 * 60 * 1000
+  });
+
+  res.json({
+    success: true,
+    message: 'OTP verified successfully! Account is activated.',
+    user: { id: user.id, email: user.email }
+  });
+});
+
+// POST /api/auth/resend-otp (Generate fresh 6-digit OTP)
+app.post('/api/auth/resend-otp', (req, res) => {
+  const { email } = req.body || {};
+  if (!email) {
+    return res.status(400).json({ error: 'Email address is required.' });
+  }
+
+  const users = readUsers();
+  const normalizedEmail = email.trim().toLowerCase();
+  const user = users.find(u => u.email.toLowerCase() === normalizedEmail);
+
+  if (!user) {
+    return res.status(404).json({ error: 'Account not found with this email.' });
+  }
+
+  if (user.verified) {
+    return res.json({ success: true, message: 'Account is already verified. You can log in.' });
+  }
+
+  const newOtp = Math.floor(100000 + Math.random() * 900000).toString();
+  user.otpCode = newOtp;
+  user.otpExpires = Date.now() + 15 * 60 * 1000;
+  user.otpAttempts = 0;
+  writeUsers(users);
+
+  res.json({
+    success: true,
+    message: 'A fresh 6-digit OTP code has been generated.',
+    otp: newOtp
+  });
+});
+
+// GET /api/auth/verify-email (Supports both token link and OTP parameters)
+app.get('/api/auth/verify-email', (req, res) => {
+  const { token, otp, email } = req.query;
+  if (!token && (!email || !otp)) {
+    return res.status(400).json({ error: 'Verification token or OTP code is required.' });
+  }
+
+  const users = readUsers();
+  let user = null;
+
+  if (token) {
+    user = users.find(u => u.verificationToken === token);
+  } else if (email && otp) {
+    const cleanOtp = String(otp).trim();
+    user = users.find(u => u.email.toLowerCase() === email.trim().toLowerCase() && u.otpCode === cleanOtp);
+  }
+
+  if (!user) {
+    return res.status(400).json({ error: 'Invalid verification token or OTP.' });
+  }
+  if (token && user.verificationTokenExpires && Date.now() > user.verificationTokenExpires) {
+    return res.status(400).json({ error: 'Verification token has expired. Please sign in to request a new code.' });
+  }
+  if (otp && user.otpExpires && Date.now() > user.otpExpires) {
+    return res.status(400).json({ error: 'OTP code has expired. Please request a new code.' });
   }
 
   user.verified = true;
   user.verificationToken = null;
   user.verificationTokenExpires = null;
+  user.otpCode = null;
+  user.otpExpires = null;
   writeUsers(users);
 
   res.json({ success: true, message: 'Email address successfully verified! You may now sign in.' });
@@ -1032,7 +1158,7 @@ app.post('/api/auth/login', async (req, res) => {
     return res.status(403).json({
       error: 'Your email address has not been verified yet.',
       unverified: true,
-      verifyLink: user.verificationToken ? `/verify-email?token=${user.verificationToken}` : null
+      verifyLink: `/verify-email?email=${encodeURIComponent(user.email)}${user.otpCode ? `&otp=${user.otpCode}` : ''}`
     });
   }
 
