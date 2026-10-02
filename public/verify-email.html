@@ -76,19 +76,7 @@
       <!-- Alert Box -->
       <div class="auth-alert" id="auth-alert"></div>
 
-      <!-- Simulated Dispatch Banner -->
-      <div class="otp-dispatch-card" id="otp-dispatch-card" style="display: none;">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" style="color:var(--purple-primary); flex-shrink:0;">
-          <circle cx="12" cy="12" r="10"></circle>
-          <line x1="12" y1="16" x2="12" y2="12"></line>
-          <line x1="12" y1="8" x2="12.01" y2="8"></line>
-        </svg>
-        <div style="flex:1;">
-          <span style="font-size:0.78rem; text-transform:uppercase; font-weight:700; opacity:0.8; display:block;">Email Dispatch Simulation</span>
-          <span>Your 6-digit OTP code is: <span class="otp-dispatch-code" id="dispatch-otp-text">------</span></span>
-        </div>
-        <button type="button" class="btn-action-sm" id="btn-autofill-otp" style="font-size:0.75rem; padding:4px 8px;">Auto-fill</button>
-      </div>
+
 
       <!-- OTP Form -->
       <form class="auth-form" id="otp-form">
@@ -151,9 +139,6 @@
       const alertBox = document.getElementById('auth-alert');
       const btnSubmit = document.getElementById('btn-verify-otp');
       const btnResend = document.getElementById('btn-resend-otp');
-      const dispatchCard = document.getElementById('otp-dispatch-card');
-      const dispatchText = document.getElementById('dispatch-otp-text');
-      const btnAutofill = document.getElementById('btn-autofill-otp');
       const digitInputs = document.querySelectorAll('.otp-digit-input');
 
       let currentEmail = emailParam ? decodeURIComponent(emailParam).trim() : '';
@@ -161,10 +146,8 @@
         emailInput.value = currentEmail;
       }
 
-      // If OTP was provided in URL (from registration)
+      // If OTP was passed via direct verification link, fill boxes
       if (otpParam && /^\d{6}$/.test(otpParam)) {
-        dispatchText.textContent = otpParam;
-        dispatchCard.style.display = 'flex';
         fillOtpBoxes(otpParam);
       }
 

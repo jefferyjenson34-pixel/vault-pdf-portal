@@ -1612,10 +1612,9 @@ app.post('/api/auth/register', (req, res) => {
 
   res.json({
     success: true,
-    message: 'Account registered successfully. Please verify your email with the 6-digit OTP.',
+    message: 'Account registered successfully. Please check your email for the 6-digit OTP code.',
     email: normalizedEmail,
-    otp: otpCode, // Provided for instant testing/simulation
-    verifyLink: `/verify-email?email=${encodeURIComponent(normalizedEmail)}&otp=${otpCode}&token=${verificationToken}`
+    verifyLink: `/verify-email?email=${encodeURIComponent(normalizedEmail)}`
   });
 });
 
@@ -1809,9 +1808,9 @@ app.post('/api/auth/login', async (req, res) => {
 
   if (!user.verified) {
     return res.status(403).json({
-      error: 'Your email address has not been verified yet.',
+      error: 'Your email address has not been verified yet. Please check your inbox for the verification OTP.',
       unverified: true,
-      verifyLink: `/verify-email?email=${encodeURIComponent(user.email)}${user.otpCode ? `&otp=${user.otpCode}` : ''}`
+      verifyLink: `/verify-email?email=${encodeURIComponent(user.email)}`
     });
   }
 
