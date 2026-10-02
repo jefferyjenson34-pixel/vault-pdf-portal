@@ -1050,10 +1050,16 @@ app.get('/secret', (req, res) => {
 });
 
 app.get('/register', (req, res) => {
+  if (getUserSession(req)) {
+    return res.redirect('/dashboard');
+  }
   res.sendFile('register.html', { root: PUBLIC_DIR });
 });
 
 app.get('/login', (req, res) => {
+  if (getUserSession(req)) {
+    return res.redirect('/dashboard');
+  }
   res.sendFile('login.html', { root: PUBLIC_DIR });
 });
 
@@ -1680,6 +1686,7 @@ app.post('/api/auth/verify-otp', async (req, res) => {
 
   const isHttps = Boolean(req.secure || req.headers['x-forwarded-proto'] === 'https');
   res.cookie('vault_user_session', sessionToken, {
+    path: '/',
     httpOnly: true,
     secure: isHttps,
     sameSite: 'lax',
@@ -1829,6 +1836,7 @@ app.post('/api/auth/login', async (req, res) => {
   // Set HttpOnly, Secure, SameSite session cookie
   const isSecure = req.secure || req.headers['x-forwarded-proto'] === 'https';
   res.cookie('vault_user_session', sessionToken, {
+    path: '/',
     httpOnly: true,
     secure: isSecure,
     sameSite: 'lax',
@@ -1849,7 +1857,7 @@ app.post('/api/auth/logout', (req, res) => {
     delete sessions[token];
     writeUserSessions(sessions);
   }
-  res.clearCookie('vault_user_session');
+  res.clearCookie('vault_user_session', { path: '/' });
   res.json({ success: true });
 });
 
