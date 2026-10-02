@@ -413,8 +413,10 @@ async function sendLiveEmail({ to, subject, text, html }) {
   // 1. Direct Brevo HTTP API (Port 443 HTTPS - Unblocked on all cloud platforms including Render free tier)
   const isBrevoApi = !!(process.env.BREVO_API_KEY || (config.apiKey && config.apiKey.startsWith('xkeysib-')) || (config.pass && config.pass.startsWith('xkeysib-')));
   if (isBrevoApi) {
-    const brevoKey = process.env.BREVO_API_KEY || (config.apiKey && config.apiKey.startsWith('xkeysib-') ? config.apiKey : config.pass);
-    const senderEmail = config.fromEmail || (config.user && !config.user.includes('@smtp-brevo.com') ? config.user : 'noreply@vault-pdf-portal.com');
+    let senderEmail = process.env.BREVO_SENDER_EMAIL || process.env.SMTP_FROM || config.fromEmail;
+    if (!senderEmail || senderEmail.includes('@smtp-brevo.com') || senderEmail.includes('vault-pdf-portal.com')) {
+      senderEmail = 'bugbountyresearcher0@protonmail.com';
+    }
     try {
       const res = await fetch('https://api.brevo.com/v3/smtp/email', {
         method: 'POST',
