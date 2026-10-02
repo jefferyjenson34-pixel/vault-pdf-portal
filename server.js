@@ -1117,14 +1117,14 @@ app.post('/api/contact', (req, res) => {
   if (contacts.length > 500) contacts.splice(0, contacts.length - 500);
   writeContacts(contacts);
 
-  // Dispatch acknowledgment message within 5 seconds
+  // Dispatch acknowledgment message immediately so it transmits and arrives within 5 seconds
   setTimeout(() => {
     try {
       dispatchContactAcknowledgment(newContact);
     } catch (err) {
       console.error('Error dispatching acknowledgment:', err);
     }
-  }, 4800);
+  }, 100);
 
   res.json({
     success: true,

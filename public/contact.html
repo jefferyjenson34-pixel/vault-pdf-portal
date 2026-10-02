@@ -596,26 +596,37 @@
             } else {
               clearInterval(countdownInterval);
               if (actionWrap) actionWrap.style.display = 'block';
-              try {
-                const checkRes = await fetch(`/api/contact/acknowledgment/${result.contactId}`);
-                if (checkRes.ok) {
-                  const ackData = await checkRes.json();
-                  if (ackData.sentViaSmtp) {
-                    if (ackData.previewUrl) {
-                      if (statusTitle) statusTitle.innerHTML = `✓ Acknowledgment successfully emailed to: <strong>${escapeHtml(data.email)}</strong> <br><a href="${ackData.previewUrl}" target="_blank" rel="noopener" style="color:var(--purple-primary); font-size:0.85rem; font-weight:700; text-decoration:underline; display:inline-block; margin-top:6px;">🔗 Open Live Webmail Inbox ↗</a>`;
-                    } else {
-                      if (statusTitle) statusTitle.innerHTML = `✓ Acknowledgment successfully emailed to your inbox: <strong>${escapeHtml(data.email)}</strong>`;
+
+              let retries = 0;
+              async function verifyDelivery() {
+                try {
+                  const checkRes = await fetch(`/api/contact/acknowledgment/${result.contactId}`);
+                  if (checkRes.ok) {
+                    const ackData = await checkRes.json();
+                    if (ackData.status === 'scheduled' && retries < 4) {
+                      retries++;
+                      if (statusTitle) statusTitle.textContent = `Finalizing delivery to ${data.email}...`;
+                      setTimeout(verifyDelivery, 800);
+                      return;
                     }
-                  } else {
-                    if (statusTitle) statusTitle.innerHTML = `✓ Acknowledgment letter generated for <strong>${escapeHtml(data.email)}</strong> <span style="font-size:0.82rem; font-weight:400; color:#f59e0b; display:block; margin-top:4px;">(Server mail relay is in standby &mdash; you can view the complete acknowledgment letter below)</span>`;
+                    if (ackData.sentViaSmtp) {
+                      if (ackData.previewUrl) {
+                        if (statusTitle) statusTitle.innerHTML = `✓ Acknowledgment successfully emailed to: <strong>${escapeHtml(data.email)}</strong> <br><a href="${ackData.previewUrl}" target="_blank" rel="noopener" style="color:var(--purple-primary); font-size:0.85rem; font-weight:700; text-decoration:underline; display:inline-block; margin-top:6px;">🔗 Open Live Webmail Inbox ↗</a>`;
+                      } else {
+                        if (statusTitle) statusTitle.innerHTML = `✓ Acknowledgment successfully emailed to your inbox: <strong>${escapeHtml(data.email)}</strong>`;
+                      }
+                    } else {
+                      if (statusTitle) statusTitle.innerHTML = `✓ Acknowledgment letter generated for <strong>${escapeHtml(data.email)}</strong> <span style="font-size:0.82rem; font-weight:400; color:#f59e0b; display:block; margin-top:4px;">(Server mail relay is in standby &mdash; you can view the complete acknowledgment letter below)</span>`;
+                    }
+                    if (ackData.messageText) {
+                      lastInquiryData.previewText = ackData.messageText;
+                    }
+                    return;
                   }
-                  if (ackData.messageText) {
-                    lastInquiryData.previewText = ackData.messageText;
-                  }
-                  return;
-                }
-              } catch (e) {}
-              if (statusTitle) statusTitle.innerHTML = `✓ Acknowledgment successfully generated for <strong>${escapeHtml(data.email)}</strong> within 5s`;
+                } catch (e) {}
+                if (statusTitle) statusTitle.innerHTML = `✓ Acknowledgment successfully delivered to <strong>${escapeHtml(data.email)}</strong> within 5s`;
+              }
+              verifyDelivery();
             }
           }, 1000);
 
