@@ -446,10 +446,13 @@ async function sendLiveEmail({ to, subject, text, html }) {
     html
   });
 
+  const previewUrl = nodemailer.getTestMessageUrl ? nodemailer.getTestMessageUrl(info) : null;
+
   return {
     success: true,
     delivered: true,
     messageId: info.messageId,
+    previewUrl: previewUrl || null,
     response: info.response
   };
 }
@@ -1048,6 +1051,7 @@ async function dispatchContactAcknowledgment(contact) {
   let sentViaSmtp = false;
   let deliveryError = null;
   let messageId = null;
+  let previewUrl = null;
 
   try {
     const result = await sendLiveEmail({
@@ -1060,7 +1064,11 @@ async function dispatchContactAcknowledgment(contact) {
     if (result.success) {
       sentViaSmtp = true;
       messageId = result.messageId;
+      previewUrl = result.previewUrl;
       console.log(`  ✓ LIVE EMAIL DELIVERED via SMTP to ${contact.email}! ID: ${messageId}`);
+      if (previewUrl) {
+        console.log(`  🔗 Test Web Mailbox: ${previewUrl}`);
+      }
     } else {
       deliveryError = result.reason;
       console.warn(`  ⚠️ Live SMTP dispatch skipped: ${result.reason}`);
@@ -1081,6 +1089,7 @@ async function dispatchContactAcknowledgment(contact) {
     c.sentViaSmtp = sentViaSmtp;
     c.deliveryError = deliveryError;
     c.messageId = messageId;
+    c.previewUrl = previewUrl;
     writeContacts(contacts);
   }
 }
@@ -1146,6 +1155,7 @@ app.get('/api/contact/acknowledgment/:id', (req, res) => {
     sentViaSmtp: !!contact.sentViaSmtp,
     deliveryError: contact.deliveryError || null,
     messageId: contact.messageId || null,
+    previewUrl: contact.previewUrl || null,
     messageText: contact.acknowledgmentText || generateAcknowledgmentText(contact.name)
   });
 });
@@ -1290,7 +1300,8 @@ app.post('/api/admin/email-test', requireAdmin, async (req, res) => {
     if (testResult.success) {
       return res.json({
         success: true,
-        message: `Live test email successfully delivered to ${testEmail}! (Message ID: ${testResult.messageId})`
+        message: `Live test email successfully delivered to ${testEmail}! (Message ID: ${testResult.messageId})`,
+        previewUrl: testResult.previewUrl
       });
     } else {
       return res.status(500).json({ error: testResult.reason || 'Failed to dispatch test email.' });
@@ -1299,6 +1310,38 @@ app.post('/api/admin/email-test', requireAdmin, async (req, res) => {
     return res.status(500).json({
       error: `SMTP Error: ${err.message}. If using Gmail, make sure you created a 16-character Google App Password (not your standard login password).`
     });
+  }
+});
+
+// ─── API: Generate Instant Virtual Test Mailbox (admin, PROTECTED) ───
+app.post('/api/admin/email-ethereal', requireAdmin, async (req, res) => {
+  try {
+    const nodemailer = require('nodemailer');
+    const testAccount = await nodemailer.createTestAccount();
+    const newConfig = {
+      enabled: true,
+      service: 'ethereal',
+      host: testAccount.smtp.host,
+      port: testAccount.smtp.port,
+      secure: testAccount.smtp.secure,
+      user: testAccount.user,
+      pass: testAccount.pass,
+      fromName: 'Halimon (Vault PDF Portal)',
+      fromEmail: testAccount.user,
+      webUrl: testAccount.web
+    };
+    writeEmailConfig(newConfig);
+    res.json({
+      success: true,
+      message: 'Instant virtual test mailbox generated successfully!',
+      user: testAccount.user,
+      host: testAccount.smtp.host,
+      port: testAccount.smtp.port,
+      secure: testAccount.smtp.secure,
+      webUrl: testAccount.web
+    });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to create test mailbox: ' + err.message });
   }
 });
 

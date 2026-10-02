@@ -387,19 +387,36 @@
 
           <!-- Quick Preset Buttons -->
           <div style="background:var(--bg-card); border:1px solid var(--border-medium); border-radius:14px; padding:16px 20px; margin-bottom:20px;">
-            <div style="font-size:0.8rem; font-weight:700; text-transform:uppercase; letter-spacing:0.05em; color:var(--text-secondary); margin-bottom:10px;">Select Provider Preset:</div>
+            <div style="font-size:0.8rem; font-weight:700; text-transform:uppercase; letter-spacing:0.05em; color:var(--text-secondary); margin-bottom:10px;">Select Mail Provider Preset:</div>
             <div style="display:flex; gap:10px; flex-wrap:wrap;">
               <button type="button" class="preset-btn" data-preset="gmail" style="background:rgba(129,140,248,0.15); border:1px solid rgba(129,140,248,0.4); color:var(--text-primary); padding:7px 14px; border-radius:8px; font-size:0.85rem; font-weight:600; cursor:pointer;">
-                Gmail (Recommended)
+                Gmail
+              </button>
+              <button type="button" class="preset-btn" data-preset="outlook" style="background:var(--bg-glass); border:1px solid var(--border-subtle); color:var(--text-secondary); padding:7px 14px; border-radius:8px; font-size:0.85rem; font-weight:600; cursor:pointer;">
+                Outlook / Hotmail
+              </button>
+              <button type="button" class="preset-btn" data-preset="yahoo" style="background:var(--bg-glass); border:1px solid var(--border-subtle); color:var(--text-secondary); padding:7px 14px; border-radius:8px; font-size:0.85rem; font-weight:600; cursor:pointer;">
+                Yahoo Mail
               </button>
               <button type="button" class="preset-btn" data-preset="brevo" style="background:var(--bg-glass); border:1px solid var(--border-subtle); color:var(--text-secondary); padding:7px 14px; border-radius:8px; font-size:0.85rem; font-weight:600; cursor:pointer;">
-                Brevo (Sendinblue)
+                Brevo (Free 300/Day)
               </button>
               <button type="button" class="preset-btn" data-preset="resend" style="background:var(--bg-glass); border:1px solid var(--border-subtle); color:var(--text-secondary); padding:7px 14px; border-radius:8px; font-size:0.85rem; font-weight:600; cursor:pointer;">
                 Resend
               </button>
               <button type="button" class="preset-btn" data-preset="custom" style="background:var(--bg-glass); border:1px solid var(--border-subtle); color:var(--text-secondary); padding:7px 14px; border-radius:8px; font-size:0.85rem; font-weight:600; cursor:pointer;">
                 Custom SMTP
+              </button>
+            </div>
+
+            <!-- Zero-Setup Instant Virtual Mailbox Banner -->
+            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; margin-top:14px; padding-top:14px; border-top:1px solid var(--border-subtle);">
+              <div>
+                <span style="font-weight:700; color:#38bdf8; font-size:0.88rem;">⚡ Can't use Gmail? Instant Zero-Setup Option:</span>
+                <p style="color:var(--text-secondary); font-size:0.82rem; margin:2px 0 0 0;">Spin up a dedicated virtual test mail relay with 1 click. Outgoing emails generate an instant webmail link to inspect received messages.</p>
+              </div>
+              <button type="button" id="btn-generate-ethereal" class="browse-btn" style="background:linear-gradient(135deg,#0284c7,#0369a1); font-size:0.82rem; padding:8px 16px; font-weight:700; white-space:nowrap;">
+                <span>Generate Instant Test Mailbox</span>
               </button>
             </div>
           </div>
@@ -435,15 +452,15 @@
 
                 <div style="margin-bottom:14px;">
                   <label style="font-size:0.8rem; font-weight:600; color:var(--text-secondary); display:block; margin-bottom:5px;">Sender Email / SMTP User</label>
-                  <input type="email" id="smtp-user" placeholder="e.g. yourname@gmail.com" style="width:100%; background:var(--bg-input); border:1px solid var(--border-medium); border-radius:8px; padding:9px 12px; color:var(--text-primary); font-size:0.9rem;" required>
+                  <input type="text" id="smtp-user" placeholder="e.g. yourname@outlook.com or username" style="width:100%; background:var(--bg-input); border:1px solid var(--border-medium); border-radius:8px; padding:9px 12px; color:var(--text-primary); font-size:0.9rem;" required>
                 </div>
 
                 <div style="margin-bottom:14px;">
                   <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px;">
-                    <label style="font-size:0.8rem; font-weight:600; color:var(--text-secondary); margin:0;">SMTP Password / Google App Password</label>
+                    <label style="font-size:0.8rem; font-weight:600; color:var(--text-secondary); margin:0;">SMTP Password / API Key</label>
                     <span id="smtp-pass-status" style="font-size:0.75rem; color:var(--text-muted);">Not set</span>
                   </div>
-                  <input type="password" id="smtp-pass" placeholder="Enter 16-character App Password" style="width:100%; background:var(--bg-input); border:1px solid var(--border-medium); border-radius:8px; padding:9px 12px; color:var(--text-primary); font-size:0.9rem;">
+                  <input type="password" id="smtp-pass" placeholder="Enter password or API key" style="width:100%; background:var(--bg-input); border:1px solid var(--border-medium); border-radius:8px; padding:9px 12px; color:var(--text-primary); font-size:0.9rem;">
                   <span style="font-size:0.75rem; color:var(--text-muted); display:block; margin-top:4px;">Leave empty to keep existing saved password.</span>
                 </div>
 
@@ -466,19 +483,26 @@
 
             <!-- Setup Guide & Test Dispatcher Card -->
             <div style="display:flex; flex-direction:column; gap:20px;">
-              <!-- Google App Password Guide -->
+              <!-- Alternative Providers Guide -->
               <div style="background:var(--bg-card); border:1px solid var(--border-medium); border-radius:16px; padding:22px;">
                 <h4 style="margin:0 0 10px 0; color:#38bdf8; font-size:0.95rem; display:flex; align-items:center; gap:6px;">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
-                  How to get a Gmail App Password in 60s
+                  Can't use Gmail? Choose from these:
                 </h4>
-                <ol style="margin:0; padding-left:18px; color:var(--text-secondary); font-size:0.83rem; line-height:1.65;">
-                  <li>Open Google Account: <a href="https://myaccount.google.com/security" target="_blank" rel="noopener" style="color:#818cf8; text-decoration:underline;">Security Settings</a></li>
-                  <li>Ensure <strong>2-Step Verification</strong> is switched <strong>ON</strong>.</li>
-                  <li>Go directly to: <a href="https://myaccount.google.com/apppasswords" target="_blank" rel="noopener" style="color:#818cf8; text-decoration:underline;">Google App Passwords</a></li>
-                  <li>Name it <strong>Vault PDF Portal</strong> and click <strong>Create</strong>.</li>
-                  <li>Copy the 16-character code (e.g. <code>abcd efgh ijkl mnop</code>) and paste it into the password field!</li>
-                </ol>
+                <div style="color:var(--text-secondary); font-size:0.83rem; line-height:1.65;">
+                  <div style="margin-bottom:8px;">
+                    <strong style="color:var(--text-primary);">1. 1-Click Instant Virtual Mailbox:</strong> Click the blue button above! It spins up an instant test server with 0 passwords needed.
+                  </div>
+                  <div style="margin-bottom:8px;">
+                    <strong style="color:var(--text-primary);">2. Free Brevo (Sendinblue):</strong> Sign up free at <a href="https://www.brevo.com" target="_blank" rel="noopener" style="color:#818cf8; text-decoration:underline;">brevo.com</a>. Gives 300 free real emails/day to any inbox without personal email.
+                  </div>
+                  <div style="margin-bottom:8px;">
+                    <strong style="color:var(--text-primary);">3. Outlook / Hotmail:</strong> Host: <code>smtp.office365.com</code>, Port: <code>587</code>, Secure: <code>false</code>.
+                  </div>
+                  <div>
+                    <strong style="color:var(--text-primary);">4. Yahoo Mail:</strong> Host: <code>smtp.mail.yahoo.com</code>, Port: <code>465</code>, Secure: <code>true</code>.
+                  </div>
+                </div>
               </div>
 
               <!-- Test Dispatcher Box -->

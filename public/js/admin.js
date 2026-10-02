@@ -465,6 +465,7 @@
           <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.78rem; color:var(--text-muted); border-top:1px solid var(--border-subtle); padding-top:10px;">
             <span>IP: ${escapeHtml(c.ip || 'Unknown')}</span>
             <div style="display:flex; gap:8px;">
+              ${c.previewUrl ? `<a href="${c.previewUrl}" target="_blank" rel="noopener" style="background:rgba(2,132,199,0.15); border:1px solid rgba(2,132,199,0.3); color:#38bdf8; border-radius:6px; padding:4px 10px; font-size:0.78rem; text-decoration:none; display:inline-flex; align-items:center; gap:4px;"><span>View Mail</span> ↗</a>` : ''}
               <button onclick="resendAck('${c.id}')" title="Dispatch acknowledgment letter to ${escapeHtml(c.email)}" style="background:rgba(129,140,248,0.12); border:1px solid rgba(129,140,248,0.3); color:#818cf8; border-radius:6px; padding:4px 10px; cursor:pointer; font-size:0.78rem;">📧 Send Ack</button>
               ${!c.read ? `<button onclick="markInquiryRead('${c.id}')" style="background:var(--bg-glass-strong); border:1px solid var(--border-medium); color:#34d399; border-radius:6px; padding:4px 10px; cursor:pointer; font-size:0.78rem;">Mark Read</button>` : ''}
               <button onclick="deleteInquiry('${c.id}')" style="background:rgba(239,68,68,0.1); border:1px solid rgba(239,68,68,0.25); color:#ef4444; border-radius:6px; padding:4px 10px; cursor:pointer; font-size:0.78rem;">Delete</button>
@@ -1029,6 +1030,16 @@
           if (hostInput) hostInput.value = 'smtp.gmail.com';
           if (portInput) portInput.value = 465;
           if (secureInput) secureInput.checked = true;
+        } else if (preset === 'outlook') {
+          if (serviceInput) serviceInput.value = 'outlook';
+          if (hostInput) hostInput.value = 'smtp.office365.com';
+          if (portInput) portInput.value = 587;
+          if (secureInput) secureInput.checked = false;
+        } else if (preset === 'yahoo') {
+          if (serviceInput) serviceInput.value = 'yahoo';
+          if (hostInput) hostInput.value = 'smtp.mail.yahoo.com';
+          if (portInput) portInput.value = 465;
+          if (secureInput) secureInput.checked = true;
         } else if (preset === 'brevo') {
           if (serviceInput) serviceInput.value = 'brevo';
           if (hostInput) hostInput.value = 'smtp-relay.brevo.com';
@@ -1044,6 +1055,38 @@
         }
       });
     });
+
+    // 1-Click Ethereal Test Mailbox Generator
+    const etherealBtn = document.getElementById('btn-generate-ethereal');
+    if (etherealBtn) {
+      etherealBtn.addEventListener('click', async () => {
+        etherealBtn.disabled = true;
+        etherealBtn.innerHTML = '<span>Spinning up test mailbox...</span>';
+        try {
+          const res = await authFetch('/api/admin/email-ethereal', { method: 'POST' });
+          const data = await res.json();
+          if (res.ok && data.success) {
+            showToast('Instant test mailbox activated!', 'success');
+            await loadEmailConfig();
+            const resultBox = document.getElementById('test-email-result');
+            if (resultBox) {
+              resultBox.style.display = 'block';
+              resultBox.style.background = 'rgba(2,132,199,0.15)';
+              resultBox.style.color = '#38bdf8';
+              resultBox.style.border = '1px solid rgba(2,132,199,0.3)';
+              resultBox.innerHTML = `✓ Virtual Test Mailbox Active: <strong>${escapeHtml(data.user)}</strong><br><span style="font-size:0.8rem; color:#cbd5e1;">Outgoing emails will now dispatch and produce instant webmail preview links.</span>`;
+            }
+          } else {
+            showToast(data.error || 'Failed to create test mailbox', 'error');
+          }
+        } catch (err) {
+          showToast('Error: ' + err.message, 'error');
+        } finally {
+          etherealBtn.disabled = false;
+          etherealBtn.innerHTML = '<span>Generate Instant Test Mailbox</span>';
+        }
+      });
+    }
 
     // Form submit
     if (form) {
@@ -1122,7 +1165,7 @@
               testResult.style.background = 'rgba(16,185,129,0.15)';
               testResult.style.color = '#34d399';
               testResult.style.border = '1px solid rgba(16,185,129,0.3)';
-              testResult.textContent = `✓ ${data.message}`;
+              testResult.innerHTML = `✓ ${data.message} ${data.previewUrl ? `<br><a href="${data.previewUrl}" target="_blank" rel="noopener" style="color:#38bdf8; text-decoration:underline; font-weight:700; display:inline-block; margin-top:6px;">🔗 View Received Email in Web Mailbox ↗</a>` : ''}`;
             }
             showToast('Test email successfully delivered!', 'success');
           } else {
