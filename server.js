@@ -1540,12 +1540,14 @@ app.post('/api/chat', async (req, res) => {
   // If server has GEMINI_API_KEY, invoke Gemini API
   if (process.env.GEMINI_API_KEY) {
     try {
-      const systemPrompt = `You are the official AI Assistant for Vault PDF Portal.
+      const systemPrompt = `You are Halimon, the official AI Assistant for Vault PDF Portal.
 Answer ONLY questions related to Vault PDF Portal: its features (secure document hosting, 16-character private sharing codes, public document publishing, in-browser PDF previewer, quantum neural forensic scanner, contact form), how to upload files (max 50MB, private storage outside web root), how secret codes work, account registration & email verification at /register, password reset, reporting inappropriate public files, and privacy & security (AES-256, bcrypt, transparent telemetry logging for security auditing).
 Strict constraints:
-1. Under no circumstance answer questions unrelated to Vault PDF Portal. If asked about off-topic subjects (general trivia, other topics), politely decline and state that you only answer questions regarding Vault PDF Portal.
-2. Keep answers concise, helpful, and under 120 words.
-3. Be professional and friendly.`;
+1. Always maintain your identity as Halimon.
+2. Begin your answer with a concise acknowledgment (e.g., "Acknowledged.").
+3. Under no circumstance answer questions unrelated to Vault PDF Portal. If asked about off-topic subjects (general trivia, other topics), politely decline and state that Halimon only answers questions regarding Vault PDF Portal.
+4. Keep answers concise, helpful, and under 120 words.
+5. Be professional and friendly.`;
 
       const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${process.env.GEMINI_API_KEY}`, {
         method: 'POST',
@@ -1562,6 +1564,8 @@ Strict constraints:
         const replyText = data.candidates?.[0]?.content?.parts?.[0]?.text;
         if (replyText) {
           return res.json({
+            botName: 'Halimon',
+            acknowledged: true,
             reply: replyText.trim(),
             remaining: updatedCap.remaining
           });
@@ -1580,30 +1584,32 @@ Strict constraints:
   const isOffTopic = /\b(python|javascript|write code|coding|scripting|weather|recipe|movie|song|joke|politics|president|capital of|translate|sports|game|crypto price|bitcoin)\b/i.test(q);
 
   if (isOffTopic && !/\b(vault|pdf|portal)\b/i.test(q)) {
-    reply = "I am the dedicated Vault PDF Portal assistant and can only assist with questions regarding this website (document uploads, secret sharing codes, account management, unlocking files, and security). How may I assist you with your documents?";
+    reply = "Acknowledged. I am Halimon, the dedicated Vault PDF Portal assistant, and can only assist with questions regarding this website (document uploads, secret sharing codes, account management, unlocking files, and security). How may I assist you with your documents?";
   } else if (/secret\s*code|unlock\s*code|sharing\s*code|unlock|private share|share privately|how.*(?:code|unlock)|private doc|enter.*code|where.*code/i.test(q)) {
-    reply = "Vault allows you to share PDFs privately using 16-character encrypted secret codes (e.g., `XXXX-XXXX-XXXX-XXXX`). Codes are stored in hashed format only on our server. To download a private document, visit the /unlock page and enter the secret code. As the document owner, you can set expiry dates, download caps, or regenerate/revoke codes anytime in your /dashboard.";
+    reply = "Acknowledged. Vault allows you to share PDFs privately using 16-character encrypted secret codes (e.g., `XXXX-XXXX-XXXX-XXXX`). Codes are stored in hashed format only on our server. To download a private document, visit the /unlock page and enter the secret code. As the document owner, you can set expiry dates, download caps, or regenerate/revoke codes anytime in your /dashboard.";
   } else if (/upload|how to upload|file size|size limit|pdf size|max size|file format|50mb/i.test(q)) {
-    reply = "You can upload PDF files up to 50MB by creating a free account and signing in to your /dashboard. Files are encrypted with AES-256 and stored outside the public web root. During upload, you can designate your file as Private (accessed solely with a secret code) or Public (listed in the Available Documents repository).";
+    reply = "Acknowledged. You can upload PDF files up to 50MB by creating a free account and signing in to your /dashboard. Files are encrypted with AES-256 and stored outside the public web root. During upload, you can designate your file as Private (accessed solely with a secret code) or Public (listed in the Available Documents repository).";
   } else if (/public|available document|make public|publish|unpublish|visibility/i.test(q)) {
-    reply = "Public files appear in the Available Documents section on the home page for anyone to preview and download directly. Private documents stay hidden and require a 16-character unlock code. You can switch between Public and Private status at any time from your /dashboard.";
+    reply = "Acknowledged. Public files appear in the Available Documents section on the home page for anyone to preview and download directly. Private documents stay hidden and require a 16-character unlock code. You can switch between Public and Private status at any time from your /dashboard.";
   } else if (/register|sign up|create account|login|sign in|account|verify|verification|password|reset|forgot/i.test(q)) {
-    reply = "User accounts provide private vault storage and document management. You can register at /register and sign in at /login. We require email verification to activate accounts, hash all passwords with bcrypt, and offer self-service password resets at /forgot-password. Admin credentials remain strictly separate.";
+    reply = "Acknowledged. User accounts provide private vault storage and document management. You can register at /register and sign in at /login. We require email verification to activate accounts, hash all passwords with bcrypt, and offer self-service password resets at /forgot-password. Admin credentials remain strictly separate.";
   } else if (/privacy|track|zero tracking|data|log|telemetry|retention|security|safe|encrypt/i.test(q)) {
-    reply = "Vault uses transparent security logging. We record visitor IP addresses, timestamps, and accessed paths strictly for rate limiting, DDoS defense, and security audits. We never sell data, share records, or employ third-party advertising trackers. Passwords and secret codes are hashed cryptographically.";
+    reply = "Acknowledged. Vault uses transparent security logging. We record visitor IP addresses, timestamps, and accessed paths strictly for rate limiting, DDoS defense, and security audits. We never sell data, share records, or employ third-party advertising trackers. Passwords and secret codes are hashed cryptographically.";
   } else if (/report|abuse|flag|copyright|inappropriate|remove|take down/i.test(q)) {
-    reply = "To report a public file that violates safety, intellectual property, or community guidelines, click the Report flag icon on the document card in Available Documents. Portal administrators review all incoming reports and can instantly unpublish or permanently remove offending files.";
+    reply = "Acknowledged. To report a public file that violates safety, intellectual property, or community guidelines, click the Report flag icon on the document card in Available Documents. Portal administrators review all incoming reports and can instantly unpublish or permanently remove offending files.";
   } else if (/contact|support|email|help|reach|message/i.test(q)) {
-    reply = "You can contact the Vault team directly through our secure contact form at /contact, or email us at security@vault-pdf-portal.onrender.com. Messages are encrypted and reviewed promptly by administrators.";
+    reply = "Acknowledged. You can contact the Vault team directly through our secure contact form at /contact, or email us at security@vault-pdf-portal.onrender.com. Messages are encrypted and reviewed promptly by administrators.";
   } else if (/neural|scanner|hud|cyber|quantum/i.test(q)) {
-    reply = "The Quantum Neural Scanner analyzes PDF documents for structure integrity, script detection, and cryptographic signatures. Click 'Scan' on any document or use the top navigation HUD button to switch to Cyber-Deck telemetry mode.";
+    reply = "Acknowledged. The Quantum Neural Scanner analyzes PDF documents for structure integrity, script detection, and cryptographic signatures. Click 'Scan' on any document or use the top navigation HUD button to switch to Cyber-Deck telemetry mode.";
   } else if (/hello|hi|hey|greet|who are you|what do you do/i.test(q)) {
-    reply = "Hello! I am the Vault AI Assistant. I'm here to answer any questions about Vault PDF Portal—including uploading PDFs, private sharing with secret codes, account registration, public documents, and security features. How can I help you today?";
+    reply = "Hello! I am Halimon, the Vault AI Assistant. Acknowledged and ready to assist you! I'm here to answer any questions about Vault PDF Portal—including uploading PDFs, private sharing with secret codes, account registration, public documents, and security features. How can I help you today?";
   } else {
-    reply = "I am the dedicated Vault PDF Portal assistant and can only assist with questions regarding this website (document uploads, secret sharing codes, account management, unlocking files, and security). How may I assist you with your documents?";
+    reply = "Acknowledged. I am Halimon, the dedicated Vault PDF Portal assistant, and can only assist with questions regarding this website (document uploads, secret sharing codes, account management, unlocking files, and security). How may I assist you with your documents?";
   }
 
   res.json({
+    botName: 'Halimon',
+    acknowledged: true,
     reply,
     remaining: updatedCap.remaining
   });

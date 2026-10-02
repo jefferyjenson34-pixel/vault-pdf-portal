@@ -19,7 +19,8 @@
     const trigger = document.createElement('button');
     trigger.className = 'vault-chat-trigger';
     trigger.id = 'vault-chat-trigger';
-    trigger.setAttribute('aria-label', 'Open Vault AI Assistant');
+    trigger.setAttribute('aria-label', 'Open Halimon AI Assistant');
+    trigger.title = 'Chat with Halimon';
     trigger.innerHTML = `
       <span class="vault-chat-badge-dot" aria-hidden="true"></span>
       <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
@@ -33,7 +34,7 @@
     dialog.id = 'vault-chat-dialog';
     dialog.setAttribute('role', 'dialog');
     dialog.setAttribute('aria-modal', 'false');
-    dialog.setAttribute('aria-label', 'Vault AI Assistant');
+    dialog.setAttribute('aria-label', 'Halimon AI Assistant');
 
     dialog.innerHTML = `
       <div class="vault-chat-header">
@@ -45,8 +46,8 @@
             </svg>
           </div>
           <div class="vault-chat-title-group">
-            <h3>Vault Assistant</h3>
-            <span><span class="vault-chat-status-indicator"></span> AI Portal Guide &bull; Online</span>
+            <h3>Halimon</h3>
+            <span><span class="vault-chat-status-indicator"></span> Halimon AI Assistant &bull; Online</span>
           </div>
         </div>
         <div class="vault-chat-header-actions">
@@ -79,7 +80,7 @@
 
       <div class="vault-chat-input-area">
         <form class="vault-chat-input-form" id="vault-chat-form">
-          <input type="text" class="vault-chat-input" id="vault-chat-input" placeholder="Ask about Vault features, uploading, codes..." maxlength="500" autocomplete="off" spellcheck="false">
+          <input type="text" class="vault-chat-input" id="vault-chat-input" placeholder="Ask Halimon about Vault features, uploading, codes..." maxlength="500" autocomplete="off" spellcheck="false">
           <button type="submit" class="vault-chat-send-btn" id="vault-chat-send" aria-label="Send message">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
               <line x1="22" y1="2" x2="11" y2="13"></line>
@@ -111,7 +112,7 @@
     greetingMsg.className = 'vault-msg bot';
     greetingMsg.innerHTML = `
       <div class="vault-msg-content">
-        Hello! I am the <strong>Vault AI Assistant</strong>. I can answer any questions about using Vault PDF Portal, uploading documents, private sharing with secret codes, and security policies.
+        Hello! I am <strong>Halimon</strong>, the official Vault AI Assistant. I can answer any questions about using Vault PDF Portal, uploading documents, private sharing with secret codes, and security policies.
         <div class="vault-chat-suggestions">
           <button class="vault-suggestion-chip" data-query="How do secret codes work for private sharing?">
             <span>How do secret codes work?</span>
@@ -216,12 +217,36 @@
       <div class="vault-typing-dot"></div>
       <div class="vault-typing-dot"></div>
       <div class="vault-typing-dot"></div>
+      <span class="vault-typing-label">Halimon is analyzing query...</span>
     `;
     messagesContainer.appendChild(typingIndicator);
     messagesContainer.scrollTop = messagesContainer.scrollHeight;
 
+    const MIN_ACK_DELAY = 5000; // Halimon will give an acknowledgment as soon as possible after 5 seconds
+    let interimAckEl = null;
+
+    // Interim acknowledgment timer at 5.0 seconds if backend is still processing
+    const interimTimer = setTimeout(() => {
+      if (isSending && !interimAckEl && document.getElementById('vault-typing-indicator')) {
+        interimAckEl = document.createElement('div');
+        interimAckEl.className = 'vault-msg bot vault-interim-ack';
+        interimAckEl.id = 'halimon-interim-ack';
+        interimAckEl.innerHTML = `
+          <div class="vault-ack-badge">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
+            Acknowledged by Halimon (5s)
+          </div>
+          <div class="vault-msg-content">
+            <strong>Halimon:</strong> Message acknowledged. Processing inquiry from Vault archives...
+          </div>
+        `;
+        messagesContainer.insertBefore(interimAckEl, typingIndicator);
+        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+      }
+    }, MIN_ACK_DELAY);
+
     try {
-      const res = await fetch('/api/chat', {
+      const fetchPromise = fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -230,8 +255,16 @@
         })
       });
 
+      // Wait for response AND ensure minimum 5 seconds delay for prompt acknowledgment
+      const [res] = await Promise.all([
+        fetchPromise,
+        new Promise(resolve => setTimeout(resolve, MIN_ACK_DELAY))
+      ]);
+
+      clearTimeout(interimTimer);
       const data = await res.json();
       typingIndicator.remove();
+      if (interimAckEl) interimAckEl.remove();
 
       if (res.ok) {
         remainingMessages = data.remaining !== undefined ? data.remaining : remainingMessages;
@@ -239,12 +272,16 @@
           capDisplay.textContent = `${remainingMessages} messages remaining this hour`;
         }
 
-        const botReply = data.reply || "I am here to help with questions about Vault PDF Portal.";
+        const botReply = data.reply || "I am Halimon, the Vault AI Assistant. How may I assist you with your documents?";
         conversationHistory.push({ role: 'assistant', text: botReply });
 
         const botMsg = document.createElement('div');
         botMsg.className = 'vault-msg bot';
         botMsg.innerHTML = `
+          <div class="vault-ack-badge">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
+            Acknowledged by Halimon (5s)
+          </div>
           <div class="vault-msg-content">${formatReply(botReply)}</div>
           <span class="vault-msg-time">${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
         `;
@@ -261,17 +298,21 @@
         messagesContainer.appendChild(errorMsg);
       }
     } catch (err) {
+      clearTimeout(interimTimer);
       typingIndicator.remove();
+      if (interimAckEl) interimAckEl.remove();
+
       const networkErrorMsg = document.createElement('div');
       networkErrorMsg.className = 'vault-msg bot';
       networkErrorMsg.innerHTML = `
         <div class="vault-msg-content" style="border-color: rgba(239,68,68,0.4); color:#fca5a5;">
-          Unable to contact assistant server. Please check your connection.
+          Unable to contact Halimon server. Please check your connection.
         </div>
         <span class="vault-msg-time">Offline</span>
       `;
       messagesContainer.appendChild(networkErrorMsg);
     } finally {
+      clearTimeout(interimTimer);
       isSending = false;
       if (sendBtn) sendBtn.disabled = false;
       messagesContainer.scrollTop = messagesContainer.scrollHeight;

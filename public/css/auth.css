@@ -261,6 +261,9 @@ body.quantum-hud-mode .auth-alert.success {
 }
 
 .dashboard-header-card {
+  opacity: 1 !important;
+  visibility: visible !important;
+  transform: none !important;
   background: var(--bg-card);
   border: 1px solid var(--border-card);
   border-radius: 20px;
@@ -353,6 +356,9 @@ body.quantum-hud-mode .btn-logout {
 
 /* User documents table / list */
 .user-docs-container {
+  opacity: 1 !important;
+  visibility: visible !important;
+  transform: none !important;
   background: var(--bg-card);
   border: 1px solid var(--border-card);
   border-radius: 20px;

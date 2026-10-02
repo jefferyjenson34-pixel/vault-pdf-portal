@@ -379,6 +379,44 @@
   padding: 0 4px;
 }
 
+/* Halimon Acknowledgment Badge & Indicators */
+.vault-ack-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #a78bfa;
+  background: rgba(124, 58, 237, 0.15);
+  border: 1px solid rgba(124, 58, 237, 0.3);
+  padding: 3px 8px;
+  border-radius: 6px;
+  margin-bottom: 6px;
+  width: fit-content;
+  animation: fadeInAck 0.3s ease;
+}
+
+@keyframes fadeInAck {
+  from { opacity: 0; transform: translateY(-3px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.vault-typing-label {
+  font-size: 0.76rem;
+  color: #94a3b8;
+  font-style: italic;
+  margin-left: 6px;
+}
+
+.vault-msg.vault-interim-ack .vault-msg-content {
+  background: rgba(30, 41, 59, 0.65);
+  border: 1px dashed rgba(167, 139, 250, 0.4);
+  font-size: 0.84rem;
+  color: #cbd5e1;
+}
+
 /* Mobile responsive full-screen on small screens */
 @media (max-width: 480px) {
   .vault-chat-dialog {

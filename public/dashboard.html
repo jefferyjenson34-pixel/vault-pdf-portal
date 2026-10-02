@@ -161,7 +161,7 @@
     <div class="container">
       
       <!-- User Profile Card -->
-      <div class="dashboard-header-card reveal-fade-up">
+      <div class="dashboard-header-card">
         <div class="dashboard-user-info">
           <div class="dashboard-avatar" id="user-avatar">U</div>
           <div>
@@ -193,7 +193,7 @@
       </div>
 
       <!-- User Documents Section -->
-      <div class="user-docs-container reveal-fade-up delay-100">
+      <div class="user-docs-container">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:24px; flex-wrap:wrap; gap:16px;">
           <div>
             <h3 style="font-size:1.25rem; font-weight:800; color:var(--navy-950); margin-bottom:4px;">My Stored Documents</h3>
@@ -338,17 +338,20 @@
     // 1. Check Auth Status on Load
     async function checkAuth() {
       try {
-        const res = await fetch('/api/auth/me');
+        const res = await fetch('/api/auth/me', { credentials: 'same-origin' });
         const data = await res.json();
         if (!data.loggedIn) {
           window.location.href = '/login';
           return;
         }
         currentUser = data.user;
-        document.getElementById('user-email-display').textContent = currentUser.email;
-        document.getElementById('user-avatar').textContent = currentUser.email.charAt(0).toUpperCase();
+        const emailEl = document.getElementById('user-email-display');
+        const avatarEl = document.getElementById('user-avatar');
+        if (emailEl) emailEl.textContent = currentUser.email;
+        if (avatarEl) avatarEl.textContent = (currentUser.email || 'U').charAt(0).toUpperCase();
         loadUserDocuments();
       } catch (e) {
+        console.error('Failed to authenticate session:', e);
         window.location.href = '/login';
       }
     }
