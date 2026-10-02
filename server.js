@@ -6,6 +6,16 @@ const fs = require('fs');
 const bcrypt = require('bcryptjs');
 const cookieParser = require('cookie-parser');
 
+// Load environment variables from .env if present (Node 20+)
+const envPath = path.join(__dirname, '.env');
+if (fs.existsSync(envPath) && typeof process.loadEnvFile === 'function') {
+  try {
+    process.loadEnvFile(envPath);
+  } catch (envErr) {
+    console.warn('Notice: Could not load .env file:', envErr.message);
+  }
+}
+
 const app = express();
 const PORT = process.env.PORT || 3000;
 
@@ -32,6 +42,7 @@ const USER_SESSIONS_FILE = path.join(DATA_DIR, 'user_sessions.json');
 const USER_DOCUMENTS_FILE = path.join(DATA_DIR, 'user_documents.json');
 const PRIVATE_UPLOADS_DIR = path.join(DATA_DIR, 'private_uploads');
 const REPORTS_FILE = path.join(DATA_DIR, 'reports.json');
+const EMAIL_CONFIG_FILE = path.join(DATA_DIR, 'email_config.json');
 
 // Ensure directories exist
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
@@ -45,6 +56,19 @@ if (!fs.existsSync(USERS_FILE)) fs.writeFileSync(USERS_FILE, JSON.stringify([], 
 if (!fs.existsSync(USER_SESSIONS_FILE)) fs.writeFileSync(USER_SESSIONS_FILE, JSON.stringify({}, null, 2));
 if (!fs.existsSync(USER_DOCUMENTS_FILE)) fs.writeFileSync(USER_DOCUMENTS_FILE, JSON.stringify([], null, 2));
 if (!fs.existsSync(REPORTS_FILE)) fs.writeFileSync(REPORTS_FILE, JSON.stringify([], null, 2));
+if (!fs.existsSync(EMAIL_CONFIG_FILE)) {
+  fs.writeFileSync(EMAIL_CONFIG_FILE, JSON.stringify({
+    enabled: false,
+    service: 'gmail',
+    host: 'smtp.gmail.com',
+    port: 465,
+    secure: true,
+    user: '',
+    pass: '',
+    fromName: 'Halimon (Vault PDF Portal)',
+    fromEmail: ''
+  }, null, 2));
+}
 
 // Multer config for PDF uploads
 const storage = multer.diskStorage({
@@ -223,7 +247,13 @@ function isValidSession(token) {
 
 // Auth middleware — protects admin-only routes
 function requireAdmin(req, res, next) {
-  const token = req.headers['x-admin-token'];
+  let token = req.headers['x-admin-token'];
+  if (!token && req.headers['authorization']) {
+    const parts = req.headers['authorization'].split(' ');
+    if (parts.length === 2 && /^bearer$/i.test(parts[0])) {
+      token = parts[1];
+    }
+  }
   if (!isValidSession(token)) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
@@ -313,6 +343,115 @@ function readReports() {
 }
 function writeReports(reports) {
   fs.writeFileSync(REPORTS_FILE, JSON.stringify(reports, null, 2));
+}
+
+// ─── Email & SMTP Relay Configuration Helpers ────────────────────────
+function readEmailConfig() {
+  try {
+    if (fs.existsSync(EMAIL_CONFIG_FILE)) {
+      return JSON.parse(fs.readFileSync(EMAIL_CONFIG_FILE, 'utf-8'));
+    }
+  } catch {}
+  return {
+    enabled: false,
+    service: 'gmail',
+    host: 'smtp.gmail.com',
+    port: 465,
+    secure: true,
+    user: '',
+    pass: '',
+    fromName: 'Halimon (Vault PDF Portal)',
+    fromEmail: ''
+  };
+}
+
+function writeEmailConfig(config) {
+  fs.writeFileSync(EMAIL_CONFIG_FILE, JSON.stringify(config, null, 2));
+}
+
+function getActiveEmailConfig() {
+  const fileConfig = readEmailConfig();
+  const service = process.env.SMTP_SERVICE || fileConfig.service || 'gmail';
+  const host = process.env.SMTP_HOST || fileConfig.host || 'smtp.gmail.com';
+  const port = parseInt(process.env.SMTP_PORT || fileConfig.port || (service === 'gmail' || host.includes('gmail') ? '465' : '587'), 10);
+  const secure = process.env.SMTP_SECURE !== undefined
+    ? (process.env.SMTP_SECURE === 'true')
+    : (fileConfig.secure !== undefined ? !!fileConfig.secure : (port === 465));
+  const user = (process.env.SMTP_USER || process.env.GMAIL_USER || fileConfig.user || '').trim();
+  const pass = (process.env.SMTP_PASS || process.env.GMAIL_PASS || fileConfig.pass || '').trim();
+  const fromName = (process.env.SMTP_FROM_NAME || fileConfig.fromName || 'Halimon (Vault PDF Portal)').trim();
+  const fromEmail = (process.env.SMTP_FROM || fileConfig.fromEmail || user).trim();
+
+  const isConfigured = !!(user && pass);
+
+  return {
+    isConfigured,
+    service,
+    host,
+    port,
+    secure,
+    user,
+    pass,
+    fromName,
+    fromEmail
+  };
+}
+
+// ─── Live Email Dispatcher ──────────────────────────────────────────
+async function sendLiveEmail({ to, subject, text, html }) {
+  const config = getActiveEmailConfig();
+  if (!config.isConfigured) {
+    return {
+      success: false,
+      delivered: false,
+      reason: 'No SMTP credentials configured. Configure in Admin -> Email & SMTP or set SMTP_USER and SMTP_PASS.'
+    };
+  }
+
+  const nodemailer = require('nodemailer');
+  let transporterOptions;
+  if (config.service === 'gmail' || (config.host && config.host.includes('gmail.com'))) {
+    transporterOptions = {
+      service: 'gmail',
+      auth: {
+        user: config.user,
+        pass: config.pass.replace(/\s+/g, '') // strip any whitespace e.g. "abcd efgh" -> "abcdefgh"
+      }
+    };
+  } else {
+    transporterOptions = {
+      host: config.host,
+      port: config.port,
+      secure: config.secure,
+      auth: {
+        user: config.user,
+        pass: config.pass
+      },
+      tls: {
+        rejectUnauthorized: false
+      }
+    };
+  }
+
+  const transporter = nodemailer.createTransport(transporterOptions);
+  const fromHeader = config.fromEmail
+    ? `"${config.fromName}" <${config.fromEmail}>`
+    : `"${config.fromName}" <${config.user}>`;
+
+  const info = await transporter.sendMail({
+    from: fromHeader,
+    to,
+    subject,
+    text,
+    html
+  });
+
+  return {
+    success: true,
+    delivered: true,
+    messageId: info.messageId,
+    response: info.response
+  };
 }
 
 // ─── User Authentication & Session Helpers ───────────────────────────
@@ -901,50 +1040,47 @@ async function dispatchContactAcknowledgment(contact) {
   const textBody = generateAcknowledgmentText(contact.name);
   const htmlBody = generateAcknowledgmentHtml(contact.name);
 
-  console.log(`\n  📬 [INQUIRY ACKNOWLEDGMENT DISPATCHED within 5s]`);
+  console.log(`\n  📬 [INQUIRY ACKNOWLEDGMENT DISPATCH within 5s]`);
   console.log(`  To: ${contact.email} (${contact.name})`);
   console.log(`  Subject: ${ACKNOWLEDGMENT_SUBJECT}`);
   console.log(`  Timestamp: ${now}`);
 
   let sentViaSmtp = false;
+  let deliveryError = null;
+  let messageId = null;
 
-  // If live SMTP credentials are configured, dispatch via Nodemailer
-  if (process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS) {
-    try {
-      const nodemailer = require('nodemailer');
-      const transporter = nodemailer.createTransport({
-        host: process.env.SMTP_HOST,
-        port: parseInt(process.env.SMTP_PORT || '587', 10),
-        secure: process.env.SMTP_SECURE === 'true',
-        auth: {
-          user: process.env.SMTP_USER,
-          pass: process.env.SMTP_PASS
-        }
-      });
+  try {
+    const result = await sendLiveEmail({
+      to: contact.email,
+      subject: ACKNOWLEDGMENT_SUBJECT,
+      text: textBody,
+      html: htmlBody
+    });
 
-      await transporter.sendMail({
-        from: `"Halimon (Vault PDF Portal)" <${process.env.SMTP_FROM || process.env.SMTP_USER}>`,
-        to: contact.email,
-        subject: ACKNOWLEDGMENT_SUBJECT,
-        text: textBody,
-        html: htmlBody
-      });
+    if (result.success) {
       sentViaSmtp = true;
-      console.log(`  ✓ Email transmitted successfully via SMTP to ${contact.email}`);
-    } catch (smtpErr) {
-      console.error('  ⚠️ SMTP transport warning (falling back to telemetry log):', smtpErr.message);
+      messageId = result.messageId;
+      console.log(`  ✓ LIVE EMAIL DELIVERED via SMTP to ${contact.email}! ID: ${messageId}`);
+    } else {
+      deliveryError = result.reason;
+      console.warn(`  ⚠️ Live SMTP dispatch skipped: ${result.reason}`);
     }
+  } catch (smtpErr) {
+    deliveryError = smtpErr.message;
+    console.error(`  ❌ SMTP delivery error to ${contact.email}:`, smtpErr.message);
   }
 
   // Update contact record in data/contacts.json
   const contacts = readContacts();
   const c = contacts.find(item => item.id === contact.id);
   if (c) {
-    c.acknowledgmentStatus = 'dispatched';
+    c.acknowledgmentStatus = sentViaSmtp ? 'delivered' : 'pending_smtp';
     c.acknowledgmentSentAt = now;
     c.acknowledgmentSubject = ACKNOWLEDGMENT_SUBJECT;
     c.acknowledgmentText = textBody;
     c.sentViaSmtp = sentViaSmtp;
+    c.deliveryError = deliveryError;
+    c.messageId = messageId;
     writeContacts(contacts);
   }
 }
@@ -1007,6 +1143,9 @@ app.get('/api/contact/acknowledgment/:id', (req, res) => {
     subject: ACKNOWLEDGMENT_SUBJECT,
     recipient: contact.email,
     name: contact.name,
+    sentViaSmtp: !!contact.sentViaSmtp,
+    deliveryError: contact.deliveryError || null,
+    messageId: contact.messageId || null,
     messageText: contact.acknowledgmentText || generateAcknowledgmentText(contact.name)
   });
 });
@@ -1042,6 +1181,125 @@ app.delete('/api/contacts/:id', requireAdmin, (req, res) => {
 app.post('/api/contacts/clear', requireAdmin, (req, res) => {
   writeContacts([]);
   res.json({ success: true });
+});
+
+// ─── API: Resend Acknowledgment Email to Inquirer (admin, PROTECTED) ─
+app.post('/api/admin/contacts/:id/resend-ack', requireAdmin, async (req, res) => {
+  const contacts = readContacts();
+  const contact = contacts.find(c => c.id === req.params.id);
+  if (!contact) {
+    return res.status(404).json({ error: 'Inquiry not found' });
+  }
+
+  try {
+    const result = await sendLiveEmail({
+      to: contact.email,
+      subject: ACKNOWLEDGMENT_SUBJECT,
+      text: generateAcknowledgmentText(contact.name),
+      html: generateAcknowledgmentHtml(contact.name)
+    });
+
+    if (result.success) {
+      contact.sentViaSmtp = true;
+      contact.acknowledgmentStatus = 'delivered';
+      contact.acknowledgmentSentAt = new Date().toISOString();
+      contact.messageId = result.messageId;
+      contact.deliveryError = null;
+      writeContacts(contacts);
+      return res.json({ success: true, message: `Acknowledgment successfully emailed to ${contact.email}!` });
+    } else {
+      return res.status(400).json({ error: result.reason || 'Failed to dispatch email via SMTP.' });
+    }
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+// ─── API: Get Email / SMTP Settings (admin, PROTECTED) ──────────────
+app.get('/api/admin/email-config', requireAdmin, (req, res) => {
+  const config = getActiveEmailConfig();
+  res.json({
+    isConfigured: config.isConfigured,
+    service: config.service,
+    host: config.host,
+    port: config.port,
+    secure: config.secure,
+    user: config.user,
+    hasPassword: !!config.pass,
+    fromName: config.fromName,
+    fromEmail: config.fromEmail
+  });
+});
+
+// ─── API: Save Email / SMTP Settings (admin, PROTECTED) ─────────────
+app.post('/api/admin/email-config', requireAdmin, (req, res) => {
+  const { service, host, port, secure, user, pass, fromName, fromEmail } = req.body || {};
+  const current = readEmailConfig();
+
+  const newConfig = {
+    enabled: true,
+    service: service || current.service || 'gmail',
+    host: (host || current.host || 'smtp.gmail.com').trim(),
+    port: parseInt(port || current.port || 465, 10),
+    secure: secure !== undefined ? !!secure : (port == 465),
+    user: (user !== undefined ? user : current.user || '').trim(),
+    pass: (pass && pass.trim()) ? pass.trim() : (current.pass || ''),
+    fromName: (fromName || current.fromName || 'Halimon (Vault PDF Portal)').trim(),
+    fromEmail: (fromEmail || current.fromEmail || user || current.user || '').trim()
+  };
+
+  writeEmailConfig(newConfig);
+  res.json({ success: true, message: 'Email & SMTP settings saved successfully.' });
+});
+
+// ─── API: Send Live Test Email (admin, PROTECTED) ───────────────────
+app.post('/api/admin/email-test', requireAdmin, async (req, res) => {
+  const { testEmail } = req.body || {};
+  if (!testEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(testEmail)) {
+    return res.status(400).json({ error: 'Please enter a valid recipient email address for testing.' });
+  }
+
+  const config = getActiveEmailConfig();
+  if (!config.isConfigured) {
+    return res.status(400).json({
+      error: 'SMTP credentials are not yet configured. Please save your email & password/app-password before sending a test.'
+    });
+  }
+
+  try {
+    const testResult = await sendLiveEmail({
+      to: testEmail,
+      subject: 'Test Message: Vault PDF Portal Live SMTP Verification',
+      text: `Hello,\n\nThis is a live test transmission from Vault PDF Portal.\n\nYour SMTP sender credentials (${config.service || config.host}) are functioning correctly and outbound emails are reaching real mailboxes!\n\nBest regards,\nHalimon\nVault PDF Portal\nhttps://vault-pdf-portal.onrender.com/`,
+      html: `
+        <div style="font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif; max-width:550px; margin:auto; background:#131a2a; color:#f8fafc; padding:32px; border-radius:14px; border:1px solid #7c3aed; box-shadow:0 10px 25px rgba(0,0,0,0.5);">
+          <div style="font-size:1.2rem; font-weight:800; color:#ffffff; margin-bottom:16px;">Vault <span style="color:#a78bfa;">PDF Portal</span></div>
+          <h2 style="color:#34d399; margin-top:0; font-size:1.2rem;">✓ Live SMTP Test Successful</h2>
+          <p style="color:#cbd5e1; font-size:14px; line-height:1.6;">This email confirms that your outbound SMTP mail relay is functioning properly. 5-second inquiry acknowledgment letters, registration OTP codes, and password reset links will now arrive in real recipient inboxes.</p>
+          <div style="background:#0b0f19; border:1px solid #1e293b; padding:14px; border-radius:8px; margin:18px 0; font-size:13px; color:#cbd5e1; font-family:monospace; line-height:1.7;">
+            • Service / Host: ${config.service || config.host}<br>
+            • Authenticated Sender: ${config.user}<br>
+            • Port: ${config.port} (Secure: ${config.secure})<br>
+            • Dispatched: ${new Date().toISOString()}
+          </div>
+          <p style="margin-bottom:0; color:#94a3b8; font-size:13px;">Halimon &bull; Creator, Vault PDF Portal</p>
+        </div>
+      `
+    });
+
+    if (testResult.success) {
+      return res.json({
+        success: true,
+        message: `Live test email successfully delivered to ${testEmail}! (Message ID: ${testResult.messageId})`
+      });
+    } else {
+      return res.status(500).json({ error: testResult.reason || 'Failed to dispatch test email.' });
+    }
+  } catch (err) {
+    return res.status(500).json({
+      error: `SMTP Error: ${err.message}. If using Gmail, make sure you created a 16-character Google App Password (not your standard login password).`
+    });
+  }
 });
 
 // ─── API: Set Document Category (admin, PROTECTED) ──────────────────
@@ -1160,6 +1418,25 @@ app.post('/api/auth/register', (req, res) => {
   users.push(newUser);
   writeUsers(users);
 
+  // If live SMTP is configured, dispatch OTP directly to recipient email
+  if (getActiveEmailConfig().isConfigured) {
+    sendLiveEmail({
+      to: normalizedEmail,
+      subject: 'Your 6-Digit Verification Code: Vault PDF Portal',
+      text: `Hello,\n\nYour 6-digit email verification code for Vault PDF Portal is:\n\n${otpCode}\n\nThis code will expire in 15 minutes.\n\nBest regards,\nVault Team\nhttps://vault-pdf-portal.onrender.com/`,
+      html: `
+        <div style="font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif; max-width:500px; margin:auto; background:#131a2a; color:#f8fafc; padding:30px; border-radius:14px; border:1px solid #7c3aed;">
+          <h2 style="color:#a78bfa; margin-top:0;">Verify Your Email Address</h2>
+          <p style="color:#cbd5e1; font-size:14px;">Thank you for registering at Vault PDF Portal. Please enter this 6-digit OTP code to activate your account:</p>
+          <div style="background:#0b0f19; padding:18px; border-radius:10px; font-size:32px; font-weight:800; letter-spacing:8px; text-align:center; color:#38bdf8; margin:20px 0; font-family:monospace; border:1px solid #1e293b;">
+            ${otpCode}
+          </div>
+          <p style="color:#94a3b8; font-size:12px; margin-bottom:0;">This code will expire in 15 minutes. If you did not initiate this request, you can safely ignore this message.</p>
+        </div>
+      `
+    }).catch(err => console.warn('Could not dispatch OTP email:', err.message));
+  }
+
   res.json({
     success: true,
     message: 'Account registered successfully. Please verify your email with the 6-digit OTP.',
@@ -1268,6 +1545,25 @@ app.post('/api/auth/resend-otp', (req, res) => {
   user.otpExpires = Date.now() + 15 * 60 * 1000;
   user.otpAttempts = 0;
   writeUsers(users);
+
+  // If live SMTP is configured, dispatch fresh OTP directly to recipient email
+  if (getActiveEmailConfig().isConfigured) {
+    sendLiveEmail({
+      to: user.email,
+      subject: 'Your Fresh 6-Digit Verification Code: Vault PDF Portal',
+      text: `Hello,\n\nYour new 6-digit email verification code for Vault PDF Portal is:\n\n${newOtp}\n\nThis code will expire in 15 minutes.\n\nBest regards,\nVault Team\nhttps://vault-pdf-portal.onrender.com/`,
+      html: `
+        <div style="font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif; max-width:500px; margin:auto; background:#131a2a; color:#f8fafc; padding:30px; border-radius:14px; border:1px solid #7c3aed;">
+          <h2 style="color:#a78bfa; margin-top:0;">Your Fresh Verification Code</h2>
+          <p style="color:#cbd5e1; font-size:14px;">Here is your new 6-digit OTP code to activate your account:</p>
+          <div style="background:#0b0f19; padding:18px; border-radius:10px; font-size:32px; font-weight:800; letter-spacing:8px; text-align:center; color:#38bdf8; margin:20px 0; font-family:monospace; border:1px solid #1e293b;">
+            ${newOtp}
+          </div>
+          <p style="color:#94a3b8; font-size:12px; margin-bottom:0;">This code will expire in 15 minutes.</p>
+        </div>
+      `
+    }).catch(err => console.warn('Could not dispatch fresh OTP email:', err.message));
+  }
 
   res.json({
     success: true,

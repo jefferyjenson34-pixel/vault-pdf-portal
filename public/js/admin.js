@@ -190,6 +190,7 @@
         if (tab.getAttribute('data-tab') === 'inquiries') loadInquiries();
         if (tab.getAttribute('data-tab') === 'reports') loadReports();
         if (tab.getAttribute('data-tab') === 'visitors') loadVisitors();
+        if (tab.getAttribute('data-tab') === 'email') loadEmailConfig();
         if (tab.getAttribute('data-tab') === 'secret') checkSoundStatus();
       });
     });
@@ -202,6 +203,11 @@
     const refreshReportsBtn = document.getElementById('refresh-reports-btn');
     if (refreshReportsBtn) {
       refreshReportsBtn.addEventListener('click', loadReports);
+    }
+
+    const refreshEmailBtn = document.getElementById('refresh-email-btn');
+    if (refreshEmailBtn) {
+      refreshEmailBtn.addEventListener('click', loadEmailConfig);
     }
   }
 
@@ -447,6 +453,10 @@
               <span style="font-weight:700; color:var(--text-primary); font-size:1rem;">${escapeHtml(c.name)}</span>
               <a href="mailto:${escapeHtml(c.email)}" style="color:#818cf8; font-size:0.85rem; margin-left:8px; text-decoration:underline;">${escapeHtml(c.email)}</a>
               ${!c.read ? '<span style="background:#ec4899; color:#fff; font-size:0.68rem; font-weight:700; padding:2px 7px; border-radius:10px; margin-left:8px;">NEW</span>' : ''}
+              ${c.sentViaSmtp
+                ? '<span style="background:rgba(16,185,129,0.15); color:#34d399; font-size:0.68rem; font-weight:700; padding:2px 7px; border-radius:10px; margin-left:6px; border:1px solid rgba(16,185,129,0.3);">✓ Emailed</span>'
+                : '<span style="background:rgba(245,158,11,0.15); color:#f59e0b; font-size:0.68rem; font-weight:700; padding:2px 7px; border-radius:10px; margin-left:6px; border:1px solid rgba(245,158,11,0.3);">⚠️ No SMTP</span>'
+              }
             </div>
             <div style="font-size:0.8rem; color:var(--text-muted);">${formatDate(c.timestamp)}</div>
           </div>
@@ -455,6 +465,7 @@
           <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.78rem; color:var(--text-muted); border-top:1px solid var(--border-subtle); padding-top:10px;">
             <span>IP: ${escapeHtml(c.ip || 'Unknown')}</span>
             <div style="display:flex; gap:8px;">
+              <button onclick="resendAck('${c.id}')" title="Dispatch acknowledgment letter to ${escapeHtml(c.email)}" style="background:rgba(129,140,248,0.12); border:1px solid rgba(129,140,248,0.3); color:#818cf8; border-radius:6px; padding:4px 10px; cursor:pointer; font-size:0.78rem;">📧 Send Ack</button>
               ${!c.read ? `<button onclick="markInquiryRead('${c.id}')" style="background:var(--bg-glass-strong); border:1px solid var(--border-medium); color:#34d399; border-radius:6px; padding:4px 10px; cursor:pointer; font-size:0.78rem;">Mark Read</button>` : ''}
               <button onclick="deleteInquiry('${c.id}')" style="background:rgba(239,68,68,0.1); border:1px solid rgba(239,68,68,0.25); color:#ef4444; border-radius:6px; padding:4px 10px; cursor:pointer; font-size:0.78rem;">Delete</button>
             </div>
@@ -492,6 +503,25 @@
       }
     } catch {
       showToast('Failed to delete message', 'error');
+    }
+  };
+
+  // ─── Resend Acknowledgment Email ─────────────────────────────
+  window.resendAck = async function (id) {
+    try {
+      showToast('Dispatching acknowledgment email...', 'info');
+      const res = await authFetch(`/api/admin/contacts/${id}/resend-ack`, {
+        method: 'POST'
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        showToast(data.message || 'Acknowledgment successfully emailed!', 'success');
+        loadInquiries();
+      } else {
+        showToast(data.error || 'Failed to dispatch email', 'error');
+      }
+    } catch (e) {
+      showToast('Error dispatching acknowledgment: ' + e.message, 'error');
     }
   };
 
@@ -919,6 +949,207 @@
     }
   }
 
+  // ─── Email & SMTP Settings ──────────────────────────────────
+  async function loadEmailConfig() {
+    const badge = document.getElementById('smtp-status-badge');
+    const hostInput = document.getElementById('smtp-host');
+    const portInput = document.getElementById('smtp-port');
+    const secureCheckbox = document.getElementById('smtp-secure');
+    const userInput = document.getElementById('smtp-user');
+    const passStatus = document.getElementById('smtp-pass-status');
+    const fromNameInput = document.getElementById('smtp-from-name');
+    const fromEmailInput = document.getElementById('smtp-from-email');
+    const serviceInput = document.getElementById('smtp-service');
+
+    if (!hostInput) return;
+
+    try {
+      const res = await authFetch('/api/admin/email-config');
+      if (res.ok) {
+        const config = await res.json();
+        if (serviceInput) serviceInput.value = config.service || 'gmail';
+        if (hostInput) hostInput.value = config.host || 'smtp.gmail.com';
+        if (portInput) portInput.value = config.port || 465;
+        if (secureCheckbox) secureCheckbox.checked = config.secure !== false;
+        if (userInput) userInput.value = config.user || '';
+        if (fromNameInput) fromNameInput.value = config.fromName || 'Halimon (Vault PDF Portal)';
+        if (fromEmailInput) fromEmailInput.value = config.fromEmail || '';
+
+        if (passStatus) {
+          passStatus.textContent = config.hasPassword ? '● Password Saved' : 'Not set';
+          passStatus.style.color = config.hasPassword ? '#34d399' : 'var(--text-muted)';
+        }
+
+        if (badge) {
+          if (config.isConfigured) {
+            badge.textContent = '● Live SMTP Active';
+            badge.style.background = 'rgba(16,185,129,0.15)';
+            badge.style.color = '#10b981';
+            badge.style.borderColor = 'rgba(16,185,129,0.3)';
+          } else {
+            badge.textContent = '○ Inactive (No SMTP Set)';
+            badge.style.background = 'rgba(245,158,11,0.15)';
+            badge.style.color = '#f59e0b';
+            badge.style.borderColor = 'rgba(245,158,11,0.3)';
+          }
+        }
+      }
+    } catch (e) {
+      console.error('Failed to load email config:', e);
+    }
+  }
+
+  function initEmailSettings() {
+    const form = document.getElementById('smtp-settings-form');
+    const testBtn = document.getElementById('send-test-email-btn');
+    const testInput = document.getElementById('test-recipient-email');
+    const testResult = document.getElementById('test-email-result');
+    const presetBtns = document.querySelectorAll('.preset-btn');
+
+    // Preset Buttons
+    presetBtns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        presetBtns.forEach(b => {
+          b.style.background = 'var(--bg-glass)';
+          b.style.borderColor = 'var(--border-subtle)';
+          b.style.color = 'var(--text-secondary)';
+        });
+        btn.style.background = 'rgba(129,140,248,0.15)';
+        btn.style.borderColor = 'rgba(129,140,248,0.4)';
+        btn.style.color = 'var(--text-primary)';
+
+        const preset = btn.getAttribute('data-preset');
+        const hostInput = document.getElementById('smtp-host');
+        const portInput = document.getElementById('smtp-port');
+        const secureInput = document.getElementById('smtp-secure');
+        const serviceInput = document.getElementById('smtp-service');
+
+        if (preset === 'gmail') {
+          if (serviceInput) serviceInput.value = 'gmail';
+          if (hostInput) hostInput.value = 'smtp.gmail.com';
+          if (portInput) portInput.value = 465;
+          if (secureInput) secureInput.checked = true;
+        } else if (preset === 'brevo') {
+          if (serviceInput) serviceInput.value = 'brevo';
+          if (hostInput) hostInput.value = 'smtp-relay.brevo.com';
+          if (portInput) portInput.value = 587;
+          if (secureInput) secureInput.checked = false;
+        } else if (preset === 'resend') {
+          if (serviceInput) serviceInput.value = 'resend';
+          if (hostInput) hostInput.value = 'smtp.resend.com';
+          if (portInput) portInput.value = 465;
+          if (secureInput) secureInput.checked = true;
+        } else if (preset === 'custom') {
+          if (serviceInput) serviceInput.value = 'custom';
+        }
+      });
+    });
+
+    // Form submit
+    if (form) {
+      form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const saveBtn = document.getElementById('save-smtp-btn');
+        if (saveBtn) {
+          saveBtn.disabled = true;
+          saveBtn.innerHTML = '<span>Saving...</span>';
+        }
+
+        const payload = {
+          service: document.getElementById('smtp-service')?.value || 'gmail',
+          host: document.getElementById('smtp-host')?.value || 'smtp.gmail.com',
+          port: parseInt(document.getElementById('smtp-port')?.value || '465', 10),
+          secure: document.getElementById('smtp-secure')?.checked,
+          user: document.getElementById('smtp-user')?.value || '',
+          pass: document.getElementById('smtp-pass')?.value || '',
+          fromName: document.getElementById('smtp-from-name')?.value || 'Halimon (Vault PDF Portal)',
+          fromEmail: document.getElementById('smtp-from-email')?.value || ''
+        };
+
+        try {
+          const res = await authFetch('/api/admin/email-config', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+          const data = await res.json();
+          if (res.ok && data.success) {
+            showToast('SMTP configuration saved successfully!', 'success');
+            document.getElementById('smtp-pass').value = '';
+            loadEmailConfig();
+          } else {
+            showToast(data.error || 'Failed to save configuration', 'error');
+          }
+        } catch (err) {
+          showToast('Network error: ' + err.message, 'error');
+        } finally {
+          if (saveBtn) {
+            saveBtn.disabled = false;
+            saveBtn.innerHTML = '<span>Save SMTP Configuration</span>';
+          }
+        }
+      });
+    }
+
+    // Send test email
+    if (testBtn && testInput) {
+      testBtn.addEventListener('click', async () => {
+        const testEmail = testInput.value.trim();
+        if (!testEmail || !testEmail.includes('@')) {
+          showToast('Please enter a valid email address to receive the test email.', 'warning');
+          return;
+        }
+
+        testBtn.disabled = true;
+        testBtn.innerHTML = '<span>Sending...</span>';
+        if (testResult) {
+          testResult.style.display = 'block';
+          testResult.style.background = 'rgba(129,140,248,0.1)';
+          testResult.style.color = '#818cf8';
+          testResult.style.border = '1px solid rgba(129,140,248,0.2)';
+          testResult.textContent = `Connecting to SMTP server and dispatching test message to ${testEmail}...`;
+        }
+
+        try {
+          const res = await authFetch('/api/admin/email-test', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ testEmail })
+          });
+          const data = await res.json();
+          if (res.ok && data.success) {
+            if (testResult) {
+              testResult.style.background = 'rgba(16,185,129,0.15)';
+              testResult.style.color = '#34d399';
+              testResult.style.border = '1px solid rgba(16,185,129,0.3)';
+              testResult.textContent = `✓ ${data.message}`;
+            }
+            showToast('Test email successfully delivered!', 'success');
+          } else {
+            if (testResult) {
+              testResult.style.background = 'rgba(239,68,68,0.15)';
+              testResult.style.color = '#f87171';
+              testResult.style.border = '1px solid rgba(239,68,68,0.3)';
+              testResult.textContent = `❌ ${data.error || 'Failed to dispatch test email.'}`;
+            }
+            showToast('Test email failed. Check credentials.', 'error');
+          }
+        } catch (err) {
+          if (testResult) {
+            testResult.style.background = 'rgba(239,68,68,0.15)';
+            testResult.style.color = '#f87171';
+            testResult.style.border = '1px solid rgba(239,68,68,0.3)';
+            testResult.textContent = `❌ Network Error: ${err.message}`;
+          }
+          showToast('Failed to communicate with server', 'error');
+        } finally {
+          testBtn.disabled = false;
+          testBtn.innerHTML = '<span>Send Test</span>';
+        }
+      });
+    }
+  }
+
   // ─── Init ────────────────────────────────────────────────────
   document.addEventListener('DOMContentLoaded', () => {
     initLogin();
@@ -927,6 +1158,7 @@
     initUpload();
     initVisitorControls();
     initSecretPrankSound();
+    initEmailSettings();
     checkAuth(); // Check if already logged in
   });
 })();
