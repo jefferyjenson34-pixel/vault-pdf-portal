@@ -477,6 +477,21 @@
               </div>
               <h3>Inquiry Received!</h3>
               <p id="success-inquiry-text">Thank you for reaching out. An automated confirmation acknowledgment message is being dispatched to <strong id="success-inquiry-email" style="color:var(--purple-primary);">your email</strong> within 5 seconds.</p>
+
+              <!-- Live 5s Acknowledgment Delivery Box -->
+              <div id="ack-live-card" style="margin: 18px 0; padding: 14px 18px; background: rgba(124, 58, 237, 0.08); border: 1px dashed rgba(124, 58, 237, 0.35); border-radius: 12px; font-size: 0.88rem; text-align: left;">
+                <div style="display:flex; align-items:center; gap:8px; margin-bottom:4px;">
+                  <span class="hud-pulse-dot" id="ack-pulse" style="width:8px; height:8px; border-radius:50%; background:#10b981; display:inline-block;"></span>
+                  <strong id="ack-status-title" style="color:var(--navy-950);">Delivering acknowledgment to inbox in 5s...</strong>
+                </div>
+                <div id="ack-action-wrap" style="display:none; margin-top:10px;">
+                  <button type="button" class="btn-action-sm" id="btn-open-ack-modal" style="font-size:0.84rem; padding:6px 14px; cursor:pointer; background:var(--bg-card); border:1px solid var(--purple-primary); color:var(--purple-primary); border-radius:8px; font-weight:600; display:inline-flex; align-items:center; gap:6px;">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>
+                    <span>View Dispatched Acknowledgment Letter</span>
+                  </button>
+                </div>
+              </div>
+
               <button class="btn-back" onclick="resetForm()">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                   <polyline points="15 18 9 12 15 6"></polyline>
@@ -490,6 +505,25 @@
       </div>
     </section>
   </main>
+
+  <!-- Acknowledgment Preview Modal -->
+  <div class="modal-overlay" id="ack-modal" role="dialog" aria-modal="true" style="display:none; position:fixed; inset:0; background:rgba(10,15,29,0.75); backdrop-filter:blur(10px); z-index:10000; align-items:center; justify-content:center; padding:20px;">
+    <div class="auth-card" style="max-width:680px; width:100%; max-height:85vh; overflow-y:auto; text-align:left; background:var(--bg-card); border-radius:20px; padding:32px; box-shadow:0 24px 64px rgba(0,0,0,0.5); position:relative;">
+      <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:18px; border-bottom:1px solid var(--border-subtle); padding-bottom:14px;">
+        <div>
+          <span style="font-size:0.75rem; text-transform:uppercase; letter-spacing:0.05em; font-weight:700; color:var(--purple-primary); display:block; margin-bottom:4px;">Dispatched Acknowledgment Email (5s)</span>
+          <h3 style="font-size:1.1rem; font-weight:800; color:var(--navy-950); margin:0;">Subject: With Profound Gratitude: Your Message to Vault PDF Portal</h3>
+        </div>
+        <button id="btn-close-ack-modal" style="background:none; border:none; cursor:pointer; color:var(--text-muted); padding:4px;">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+        </button>
+      </div>
+      <div id="ack-modal-body" style="font-size:0.92rem; line-height:1.7; color:var(--navy-900); white-space:pre-wrap; font-family:inherit;"></div>
+      <div style="margin-top:24px; text-align:right;">
+        <button type="button" class="btn-action-sm" id="btn-close-ack-modal-bottom" style="padding:8px 18px; font-size:0.9rem; font-weight:600; cursor:pointer; border-radius:8px; border:1px solid var(--border-subtle);">Close</button>
+      </div>
+    </div>
+  </div>
 
   <!-- Footer -->
   <footer class="site-footer">
@@ -513,6 +547,7 @@
     const btn = document.getElementById('submit-btn');
     const errorMsg = document.getElementById('form-error');
     const successDiv = document.getElementById('form-success');
+    let lastInquiryData = null;
 
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
@@ -542,6 +577,29 @@
           const emailNotice = document.getElementById('success-inquiry-email');
           if (emailNotice) emailNotice.textContent = data.email;
           successDiv.classList.add('visible');
+
+          lastInquiryData = {
+            name: data.name,
+            email: data.email,
+            contactId: result.contactId,
+            previewText: result.acknowledgment?.previewText
+          };
+
+          // 5-second countdown to acknowledgment delivery
+          let countdown = 5;
+          const statusTitle = document.getElementById('ack-status-title');
+          const actionWrap = document.getElementById('ack-action-wrap');
+          const countdownInterval = setInterval(() => {
+            countdown--;
+            if (countdown > 0) {
+              if (statusTitle) statusTitle.textContent = `Delivering acknowledgment to ${data.email} in ${countdown}s...`;
+            } else {
+              clearInterval(countdownInterval);
+              if (statusTitle) statusTitle.innerHTML = `✓ Acknowledgment successfully delivered to <strong>${escapeHtml(data.email)}</strong> within 5s`;
+              if (actionWrap) actionWrap.style.display = 'block';
+            }
+          }, 1000);
+
         } else {
           errorMsg.textContent = result.error || 'Something went wrong. Please try again.';
           errorMsg.style.display = 'block';
@@ -555,12 +613,50 @@
       }
     });
 
+    // Modal controls for dispatched letter
+    const ackModal = document.getElementById('ack-modal');
+    const btnOpenAck = document.getElementById('btn-open-ack-modal');
+    const btnCloseAck = document.getElementById('btn-close-ack-modal');
+    const btnCloseAckBottom = document.getElementById('btn-close-ack-modal-bottom');
+    const ackBody = document.getElementById('ack-modal-body');
+
+    if (btnOpenAck) {
+      btnOpenAck.addEventListener('click', async () => {
+        if (!lastInquiryData) return;
+        if (lastInquiryData.previewText) {
+          ackBody.textContent = lastInquiryData.previewText;
+          ackModal.style.display = 'flex';
+          return;
+        }
+        try {
+          const res = await fetch(`/api/contact/acknowledgment/${lastInquiryData.contactId}`);
+          const data = await res.json();
+          ackBody.textContent = data.messageText || 'Acknowledgment letter unavailable.';
+          ackModal.style.display = 'flex';
+        } catch (e) {
+          ackBody.textContent = 'Unable to load acknowledgment letter preview.';
+          ackModal.style.display = 'flex';
+        }
+      });
+    }
+
+    if (btnCloseAck) btnCloseAck.addEventListener('click', () => { ackModal.style.display = 'none'; });
+    if (btnCloseAckBottom) btnCloseAckBottom.addEventListener('click', () => { ackModal.style.display = 'none'; });
+
     function resetForm() {
       form.reset();
       form.style.display = '';
       document.querySelector('.contact-form-card h2').style.display = '';
       document.querySelector('.form-subtitle').style.display = '';
       successDiv.classList.remove('visible');
+      const actionWrap = document.getElementById('ack-action-wrap');
+      if (actionWrap) actionWrap.style.display = 'none';
+    }
+
+    function escapeHtml(str) {
+      const d = document.createElement('div');
+      d.textContent = str || '';
+      return d.innerHTML;
     }
 
     // ─── Sticky Header ─────────────────────────────────────

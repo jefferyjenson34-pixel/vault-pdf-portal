@@ -805,21 +805,146 @@ app.get('/verify-email', (req, res) => {
   res.sendFile('verify-email.html', { root: PUBLIC_DIR });
 });
 
-// ─── Contact Inquiry Acknowledgment Dispatcher ───────────────────────
-let customAcknowledgmentTemplate = null;
+// ─── Contact Inquiry Acknowledgment Dispatcher & Template ──────────────
+const ACKNOWLEDGMENT_SUBJECT = "With Profound Gratitude: Your Message to Vault PDF Portal";
 
-function dispatchContactAcknowledgment(contact) {
+function escapeHtml(str) {
+  if (!str) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+function generateAcknowledgmentText(userName) {
+  const name = userName ? userName.trim() : 'Valued Visitor';
+  return `Subject: ${ACKNOWLEDGMENT_SUBJECT}
+
+Dear ${name},
+
+It is with sincere and heartfelt appreciation that I acknowledge the receipt of your message.
+
+In an age when countless voices compete for attention, you chose to pause, reflect, and write to me. I do not regard that gesture lightly. Whether you came with a question, a concern, a suggestion for improvement, or simply a kind word, I consider your outreach a privilege and a mark of the trust you have placed in this platform.
+
+Vault PDF Portal was conceived from a quiet conviction: that the documents which define our lives, whether agreements, records, certificates, or reports, deserve a dependable and dignified home. Behind every file lies a story of effort, perseverance, and consequence. To be entrusted, even indirectly, with that responsibility is a solemn honour, and one I strive each day to deserve.
+
+Building this portal has often been a solitary endeavour, marked by long hours, persistent obstacles, and moments of doubt. It is your engagement that dispels that doubt. Each message I receive is a reminder that this work is not performed in a void, and that it touches real people with real needs. For that, I am deeply and genuinely indebted to you.
+
+Please be assured of the following:
+• Your message has been received and will be read with the utmost care and attentiveness.
+• Should it call for a response, you may expect a reply within 24 to 48 hours.
+• If you have reported a difficulty, I shall investigate it diligently and inform you once it has been resolved.
+• Your feedback, whatever its nature, will help shape the future of this platform.
+
+Should your matter be urgent, or should you wish to supplement your message with further detail, you are most welcome to respond directly to this email.
+
+Allow me to close by saying that gratitude cannot be adequately conveyed in a few paragraphs. I can only hope that my continued commitment to improving this platform will serve as a fitting expression of it. You have my sincerest thanks, my respect, and my promise to remain worthy of your confidence.
+
+With deepest gratitude and warmest regards,
+
+Halimon
+Creator, Vault PDF Portal
+https://vault-pdf-portal.onrender.com/`;
+}
+
+function generateAcknowledgmentHtml(userName) {
+  const name = userName ? escapeHtml(userName.trim()) : 'Valued Visitor';
+  return `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #0b0f19; color: #e2e8f0; margin: 0; padding: 24px; line-height: 1.65; }
+    .email-card { max-width: 620px; margin: 0 auto; background: #131a2a; border: 1px solid rgba(124,58,237,0.3); border-radius: 16px; padding: 36px 32px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+    .brand { font-size: 1.25rem; font-weight: 800; color: #ffffff; margin-bottom: 24px; }
+    .brand span { color: #a78bfa; }
+    h2 { font-size: 1.2rem; color: #f8fafc; margin-top: 0; }
+    p { font-size: 0.96rem; color: #cbd5e1; margin: 0 0 16px 0; }
+    ul { padding-left: 20px; color: #cbd5e1; font-size: 0.95rem; margin-bottom: 20px; }
+    li { margin-bottom: 8px; }
+    .footer { margin-top: 32px; padding-top: 20px; border-top: 1px solid rgba(255,255,255,0.1); font-size: 0.88rem; color: #94a3b8; }
+    .footer a { color: #a78bfa; text-decoration: none; }
+  </style>
+</head>
+<body>
+  <div class="email-card">
+    <div class="brand">Vault <span>PDF Portal</span></div>
+    <h2>Dear ${name},</h2>
+    <p>It is with sincere and heartfelt appreciation that I acknowledge the receipt of your message.</p>
+    <p>In an age when countless voices compete for attention, you chose to pause, reflect, and write to me. I do not regard that gesture lightly. Whether you came with a question, a concern, a suggestion for improvement, or simply a kind word, I consider your outreach a privilege and a mark of the trust you have placed in this platform.</p>
+    <p>Vault PDF Portal was conceived from a quiet conviction: that the documents which define our lives, whether agreements, records, certificates, or reports, deserve a dependable and dignified home. Behind every file lies a story of effort, perseverance, and consequence. To be entrusted, even indirectly, with that responsibility is a solemn honour, and one I strive each day to deserve.</p>
+    <p>Building this portal has often been a solitary endeavour, marked by long hours, persistent obstacles, and moments of doubt. It is your engagement that dispels that doubt. Each message I receive is a reminder that this work is not performed in a void, and that it touches real people with real needs. For that, I am deeply and genuinely indebted to you.</p>
+    <p><strong>Please be assured of the following:</strong></p>
+    <ul>
+      <li>Your message has been received and will be read with the utmost care and attentiveness.</li>
+      <li>Should it call for a response, you may expect a reply within <strong>24 to 48 hours</strong>.</li>
+      <li>If you have reported a difficulty, I shall investigate it diligently and inform you once it has been resolved.</li>
+      <li>Your feedback, whatever its nature, will help shape the future of this platform.</li>
+    </ul>
+    <p>Should your matter be urgent, or should you wish to supplement your message with further detail, you are most welcome to respond directly to this email.</p>
+    <p>Allow me to close by saying that gratitude cannot be adequately conveyed in a few paragraphs. I can only hope that my continued commitment to improving this platform will serve as a fitting expression of it. You have my sincerest thanks, my respect, and my promise to remain worthy of your confidence.</p>
+    <div class="footer">
+      <p style="margin-bottom: 4px;">With deepest gratitude and warmest regards,</p>
+      <p style="font-weight: 700; color: #f8fafc; margin-bottom: 2px;">Halimon</p>
+      <p style="margin-bottom: 8px;">Creator, Vault PDF Portal</p>
+      <p><a href="https://vault-pdf-portal.onrender.com/">https://vault-pdf-portal.onrender.com/</a></p>
+    </div>
+  </div>
+</body>
+</html>`;
+}
+
+async function dispatchContactAcknowledgment(contact) {
   const now = new Date().toISOString();
+  const textBody = generateAcknowledgmentText(contact.name);
+  const htmlBody = generateAcknowledgmentHtml(contact.name);
+
   console.log(`\n  📬 [INQUIRY ACKNOWLEDGMENT DISPATCHED within 5s]`);
   console.log(`  To: ${contact.email} (${contact.name})`);
-  console.log(`  Subject: Re: ${contact.subject || 'Your Vault PDF Portal Inquiry'}`);
+  console.log(`  Subject: ${ACKNOWLEDGMENT_SUBJECT}`);
   console.log(`  Timestamp: ${now}`);
 
+  let sentViaSmtp = false;
+
+  // If live SMTP credentials are configured, dispatch via Nodemailer
+  if (process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS) {
+    try {
+      const nodemailer = require('nodemailer');
+      const transporter = nodemailer.createTransport({
+        host: process.env.SMTP_HOST,
+        port: parseInt(process.env.SMTP_PORT || '587', 10),
+        secure: process.env.SMTP_SECURE === 'true',
+        auth: {
+          user: process.env.SMTP_USER,
+          pass: process.env.SMTP_PASS
+        }
+      });
+
+      await transporter.sendMail({
+        from: `"Halimon (Vault PDF Portal)" <${process.env.SMTP_FROM || process.env.SMTP_USER}>`,
+        to: contact.email,
+        subject: ACKNOWLEDGMENT_SUBJECT,
+        text: textBody,
+        html: htmlBody
+      });
+      sentViaSmtp = true;
+      console.log(`  ✓ Email transmitted successfully via SMTP to ${contact.email}`);
+    } catch (smtpErr) {
+      console.error('  ⚠️ SMTP transport warning (falling back to telemetry log):', smtpErr.message);
+    }
+  }
+
+  // Update contact record in data/contacts.json
   const contacts = readContacts();
   const c = contacts.find(item => item.id === contact.id);
   if (c) {
     c.acknowledgmentStatus = 'dispatched';
     c.acknowledgmentSentAt = now;
+    c.acknowledgmentSubject = ACKNOWLEDGMENT_SUBJECT;
+    c.acknowledgmentText = textBody;
+    c.sentViaSmtp = sentViaSmtp;
     writeContacts(contacts);
   }
 }
@@ -859,10 +984,30 @@ app.post('/api/contact', (req, res) => {
   res.json({
     success: true,
     message: 'Thank you! Your message has been received.',
+    contactId: newContact.id,
     acknowledgment: {
       recipient: newContact.email,
-      etaSeconds: 5
+      etaSeconds: 5,
+      subject: ACKNOWLEDGMENT_SUBJECT,
+      previewText: generateAcknowledgmentText(newContact.name)
     }
+  });
+});
+
+// ─── API: Get Acknowledgment Message for an Inquiry ────────────────
+app.get('/api/contact/acknowledgment/:id', (req, res) => {
+  const contacts = readContacts();
+  const contact = contacts.find(c => c.id === req.params.id);
+  if (!contact) {
+    return res.status(404).json({ error: 'Inquiry not found' });
+  }
+  res.json({
+    status: contact.acknowledgmentStatus || 'dispatched',
+    sentAt: contact.acknowledgmentSentAt || new Date().toISOString(),
+    subject: ACKNOWLEDGMENT_SUBJECT,
+    recipient: contact.email,
+    name: contact.name,
+    messageText: contact.acknowledgmentText || generateAcknowledgmentText(contact.name)
   });
 });
 
