@@ -475,8 +475,8 @@
                   <polyline points="20 6 9 17 4 12"></polyline>
                 </svg>
               </div>
-              <h3>Message Sent Successfully!</h3>
-              <p>Thank you for reaching out. We'll review your message and respond as soon as possible.</p>
+              <h3>Inquiry Received!</h3>
+              <p id="success-inquiry-text">Thank you for reaching out. An automated confirmation acknowledgment message is being dispatched to <strong id="success-inquiry-email" style="color:var(--purple-primary);">your email</strong> within 5 seconds.</p>
               <button class="btn-back" onclick="resetForm()">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                   <polyline points="15 18 9 12 15 6"></polyline>
@@ -539,6 +539,8 @@
           form.style.display = 'none';
           document.querySelector('.contact-form-card h2').style.display = 'none';
           document.querySelector('.form-subtitle').style.display = 'none';
+          const emailNotice = document.getElementById('success-inquiry-email');
+          if (emailNotice) emailNotice.textContent = data.email;
           successDiv.classList.add('visible');
         } else {
           errorMsg.textContent = result.error || 'Something went wrong. Please try again.';

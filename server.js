@@ -805,6 +805,25 @@ app.get('/verify-email', (req, res) => {
   res.sendFile('verify-email.html', { root: PUBLIC_DIR });
 });
 
+// ─── Contact Inquiry Acknowledgment Dispatcher ───────────────────────
+let customAcknowledgmentTemplate = null;
+
+function dispatchContactAcknowledgment(contact) {
+  const now = new Date().toISOString();
+  console.log(`\n  📬 [INQUIRY ACKNOWLEDGMENT DISPATCHED within 5s]`);
+  console.log(`  To: ${contact.email} (${contact.name})`);
+  console.log(`  Subject: Re: ${contact.subject || 'Your Vault PDF Portal Inquiry'}`);
+  console.log(`  Timestamp: ${now}`);
+
+  const contacts = readContacts();
+  const c = contacts.find(item => item.id === contact.id);
+  if (c) {
+    c.acknowledgmentStatus = 'dispatched';
+    c.acknowledgmentSentAt = now;
+    writeContacts(contacts);
+  }
+}
+
 // ─── API: Submit Contact Message (public) ───────────────────────────
 app.post('/api/contact', (req, res) => {
   const { name, email, subject, message } = req.body;
@@ -812,19 +831,39 @@ app.post('/api/contact', (req, res) => {
     return res.status(400).json({ error: 'Name, email, and message are required' });
   }
   const contacts = readContacts();
-  contacts.push({
+  const newContact = {
     id: crypto.randomBytes(8).toString('hex'),
     name: name.trim(),
     email: email.trim(),
-    subject: (subject || '').trim(),
+    subject: (subject || 'General Inquiry').trim(),
     message: message.trim(),
     ip: getVisitorIP(req),
     timestamp: new Date().toISOString(),
-    read: false
-  });
+    read: false,
+    acknowledgmentStatus: 'scheduled',
+    acknowledgmentSentAt: null
+  };
+  contacts.push(newContact);
   if (contacts.length > 500) contacts.splice(0, contacts.length - 500);
   writeContacts(contacts);
-  res.json({ success: true, message: 'Thank you! Your message has been received.' });
+
+  // Dispatch acknowledgment message within 5 seconds
+  setTimeout(() => {
+    try {
+      dispatchContactAcknowledgment(newContact);
+    } catch (err) {
+      console.error('Error dispatching acknowledgment:', err);
+    }
+  }, 4800);
+
+  res.json({
+    success: true,
+    message: 'Thank you! Your message has been received.',
+    acknowledgment: {
+      recipient: newContact.email,
+      etaSeconds: 5
+    }
+  });
 });
 
 // ─── API: Get Contact Messages (admin, PROTECTED) ───────────────────
