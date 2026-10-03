@@ -1,15 +1,18 @@
 /* ═══════════════════════════════════════════════════════════════
-   HALIMON — VAULT AI ASSISTANT & OPENROUTER CHAT CONTROLLER
-   Vault PDF Portal • Enterprise Document Security
+   VAULT AI ASSISTANT — Floating Chatbot Widget Client
+   OpenRouter Multi-Model Stream • Strict In-Memory Session
    ═══════════════════════════════════════════════════════════════ */
 
 (function () {
   'use strict';
 
-  // In-memory conversation history (strictly last 6 messages per spec)
+  // ─── Ephemeral In-Memory State ───────────────────────────────
+  // CRITICAL CONSTRAINT: History lives strictly in JavaScript memory.
+  // Strictly last 6 messages per specification.
   const conversationHistory = [];
+  let isSending = false;
 
-  // Procedural Web Audio Synth for Cyber Chimes
+  // ─── Procedural Web Audio Synth for Cyber Chimes ────────────
   function playCyberChime(type = 'chime') {
     try {
       const AudioCtx = window.AudioContext || window.webkitAudioContext;
@@ -47,76 +50,194 @@
     } catch (_) {}
   }
 
-  function initChatbot() {
-    // Hero Chat Elements
-    const heroForm = document.getElementById('hero-chat-form');
-    const heroInput = document.getElementById('hero-chat-input');
-    const heroSendBtn = document.getElementById('hero-chat-send');
-    const heroMessagesEl = document.getElementById('hero-chat-messages');
-    const heroCounterEl = document.getElementById('hero-chat-counter');
-    const heroSuggestionsEl = document.getElementById('hero-chat-suggestions');
-    const heroClearBtn = document.getElementById('hero-chat-clear');
+  // ─── Injection of Chatbot DOM Structure ──────────────────────
+  function initChatbotDOM() {
+    let trigger = document.getElementById('vault-chat-trigger');
+    let dialog = document.getElementById('vault-chat-dialog');
 
-    // Modal Chat Elements (secondary / fallback)
-    const chatModal = document.getElementById('halimon-chat-modal');
-    const chatModalClose = document.getElementById('chat-modal-close');
-    const chatModalBackdrop = document.getElementById('chat-modal-backdrop');
-    const modalForm = document.getElementById('chat-modal-form');
-    const modalInput = document.getElementById('chat-modal-input');
-    const modalSendBtn = document.getElementById('chat-modal-send');
-    const modalMessagesEl = document.getElementById('chat-modal-messages');
-    const modalCounterEl = document.getElementById('chat-char-counter');
-    const modalChips = document.getElementById('chat-modal-chips');
-
-    // Initial greeting template
-    const INITIAL_BOT_GREETING = `Hello! I am <strong>Halimon</strong>, your Vault AI Assistant. Ask me anything about PDF uploads, 16-character secret codes, neural audio listening, or security!`;
-
-    // Reset Chat Memory
-    function clearChatHistory() {
-      conversationHistory.length = 0;
-      if (heroMessagesEl) {
-        heroMessagesEl.innerHTML = `
-          <div class="chat-bubble bot-bubble">
-            <div class="chat-bubble-avatar">🤖</div>
-            <div class="chat-bubble-body">
-              <div class="chat-bubble-sender">Halimon</div>
-              <div class="chat-bubble-text">${INITIAL_BOT_GREETING}</div>
-              <span class="chat-bubble-time">Just now</span>
-            </div>
-          </div>
-        `;
-      }
-      if (modalMessagesEl) {
-        modalMessagesEl.innerHTML = `
-          <div class="chat-msg bot-msg">
-            <div class="msg-avatar">🤖</div>
-            <div class="msg-content">
-              <div class="msg-sender">Halimon</div>
-              <div class="msg-text">${INITIAL_BOT_GREETING}</div>
-              <div class="msg-time">Just now</div>
-            </div>
-          </div>
-        `;
-      }
-      if (heroInput) {
-        heroInput.value = '';
-        if (heroCounterEl) {
-          heroCounterEl.textContent = '0/500';
-          heroCounterEl.style.color = '#64748b';
-        }
-      }
-      playCyberChime('clear');
+    // 1. Create floating trigger button if not present
+    if (!trigger) {
+      trigger = document.createElement('button');
+      trigger.className = 'vault-chat-trigger';
+      trigger.id = 'vault-chat-trigger';
+      trigger.setAttribute('aria-label', 'Open Vault AI Assistant');
+      trigger.innerHTML = `
+        <span class="vault-chat-badge-dot" aria-hidden="true"></span>
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+        </svg>
+      `;
+      document.body.appendChild(trigger);
     }
 
-    if (heroClearBtn) {
-      heroClearBtn.addEventListener('click', clearChatHistory);
+    // 2. Create chat window dialog if not present
+    if (!dialog) {
+      dialog = document.createElement('div');
+      dialog.className = 'vault-chat-dialog';
+      dialog.id = 'vault-chat-dialog';
+      dialog.setAttribute('role', 'dialog');
+      dialog.setAttribute('aria-modal', 'false');
+      dialog.setAttribute('aria-label', 'Vault AI Assistant');
+
+      dialog.innerHTML = `
+        <div class="vault-chat-header">
+          <div class="vault-chat-header-info">
+            <div class="vault-chat-avatar">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                <path d="m9 12 2 2 4-4"/>
+              </svg>
+            </div>
+            <div class="vault-chat-title-group">
+              <h3>Halimon</h3>
+              <span><span class="vault-chat-status-indicator"></span> Vault AI Assistant &bull; Online</span>
+            </div>
+          </div>
+          <div class="vault-chat-header-actions">
+            <button class="vault-chat-header-btn" id="vault-chat-btn-clear" title="Clear memory conversation">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="1 4 1 10 7 10"></polyline>
+                <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path>
+              </svg>
+            </button>
+            <button class="vault-chat-header-btn" id="vault-chat-btn-close" title="Close chat">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+                <line x1="18" y1="6" x2="6" y2="18"></line>
+                <line x1="6" y1="6" x2="18" y2="18"></line>
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        <div class="vault-chat-privacy-banner">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+            <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+          </svg>
+          <span>Memory-only chat &bull; Streaming OpenRouter &bull; Zero tracking.</span>
+        </div>
+
+        <div class="vault-chat-messages" id="vault-chat-messages">
+          <!-- Messages rendered here -->
+        </div>
+
+        <div class="vault-chat-input-area">
+          <form class="vault-chat-input-form" id="vault-chat-form">
+            <input type="text" class="vault-chat-input" id="vault-chat-input" placeholder="Ask Halimon about Vault features..." maxlength="500" autocomplete="off" spellcheck="false" required>
+            <button type="submit" class="vault-chat-send-btn" id="vault-chat-send" aria-label="Send message">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="22" y1="2" x2="11" y2="13"></line>
+                <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+              </svg>
+            </button>
+          </form>
+          <div class="vault-chat-meta-bar">
+            <span>Encrypted ephemeral memory</span>
+            <span id="vault-chat-counter">0/500</span>
+          </div>
+        </div>
+      `;
+      document.body.appendChild(dialog);
     }
 
-    // Input character counter listener
-    function bindCharCounter(inputEl, counterEl) {
-      if (!inputEl || !counterEl) return;
-      inputEl.addEventListener('input', () => {
-        const len = inputEl.value.length;
+    setupEvents(trigger, dialog);
+    renderInitialGreeting();
+  }
+
+  // ─── Initial Bot Greeting with Suggestion Chips ──────────────
+  function renderInitialGreeting() {
+    const messagesContainer = document.getElementById('vault-chat-messages');
+    if (!messagesContainer) return;
+    messagesContainer.innerHTML = '';
+
+    const greetingMsg = document.createElement('div');
+    greetingMsg.className = 'vault-msg bot';
+    greetingMsg.innerHTML = `
+      <div class="vault-msg-content">
+        Hello! I am <strong>Halimon</strong>, your official Vault AI Assistant. Ask me anything about document uploads, 16-character secret codes, neural audio listening, or security!
+        <div class="vault-chat-suggestions">
+          <button class="vault-suggestion-chip" data-query="How do secret codes work for private sharing?">
+            <span>🔑 How do secret codes work?</span>
+            <span style="font-size:0.9rem;">&rarr;</span>
+          </button>
+          <button class="vault-suggestion-chip" data-query="What are the PDF upload limits?">
+            <span>📤 What are the upload limits?</span>
+            <span style="font-size:0.9rem;">&rarr;</span>
+          </button>
+          <button class="vault-suggestion-chip" data-query="How does the Neural Voice Reader work?">
+            <span>🎙️ How does Audio Reader work?</span>
+            <span style="font-size:0.9rem;">&rarr;</span>
+          </button>
+          <button class="vault-suggestion-chip" data-query="How does the Quantum Scanner work?">
+            <span>⚡ How does the Scanner work?</span>
+            <span style="font-size:0.9rem;">&rarr;</span>
+          </button>
+        </div>
+      </div>
+      <span class="vault-msg-time">Just now</span>
+    `;
+
+    messagesContainer.appendChild(greetingMsg);
+
+    // Bind suggestion chips
+    greetingMsg.querySelectorAll('.vault-suggestion-chip').forEach(chip => {
+      chip.addEventListener('click', () => {
+        const query = chip.getAttribute('data-query');
+        const input = document.getElementById('vault-chat-input');
+        if (input) input.value = query;
+        handleSendMessage(query);
+      });
+    });
+  }
+
+  // ─── Setup Event Listeners ───────────────────────────────────
+  function setupEvents(trigger, dialog) {
+    const closeBtn = document.getElementById('vault-chat-btn-close');
+    const clearBtn = document.getElementById('vault-chat-btn-clear');
+    const form = document.getElementById('vault-chat-form');
+    const input = document.getElementById('vault-chat-input');
+    const counterEl = document.getElementById('vault-chat-counter');
+
+    // Toggle dialog visibility
+    trigger.addEventListener('click', () => {
+      const isActive = dialog.classList.contains('active');
+      if (isActive) {
+        dialog.classList.remove('active');
+      } else {
+        dialog.classList.add('active');
+        playCyberChime('chime');
+        if (input) setTimeout(() => input.focus(), 200);
+      }
+    });
+
+    if (closeBtn) {
+      closeBtn.addEventListener('click', () => {
+        dialog.classList.remove('active');
+      });
+    }
+
+    // Escape key closes dialog
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && dialog.classList.contains('active')) {
+        dialog.classList.remove('active');
+      }
+    });
+
+    // Clear history
+    if (clearBtn) {
+      clearBtn.addEventListener('click', () => {
+        conversationHistory.length = 0;
+        renderInitialGreeting();
+        if (input) input.value = '';
+        if (counterEl) counterEl.textContent = '0/500';
+        playCyberChime('clear');
+      });
+    }
+
+    // Character counter listener
+    if (input && counterEl) {
+      input.addEventListener('input', () => {
+        const len = input.value.length;
         counterEl.textContent = `${len}/500`;
         if (len >= 500) {
           counterEl.style.color = '#ef4444';
@@ -128,248 +249,159 @@
       });
     }
 
-    bindCharCounter(heroInput, heroCounterEl);
-    bindCharCounter(modalInput, modalCounterEl);
-
-    // Modal open/close support
-    function openChatModal() {
-      if (!chatModal) return;
-      chatModal.classList.add('is-open');
-      chatModal.setAttribute('aria-hidden', 'false');
-      if (modalInput) setTimeout(() => modalInput.focus(), 250);
-    }
-
-    function closeChatModal() {
-      if (!chatModal) return;
-      chatModal.classList.remove('is-open');
-      chatModal.setAttribute('aria-hidden', 'true');
-    }
-
-    if (chatModalClose) chatModalClose.addEventListener('click', closeChatModal);
-    if (chatModalBackdrop) chatModalBackdrop.addEventListener('click', closeChatModal);
-    document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape' && chatModal && chatModal.classList.contains('is-open')) {
-        closeChatModal();
-      }
-    });
-
-    // Append Message to Hero UI
-    function appendHeroMessage(role, content) {
-      if (!heroMessagesEl) return null;
-      const isUser = role === 'user';
-      const bubble = document.createElement('div');
-      bubble.className = `chat-bubble ${isUser ? 'user-bubble' : 'bot-bubble'}`;
-
-      const avatar = isUser ? '👤' : '🤖';
-      const sender = isUser ? 'You' : 'Halimon';
-
-      bubble.innerHTML = `
-        <div class="chat-bubble-avatar">${avatar}</div>
-        <div class="chat-bubble-body">
-          <div class="chat-bubble-sender">${sender}</div>
-          <div class="chat-bubble-text">${content}</div>
-          <span class="chat-bubble-time">Just now</span>
-        </div>
-      `;
-
-      heroMessagesEl.appendChild(bubble);
-      heroMessagesEl.scrollTop = heroMessagesEl.scrollHeight;
-      return bubble.querySelector('.chat-bubble-text');
-    }
-
-    // Submit Prompt & Stream Response via SSE
-    async function submitChat(rawText, source = 'hero') {
-      const trimmed = (rawText || '').trim();
-      if (!trimmed) return;
-      if (trimmed.length > 500) return;
-
-      const isHero = source === 'hero' || !modalForm;
-      const activeInput = isHero ? heroInput : modalInput;
-      const activeSendBtn = isHero ? heroSendBtn : modalSendBtn;
-      const activeCounter = isHero ? heroCounterEl : modalCounterEl;
-      const activeMessagesEl = isHero ? heroMessagesEl : modalMessagesEl;
-
-      if (activeInput) activeInput.value = '';
-      if (activeCounter) {
-        activeCounter.textContent = '0/500';
-        activeCounter.style.color = '#64748b';
-      }
-      if (activeSendBtn) activeSendBtn.disabled = true;
-      if (activeInput) activeInput.disabled = true;
-
-      // 1. Render user message
-      if (isHero) {
-        appendHeroMessage('user', escapeHtml(trimmed));
-      } else if (modalMessagesEl) {
-        const uMsg = document.createElement('div');
-        uMsg.className = 'chat-msg user-msg';
-        uMsg.innerHTML = `
-          <div class="msg-avatar">👤</div>
-          <div class="msg-content">
-            <div class="msg-sender">You</div>
-            <div class="msg-text">${escapeHtml(trimmed)}</div>
-            <div class="msg-time">Just now</div>
-          </div>
-        `;
-        modalMessagesEl.appendChild(uMsg);
-        modalMessagesEl.scrollTop = modalMessagesEl.scrollHeight;
-      }
-      conversationHistory.push({ role: 'user', content: trimmed });
-
-      // 2. Prepare bot bubble with streaming cursor
-      let botTextEl = null;
-      const cursorSpan = document.createElement('span');
-      cursorSpan.className = 'chat-cursor';
-
-      if (isHero) {
-        botTextEl = appendHeroMessage('bot', '');
-        if (botTextEl) botTextEl.appendChild(cursorSpan);
-      } else if (modalMessagesEl) {
-        const bMsg = document.createElement('div');
-        bMsg.className = 'chat-msg bot-msg';
-        bMsg.innerHTML = `
-          <div class="msg-avatar">🤖</div>
-          <div class="msg-content">
-            <div class="msg-sender">Halimon</div>
-            <div class="msg-text"></div>
-            <div class="msg-time">Just now</div>
-          </div>
-        `;
-        modalMessagesEl.appendChild(bMsg);
-        modalMessagesEl.scrollTop = modalMessagesEl.scrollHeight;
-        botTextEl = bMsg.querySelector('.msg-text');
-        if (botTextEl) botTextEl.appendChild(cursorSpan);
-      }
-
-      let accumulatedReply = '';
-
-      try {
-        // Enforce: last 6 messages only
-        const historyPayload = conversationHistory.slice(-6);
-
-        const response = await fetch('/api/chat?stream=true', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Accept': 'text/event-stream'
-          },
-          body: JSON.stringify({
-            message: trimmed,
-            messages: historyPayload,
-            stream: true
-          })
-        });
-
-        const isSSE = (response.headers.get('content-type') || '').includes('text/event-stream');
-
-        if (response.ok && isSSE && response.body) {
-          const reader = response.body.getReader();
-          const decoder = new TextDecoder();
-          let streamBuffer = '';
-
-          while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
-
-            streamBuffer += decoder.decode(value, { stream: true });
-            const lines = streamBuffer.split('\n');
-            streamBuffer = lines.pop();
-
-            for (const line of lines) {
-              const cleanLine = line.trim();
-              if (!cleanLine.startsWith('data:')) continue;
-              const rawData = cleanLine.slice(5).trim();
-              if (rawData === '[DONE]') continue;
-
-              try {
-                const parsed = JSON.parse(rawData);
-                if (parsed.token) {
-                  accumulatedReply += parsed.token;
-                  if (botTextEl) {
-                    botTextEl.textContent = accumulatedReply;
-                    botTextEl.appendChild(cursorSpan);
-                  }
-                  if (activeMessagesEl) activeMessagesEl.scrollTop = activeMessagesEl.scrollHeight;
-                }
-              } catch (_) {}
-            }
-          }
-        } else {
-          // Standard JSON fallback
-          const data = await response.json().catch(() => ({}));
-          accumulatedReply = data.reply || "The assistant is busy right now. Please try again later or use the Contact page.";
-        }
-      } catch (err) {
-        // Requirement: "If both models fail, show: 'The assistant is busy right now. Please try again later or use the Contact page.' Never show raw errors."
-        accumulatedReply = "The assistant is busy right now. Please try again later or use the Contact page.";
-      } finally {
-        if (cursorSpan && cursorSpan.parentNode) {
-          cursorSpan.parentNode.removeChild(cursorSpan);
-        }
-        if (botTextEl) {
-          botTextEl.textContent = accumulatedReply || "The assistant is busy right now. Please try again later or use the Contact page.";
-        }
-        conversationHistory.push({ role: 'assistant', content: accumulatedReply });
-
-        if (activeSendBtn) activeSendBtn.disabled = false;
-        if (activeInput) {
-          activeInput.disabled = false;
-          activeInput.focus();
-        }
-        if (activeMessagesEl) activeMessagesEl.scrollTop = activeMessagesEl.scrollHeight;
-      }
-    }
-
-    // Quick suggestion chips handler
-    if (heroSuggestionsEl) {
-      heroSuggestionsEl.addEventListener('click', (e) => {
-        const chip = e.target.closest('.chat-suggestion-chip');
-        if (!chip) return;
-        const queryText = chip.getAttribute('data-query') || chip.textContent.trim();
-        if (heroInput) heroInput.value = queryText;
-        if (heroCounterEl) heroCounterEl.textContent = `${queryText.length}/500`;
-        submitChat(queryText, 'hero');
-      });
-    }
-
-    if (modalChips) {
-      modalChips.addEventListener('click', (e) => {
-        const chip = e.target.closest('.chat-chip');
-        if (!chip) return;
-        const queryText = chip.getAttribute('data-q') || chip.textContent.trim();
-        if (modalInput) modalInput.value = queryText;
-        submitChat(queryText, 'modal');
-      });
-    }
-
-    // Hero Form submit
-    if (heroForm && heroInput) {
-      heroForm.addEventListener('submit', (e) => {
+    // Form submit
+    if (form && input) {
+      form.addEventListener('submit', (e) => {
         e.preventDefault();
-        submitChat(heroInput.value, 'hero');
+        handleSendMessage(input.value);
       });
-    }
-
-    // Modal Form submit
-    if (modalForm && modalInput) {
-      modalForm.addEventListener('submit', (e) => {
-        e.preventDefault();
-        submitChat(modalInput.value, 'modal');
-      });
-    }
-
-    // Helper: basic html escaping
-    function escapeHtml(str) {
-      const div = document.createElement('div');
-      div.textContent = str;
-      return div.innerHTML;
     }
   }
 
-  // Initialize on DOM ready
+  // ─── Send Message & SSE Streaming Handler ────────────────────
+  async function handleSendMessage(rawText) {
+    if (isSending) return;
+    const trimmed = (rawText || '').trim();
+    if (!trimmed) return;
+    if (trimmed.length > 500) return;
+
+    const input = document.getElementById('vault-chat-input');
+    const sendBtn = document.getElementById('vault-chat-send');
+    const messagesContainer = document.getElementById('vault-chat-messages');
+    const counterEl = document.getElementById('vault-chat-counter');
+
+    if (input) input.value = '';
+    if (counterEl) counterEl.textContent = '0/500';
+    if (sendBtn) sendBtn.disabled = true;
+    if (input) input.disabled = true;
+    isSending = true;
+
+    // 1. Render user message
+    const userMsg = document.createElement('div');
+    userMsg.className = 'vault-msg user';
+    userMsg.innerHTML = `
+      <div class="vault-msg-content">${escapeHtml(trimmed)}</div>
+      <span class="vault-msg-time">Just now</span>
+    `;
+    if (messagesContainer) {
+      messagesContainer.appendChild(userMsg);
+      messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    }
+
+    // Add to in-memory history (last 6 strictly per spec)
+    conversationHistory.push({ role: 'user', content: trimmed });
+
+    // 2. Prepare bot message bubble with streaming cursor
+    const botMsg = document.createElement('div');
+    botMsg.className = 'vault-msg bot';
+    botMsg.innerHTML = `
+      <div class="vault-msg-content"></div>
+      <span class="vault-msg-time">Just now</span>
+    `;
+    if (messagesContainer) {
+      messagesContainer.appendChild(botMsg);
+      messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    }
+
+    const botContentEl = botMsg.querySelector('.vault-msg-content');
+    const cursorSpan = document.createElement('span');
+    cursorSpan.className = 'chat-cursor';
+    if (botContentEl) botContentEl.appendChild(cursorSpan);
+
+    let accumulatedReply = '';
+
+    try {
+      // Send last 6 messages
+      const historyPayload = conversationHistory.slice(-6);
+
+      const response = await fetch('/api/chat?stream=true', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'text/event-stream'
+        },
+        body: JSON.stringify({
+          message: trimmed,
+          messages: historyPayload,
+          stream: true
+        })
+      });
+
+      const isSSE = (response.headers.get('content-type') || '').includes('text/event-stream');
+
+      if (response.ok && isSSE && response.body) {
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let streamBuffer = '';
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          streamBuffer += decoder.decode(value, { stream: true });
+          const lines = streamBuffer.split('\n');
+          streamBuffer = lines.pop();
+
+          for (const line of lines) {
+            const cleanLine = line.trim();
+            if (!cleanLine.startsWith('data:')) continue;
+            const rawData = cleanLine.slice(5).trim();
+            if (rawData === '[DONE]') continue;
+
+            try {
+              const parsed = JSON.parse(rawData);
+              if (parsed.token) {
+                accumulatedReply += parsed.token;
+                if (botContentEl) {
+                  botContentEl.textContent = accumulatedReply;
+                  botContentEl.appendChild(cursorSpan);
+                }
+                if (messagesContainer) {
+                  messagesContainer.scrollTop = messagesContainer.scrollHeight;
+                }
+              }
+            } catch (_) {}
+          }
+        }
+      } else {
+        const data = await response.json().catch(() => ({}));
+        accumulatedReply = data.reply || "The assistant is busy right now. Please try again later or use the Contact page.";
+      }
+    } catch (err) {
+      // Safe failure message per specification
+      accumulatedReply = "The assistant is busy right now. Please try again later or use the Contact page.";
+    } finally {
+      if (cursorSpan && cursorSpan.parentNode) {
+        cursorSpan.parentNode.removeChild(cursorSpan);
+      }
+      if (botContentEl) {
+        botContentEl.textContent = accumulatedReply || "The assistant is busy right now. Please try again later or use the Contact page.";
+      }
+      conversationHistory.push({ role: 'assistant', content: accumulatedReply });
+
+      isSending = false;
+      if (sendBtn) sendBtn.disabled = false;
+      if (input) {
+        input.disabled = false;
+        input.focus();
+      }
+      if (messagesContainer) {
+        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+      }
+    }
+  }
+
+  // Helper: basic html escaping
+  function escapeHtml(str) {
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+  }
+
+  // ─── Initialize on DOM Ready ────────────────────────────────
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initChatbot);
+    document.addEventListener('DOMContentLoaded', initChatbotDOM);
   } else {
-    initChatbot();
+    initChatbotDOM();
   }
 })();

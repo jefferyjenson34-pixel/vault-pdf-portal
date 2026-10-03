@@ -379,6 +379,14 @@
   padding: 0 4px;
 }
 
+#vault-chat-counter {
+  font-family: monospace;
+  font-size: 0.72rem;
+  color: #64748b;
+  font-variant-numeric: tabular-nums;
+  transition: color 0.2s ease;
+}
+
 /* Halimon Acknowledgment Badge & Indicators */
 .vault-ack-badge {
   display: inline-flex;
@@ -961,10 +969,10 @@
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   LEGACY FLOATING WIDGET (REPLACED BY HERO AI CHATBOT)
+   DEPRECATE HERO CHAT / CHARACTER SHOWCASE
    ═══════════════════════════════════════════════════════════════ */
-.vault-chat-trigger,
-.vault-chat-dialog {
+.hero-chat-container,
+.halimon-showcase-container {
   display: none !important;
 }
 
