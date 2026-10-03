@@ -404,11 +404,13 @@ function getActiveEmailConfig() {
   const fromName = (process.env.SMTP_FROM_NAME || fileConfig.fromName || 'Halimon (Vault PDF Portal)').trim();
   const fromEmail = (process.env.SMTP_FROM || process.env.BREVO_SENDER_EMAIL || process.env.RESEND_FROM || process.env.SENDGRID_FROM || fileConfig.fromEmail || user).trim();
 
-  const isConfigured = !!(apiKey || (user && pass));
+  const webhookUrl = (process.env.EMAIL_WEBHOOK_URL || process.env.GMAIL_WEBHOOK_URL || '').trim();
+  const isConfigured = !!(apiKey || (user && pass) || webhookUrl);
 
   return {
     isConfigured,
     apiKey,
+    webhookUrl,
     service,
     host,
     port,
@@ -427,8 +429,34 @@ async function sendLiveEmail({ to, subject, text, html }) {
     return {
       success: false,
       delivered: false,
-      reason: 'No Email API or SMTP credentials configured. Set RESEND_API_KEY, BREVO_API_KEY, or SENDGRID_API_KEY.'
+      reason: 'No Email API, Webhook, or SMTP credentials configured.'
     };
+  }
+
+  // 0. Google Apps Script / Custom HTTP Email Webhook (Zero Domain Required, Port 443 HTTPS)
+  const webhookUrl = process.env.EMAIL_WEBHOOK_URL || process.env.GMAIL_WEBHOOK_URL || config.webhookUrl;
+  if (webhookUrl) {
+    try {
+      const res = await fetch(webhookUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ to, subject, text, html })
+      });
+      if (res.ok) {
+        return {
+          success: true,
+          delivered: true,
+          messageId: 'webhook-' + Date.now(),
+          previewUrl: null,
+          response: 'Sent via Gmail / HTTPS Webhook (Port 443)'
+        };
+      } else {
+        const errText = await res.text().catch(() => '');
+        console.warn('Email Webhook error HTTP', res.status, errText);
+      }
+    } catch (whErr) {
+      console.error('Email Webhook delivery error:', whErr.message);
+    }
   }
 
   // 1. Resend HTTP API (Port 443 HTTPS - Unblocked on all cloud platforms including Render free tier)
