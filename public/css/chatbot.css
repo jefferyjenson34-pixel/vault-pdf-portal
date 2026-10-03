@@ -891,3 +891,436 @@
   align-items: center;
   gap: 4px;
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   DEPRECATE PREVIOUS CHATBOX (PER USER REQUEST)
+   ═══════════════════════════════════════════════════════════════ */
+.vault-chat-trigger,
+.vault-chat-dialog,
+.hero-chat-container {
+  display: none !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   HALIMON — CYBER SECURITY GUARDIAN ANIMATED SHOWCASE
+   ═══════════════════════════════════════════════════════════════ */
+
+/* Container */
+.halimon-showcase-container {
+  position: relative;
+  width: 100%;
+  max-width: 460px;
+  margin: 0 auto;
+  perspective: 1200px;
+  z-index: 10;
+}
+
+/* Card Shell */
+.halimon-card {
+  position: relative;
+  background: linear-gradient(160deg, rgba(15, 23, 42, 0.9) 0%, rgba(5, 8, 20, 0.98) 100%);
+  border: 1.5px solid rgba(56, 189, 248, 0.32);
+  border-radius: 26px;
+  padding: 18px 18px 16px;
+  box-shadow: 
+    0 24px 70px rgba(0, 0, 0, 0.7),
+    0 0 45px rgba(0, 240, 255, 0.15),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  transform-style: preserve-3d;
+  transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.4s ease, border-color 0.3s ease;
+  animation: halimonCardFloat 5s ease-in-out infinite;
+}
+
+/* Smooth Card Hover Float */
+@keyframes halimonCardFloat {
+  0%, 100% {
+    transform: translateY(0px) rotate(0deg);
+  }
+  50% {
+    transform: translateY(-9px) rotate(0.35deg);
+  }
+}
+
+.halimon-card:hover {
+  border-color: rgba(56, 189, 248, 0.65);
+  box-shadow: 
+    0 32px 85px rgba(0, 0, 0, 0.8),
+    0 0 65px rgba(0, 240, 255, 0.28),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+
+/* Ambient Cyber Aura Glow (Behind Character) */
+.halimon-aura-glow {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 320px;
+  height: 380px;
+  transform: translate(-50%, -50%);
+  background: radial-gradient(circle, rgba(0, 240, 255, 0.32) 0%, rgba(124, 58, 237, 0.22) 50%, transparent 75%);
+  filter: blur(45px);
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 0;
+  animation: halimonAuraBreath 4.5s ease-in-out infinite;
+}
+
+@keyframes halimonAuraBreath {
+  0%, 100% {
+    opacity: 0.55;
+    transform: translate(-50%, -50%) scale(0.94);
+  }
+  50% {
+    opacity: 0.95;
+    transform: translate(-50%, -50%) scale(1.1);
+  }
+}
+
+/* HUD Header Badges */
+.halimon-hud-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 12px;
+  position: relative;
+  z-index: 2;
+}
+
+.halimon-hud-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  background: rgba(15, 23, 42, 0.82);
+  border: 1px solid rgba(56, 189, 248, 0.32);
+  border-radius: 9999px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: #38bdf8;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(10px);
+  white-space: nowrap;
+}
+
+.badge-status {
+  color: #34d399;
+  border-color: rgba(52, 211, 153, 0.35);
+}
+
+.hud-status-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #10b981;
+  box-shadow: 0 0 10px #10b981;
+  animation: hudPulse 1.8s infinite;
+  flex-shrink: 0;
+}
+
+@keyframes hudPulse {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.4); opacity: 0.6; }
+}
+
+/* Interactive Animated Speech Bubble */
+.halimon-speech-bubble {
+  position: relative;
+  background: rgba(13, 20, 36, 0.94);
+  border: 1px solid rgba(56, 189, 248, 0.42);
+  border-radius: 16px;
+  padding: 10px 14px;
+  margin-bottom: 12px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.45), 0 0 20px rgba(0, 240, 255, 0.12);
+  backdrop-filter: blur(14px);
+  z-index: 3;
+  animation: speechBob 3.5s ease-in-out infinite;
+  transition: all 0.3s ease;
+}
+
+@keyframes speechBob {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
+}
+
+.halimon-speech-bubble .speech-content {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.halimon-speech-bubble .speech-icon {
+  font-size: 1.25rem;
+  line-height: 1;
+  flex-shrink: 0;
+  animation: iconWave 2.5s infinite;
+}
+
+@keyframes iconWave {
+  0%, 100% { transform: rotate(0deg); }
+  20% { transform: rotate(14deg); }
+  40% { transform: rotate(-10deg); }
+  60% { transform: rotate(8deg); }
+  80% { transform: rotate(0deg); }
+}
+
+.halimon-speech-bubble .speech-text {
+  font-size: 0.84rem;
+  line-height: 1.45;
+  color: #e2e8f0;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+}
+
+.halimon-speech-bubble .speech-text strong {
+  color: #38bdf8;
+  font-weight: 700;
+}
+
+.speech-tail {
+  position: absolute;
+  bottom: -6px;
+  left: 32px;
+  width: 12px;
+  height: 12px;
+  background: rgba(13, 20, 36, 0.94);
+  border-right: 1px solid rgba(56, 189, 248, 0.42);
+  border-bottom: 1px solid rgba(56, 189, 248, 0.42);
+  transform: rotate(45deg);
+}
+
+/* Image Wrapper */
+.halimon-image-wrapper {
+  position: relative;
+  width: 100%;
+  border-radius: 20px;
+  overflow: hidden;
+  box-shadow: 
+    0 16px 40px rgba(0, 0, 0, 0.75),
+    inset 0 0 30px rgba(0, 0, 0, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  cursor: pointer;
+  user-select: none;
+  background: #050814;
+  z-index: 1;
+}
+
+.halimon-character-image {
+  width: 100%;
+  height: auto;
+  aspect-ratio: 682 / 1024;
+  max-height: 520px;
+  object-fit: cover;
+  display: block;
+  border-radius: 18px;
+  transition: transform 0.6s cubic-bezier(0.2, 0.8, 0.2, 1), filter 0.4s ease;
+}
+
+.halimon-image-wrapper:hover .halimon-character-image {
+  transform: scale(1.035);
+  filter: brightness(1.05) contrast(1.03);
+}
+
+/* Cyber Scanning Laser Line */
+.halimon-scanline {
+  position: absolute;
+  top: -30%;
+  left: 0;
+  width: 100%;
+  height: 24px;
+  background: linear-gradient(
+    180deg,
+    transparent 0%,
+    rgba(0, 240, 255, 0.15) 30%,
+    rgba(0, 240, 255, 0.85) 50%,
+    rgba(255, 255, 255, 0.95) 52%,
+    rgba(0, 240, 255, 0.85) 54%,
+    rgba(0, 240, 255, 0.15) 70%,
+    transparent 100%
+  );
+  box-shadow: 0 0 20px rgba(0, 240, 255, 0.8), 0 0 40px rgba(0, 240, 255, 0.4);
+  pointer-events: none;
+  opacity: 0;
+  z-index: 4;
+  animation: halimonScanBeam 6s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+@keyframes halimonScanBeam {
+  0% {
+    top: -20%;
+    opacity: 0;
+  }
+  10% {
+    opacity: 1;
+  }
+  45% {
+    top: 110%;
+    opacity: 1;
+  }
+  50% {
+    top: 115%;
+    opacity: 0;
+  }
+  100% {
+    top: 115%;
+    opacity: 0;
+  }
+}
+
+/* Laser burst class triggered via button */
+.halimon-scanline.active-scan {
+  animation: halimonScanBurst 1.2s cubic-bezier(0.2, 0.8, 0.2, 1) !important;
+}
+
+@keyframes halimonScanBurst {
+  0% { top: -10%; opacity: 1; height: 35px; }
+  100% { top: 110%; opacity: 1; height: 35px; }
+}
+
+/* Holographic Shimmer Effect */
+.halimon-shimmer {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    115deg,
+    transparent 20%,
+    rgba(0, 240, 255, 0.08) 45%,
+    rgba(255, 255, 255, 0.18) 50%,
+    rgba(0, 240, 255, 0.08) 55%,
+    transparent 80%
+  );
+  transform: translateX(-150%);
+  pointer-events: none;
+  z-index: 3;
+  animation: halimonShimmerSweep 7s ease-in-out infinite;
+  animation-delay: 2.5s;
+}
+
+@keyframes halimonShimmerSweep {
+  0% { transform: translateX(-150%); }
+  30%, 100% { transform: translateX(150%); }
+}
+
+/* Corner Sci-Fi Tech Brackets */
+.corner-bracket {
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  border: 2px solid #00f0ff;
+  pointer-events: none;
+  z-index: 5;
+  transition: all 0.3s ease;
+}
+
+.bracket-tl { top: 8px; left: 8px; border-right: none; border-bottom: none; border-top-left-radius: 4px; }
+.bracket-tr { top: 8px; right: 8px; border-left: none; border-bottom: none; border-top-right-radius: 4px; }
+.bracket-bl { bottom: 8px; left: 8px; border-right: none; border-top: none; border-bottom-left-radius: 4px; }
+.bracket-br { bottom: 8px; right: 8px; border-left: none; border-top: none; border-bottom-right-radius: 4px; }
+
+.halimon-image-wrapper:hover .corner-bracket {
+  border-color: #38bdf8;
+  transform: scale(1.15);
+  box-shadow: 0 0 10px rgba(0, 240, 255, 0.7);
+}
+
+/* Click Reaction Class */
+.halimon-image-wrapper.halimon-react {
+  animation: halimonBounceReact 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes halimonBounceReact {
+  0% { transform: scale(1); }
+  35% { transform: scale(0.96) translateY(5px); }
+  60% { transform: scale(1.05) translateY(-8px); }
+  80% { transform: scale(0.99) translateY(2px); }
+  100% { transform: scale(1); }
+}
+
+/* Interactive Action Buttons Bar */
+.halimon-interaction-bar {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin-top: 14px;
+  position: relative;
+  z-index: 2;
+}
+
+.btn-halimon-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 10px;
+  background: rgba(15, 23, 42, 0.82);
+  border: 1px solid rgba(56, 189, 248, 0.28);
+  border-radius: 12px;
+  color: #f1f5f9;
+  font-family: inherit;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  outline: none;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+  backdrop-filter: blur(8px);
+}
+
+.btn-halimon-action:hover {
+  background: rgba(56, 189, 248, 0.18);
+  border-color: rgba(56, 189, 248, 0.6);
+  color: #38bdf8;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 18px rgba(0, 240, 255, 0.25);
+}
+
+.btn-halimon-action:active {
+  transform: scale(0.96);
+}
+
+.action-emoji {
+  font-size: 0.95rem;
+  line-height: 1;
+}
+
+/* Bottom Meta Security Strip */
+.halimon-bottom-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  position: relative;
+  z-index: 2;
+}
+
+.meta-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #94a3b8;
+  letter-spacing: 0.01em;
+}
+
+.meta-tag svg {
+  color: #10b981;
+}
+
+@media (max-width: 768px) {
+  .halimon-showcase-container {
+    max-width: 380px;
+    margin-top: 24px;
+  }
+  .halimon-interaction-bar {
+    grid-template-columns: 1fr;
+  }
+}
+
