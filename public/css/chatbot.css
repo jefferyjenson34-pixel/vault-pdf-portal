@@ -573,6 +573,39 @@
   gap: 12px;
 }
 
+.hero-chat-avatar-compact {
+  position: relative;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, rgba(124, 58, 237, 0.4), rgba(56, 189, 248, 0.3));
+  border: 1.5px solid rgba(56, 189, 248, 0.4);
+  box-shadow: 0 4px 14px rgba(124, 58, 237, 0.25);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: #38bdf8;
+}
+
+.hero-chat-avatar-compact .hero-avatar-svg {
+  width: 22px;
+  height: 22px;
+  stroke: #38bdf8;
+}
+
+.hero-chat-avatar-compact .avatar-status-dot {
+  position: absolute;
+  bottom: -2px;
+  right: -2px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #10b981;
+  border: 2px solid #0f172a;
+  box-shadow: 0 0 6px #10b981;
+}
+
 .hero-chat-title-info {
   display: flex;
   flex-direction: column;
@@ -821,16 +854,34 @@
   gap: 8px;
 }
 
-.hero-chat-input {
+.hero-chat-input-wrapper {
+  position: relative;
   flex: 1;
+  display: flex;
+  align-items: center;
+}
+
+.hero-chat-input {
+  width: 100%;
   background: rgba(30, 41, 59, 0.6);
   border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 10px;
-  padding: 10px 14px;
+  padding: 10px 65px 10px 14px;
   color: #ffffff;
   font-size: 0.88rem;
   outline: none;
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.hero-chat-counter {
+  position: absolute;
+  right: 10px;
+  font-size: 0.7rem;
+  color: #64748b;
+  pointer-events: none;
+  font-variant-numeric: tabular-nums;
+  font-family: monospace;
+  transition: color 0.2s ease;
 }
 
 .hero-chat-input:focus {
@@ -841,6 +892,23 @@
 .hero-chat-input::placeholder {
   color: #64748b;
   font-size: 0.84rem;
+}
+
+/* Streaming Token Cursor */
+.chat-cursor {
+  display: inline-block;
+  width: 7px;
+  height: 14px;
+  margin-left: 3px;
+  background: #38bdf8;
+  vertical-align: middle;
+  border-radius: 1px;
+  animation: cursorBlink 0.8s infinite;
+}
+
+@keyframes cursorBlink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
 }
 
 .hero-chat-send-btn {
@@ -893,11 +961,10 @@
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   DEPRECATE PREVIOUS CHATBOX (PER USER REQUEST)
+   LEGACY FLOATING WIDGET (REPLACED BY HERO AI CHATBOT)
    ═══════════════════════════════════════════════════════════════ */
 .vault-chat-trigger,
-.vault-chat-dialog,
-.hero-chat-container {
+.vault-chat-dialog {
   display: none !important;
 }
 

@@ -261,98 +261,108 @@
             </div>
           </div>
 
-          <!-- Right Column: Animated Character Showcase — Halimon the Vault Guardian -->
-          <div class="halimon-showcase-container reveal-fade-up delay-200" id="halimon-showcase">
-            <div class="halimon-card" id="halimon-card">
+          <!-- Right Column: AI Chatbot (OpenRouter Powered) -->
+          <div class="hero-chat-container reveal-fade-up delay-200" id="hero-ai-chatbot">
+            <div class="hero-chat-card">
               
-              <!-- Ambient Cyber Backglow Aura -->
-              <div class="halimon-aura-glow" aria-hidden="true"></div>
-
-              <!-- HUD Top Badges Row -->
-              <div class="halimon-hud-row">
-                <div class="halimon-hud-badge badge-status" id="halimon-status-badge">
-                  <span class="hud-status-dot"></span>
-                  <span id="halimon-status-text">HALIMON &bull; GUARDIAN ACTIVE</span>
+              <!-- Chatbot Header with Compact Character Avatar -->
+              <div class="hero-chat-header">
+                <div class="hero-chat-char-summary">
+                  <div class="hero-chat-avatar-compact" title="Halimon — Vault AI Assistant">
+                    <svg class="hero-avatar-svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <rect x="3" y="11" width="18" height="10" rx="2"></rect>
+                      <circle cx="12" cy="5" r="2"></circle>
+                      <path d="M12 7v4"></path>
+                      <line x1="8" y1="16" x2="8.01" y2="16"></line>
+                      <line x1="16" y1="16" x2="16.01" y2="16"></line>
+                    </svg>
+                    <span class="avatar-status-dot"></span>
+                  </div>
+                  <div class="hero-chat-title-info">
+                    <div class="hero-chat-name-row">
+                      <h3 class="hero-chat-name">Halimon</h3>
+                      <span class="hero-chat-model-badge">AI Assistant</span>
+                    </div>
+                    <p class="hero-chat-status">
+                      <span class="status-pulse-dot"></span>
+                      <span>Cyber Guardian &bull; Online</span>
+                    </p>
+                  </div>
                 </div>
-                <div class="halimon-hud-badge">
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+
+                <div class="hero-chat-header-actions">
+                  <button type="button" class="btn-chat-reset" id="hero-chat-clear" title="Clear conversation memory" aria-label="Clear chat">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <polyline points="1 4 1 10 7 10"></polyline>
+                      <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path>
+                    </svg>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Chat Message Stream -->
+              <div class="hero-chat-messages" id="hero-chat-messages">
+                <div class="chat-bubble bot-bubble">
+                  <div class="chat-bubble-avatar">🤖</div>
+                  <div class="chat-bubble-body">
+                    <div class="chat-bubble-sender">Halimon</div>
+                    <div class="chat-bubble-text">
+                      Hello! I am <strong>Halimon</strong>, your Vault AI Assistant. Ask me anything about PDF uploads, 16-character secret codes, neural audio listening, or security!
+                    </div>
+                    <span class="chat-bubble-time">Just now</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Quick Suggestion Chips -->
+              <div class="hero-chat-suggestions" id="hero-chat-suggestions">
+                <button type="button" class="chat-suggestion-chip" data-query="How do secret codes work for private sharing?">
+                  🔑 Secret Codes
+                </button>
+                <button type="button" class="chat-suggestion-chip" data-query="What are the PDF upload limits?">
+                  📤 Upload Limits
+                </button>
+                <button type="button" class="chat-suggestion-chip" data-query="How does the Neural Voice Reader work?">
+                  🎙️ Audio Reader
+                </button>
+                <button type="button" class="chat-suggestion-chip" data-query="How does the Quantum Scanner work?">
+                  ⚡ Scanner
+                </button>
+              </div>
+
+              <!-- Chat Input Bar -->
+              <form class="hero-chat-form" id="hero-chat-form">
+                <div class="hero-chat-input-wrapper">
+                  <input 
+                    type="text" 
+                    id="hero-chat-input" 
+                    class="hero-chat-input" 
+                    placeholder="Ask Halimon about Vault features..." 
+                    maxlength="500" 
+                    autocomplete="off"
+                    spellcheck="false"
+                    required
+                  >
+                  <span class="hero-chat-counter" id="hero-chat-counter">0/500</span>
+                </div>
+                <button type="submit" class="hero-chat-send-btn" id="hero-chat-send" aria-label="Send message">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="22" y1="2" x2="11" y2="13"></line>
+                    <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
                   </svg>
-                  <span>AES-256 ARMED</span>
-                </div>
-              </div>
-
-              <!-- Interactive Animated Speech Bubble -->
-              <div class="halimon-speech-bubble" id="halimon-speech" role="status" aria-live="polite">
-                <div class="speech-content">
-                  <span class="speech-icon" id="halimon-speech-icon">👍</span>
-                  <span class="speech-text" id="halimon-speech-text">
-                    Thumbs up! I'm <strong>Halimon</strong>, your Vault Cyber Guardian. Your documents are safe and encrypted with me!
-                  </span>
-                </div>
-                <div class="speech-tail"></div>
-              </div>
-
-              <!-- Character Image Container with Sci-Fi Scanner Frame -->
-              <div class="halimon-image-wrapper" id="halimon-interactive-trigger" title="Click Halimon to interact!" tabindex="0" role="button" aria-label="Interact with Halimon">
-                <!-- Cyber Scanline Effect -->
-                <div class="halimon-scanline" id="halimon-scanline" aria-hidden="true"></div>
-                
-                <!-- Holographic Glitch / Shimmer Overlay -->
-                <div class="halimon-shimmer" aria-hidden="true"></div>
-
-                <!-- Halimon High-Res Character Image -->
-                <img 
-                  src="/images/halimon.jpg" 
-                  alt="Halimon — The Cyber Security Guardian of Vault PDF Portal giving thumbs up" 
-                  class="halimon-character-image" 
-                  id="halimon-img"
-                  loading="eager"
-                  width="440"
-                  height="660"
-                >
-
-                <!-- Corner Sci-Fi Tech Brackets -->
-                <span class="corner-bracket bracket-tl" aria-hidden="true"></span>
-                <span class="corner-bracket bracket-tr" aria-hidden="true"></span>
-                <span class="corner-bracket bracket-bl" aria-hidden="true"></span>
-                <span class="corner-bracket bracket-br" aria-hidden="true"></span>
-              </div>
-
-              <!-- Interactive Control Strip -->
-              <div class="halimon-interaction-bar">
-                <button type="button" class="btn-halimon-action" id="btn-halimon-poke" title="Say Hello to Halimon">
-                  <span class="action-emoji">👋</span>
-                  <span>Say Hello</span>
                 </button>
-                <button type="button" class="btn-halimon-action" id="btn-halimon-voice" title="Listen to Halimon">
-                  <span class="action-emoji">🔊</span>
-                  <span>Halimon Voice</span>
-                </button>
-                <button type="button" class="btn-halimon-action" id="btn-halimon-scan" title="Trigger Quantum Security Check">
-                  <span class="action-emoji">⚡</span>
-                  <span>Audit Scan</span>
-                </button>
-                <button type="button" class="btn-halimon-action btn-chat-trigger" id="btn-halimon-chat" title="Chat with Halimon AI">
-                  <span class="action-emoji">💬</span>
-                  <span>Ask Halimon</span>
-                </button>
-              </div>
+              </form>
 
-              <!-- Bottom Holographic Stats Strip -->
-              <div class="halimon-bottom-meta">
-                <span class="meta-tag">
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                  Zero-Knowledge
+              <!-- Footer Security & Cap Note -->
+              <div class="hero-chat-footer">
+                <span class="chat-footer-left">
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                    <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                    <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                  </svg>
+                  <span>Streaming OpenRouter &bull; Zero tracking</span>
                 </span>
-                <span class="meta-tag">
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                  256-Bit Vault
-                </span>
-                <span class="meta-tag">
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                  Forensic Guard
-                </span>
+                <span class="chat-footer-right">Max 500 chars</span>
               </div>
 
             </div>
@@ -1402,7 +1412,13 @@
       <div class="chat-modal-header">
         <div class="chat-modal-char">
           <div class="chat-modal-avatar">
-            <img src="/images/halimon.jpg" alt="Halimon Avatar" width="38" height="38">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="3" y="11" width="18" height="10" rx="2"></rect>
+              <circle cx="12" cy="5" r="2"></circle>
+              <path d="M12 7v4"></path>
+              <line x1="8" y1="16" x2="8.01" y2="16"></line>
+              <line x1="16" y1="16" x2="16.01" y2="16"></line>
+            </svg>
           </div>
           <div>
             <h3 id="chat-modal-title" class="chat-modal-name">Halimon</h3>
