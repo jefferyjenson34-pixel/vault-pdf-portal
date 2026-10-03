@@ -333,6 +333,10 @@
                   <span class="action-emoji">⚡</span>
                   <span>Audit Scan</span>
                 </button>
+                <button type="button" class="btn-halimon-action btn-chat-trigger" id="btn-halimon-chat" title="Chat with Halimon AI">
+                  <span class="action-emoji">💬</span>
+                  <span>Ask Halimon</span>
+                </button>
               </div>
 
               <!-- Bottom Holographic Stats Strip -->
@@ -1384,6 +1388,86 @@
         <span class="terminal-prompt-label">vault@quantum-core:~$</span>
         <input type="text" class="terminal-input" id="terminal-input" placeholder="Enter directive (e.g. /hud, /matrix, /telemetry, /docs)..." autocomplete="off" spellcheck="false">
       </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════
+       HALIMON AI CHAT MODAL / DRAWER (Powered by OpenRouter)
+       ═══════════════════════════════════════════════════════════════ -->
+  <div class="halimon-chat-modal" id="halimon-chat-modal" aria-hidden="true" role="dialog" aria-labelledby="chat-modal-title">
+    <div class="chat-modal-backdrop" id="chat-modal-backdrop"></div>
+    <div class="chat-modal-window">
+      
+      <!-- Header -->
+      <div class="chat-modal-header">
+        <div class="chat-modal-char">
+          <div class="chat-modal-avatar">
+            <img src="/images/halimon.jpg" alt="Halimon Avatar" width="38" height="38">
+          </div>
+          <div>
+            <h3 id="chat-modal-title" class="chat-modal-name">Halimon</h3>
+            <p class="chat-modal-status">
+              <span class="modal-status-dot"></span>
+              <span>Cyber Guardian &bull; AI Assistant</span>
+            </p>
+          </div>
+        </div>
+        <button type="button" class="chat-modal-close" id="chat-modal-close" aria-label="Close Chat">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
+      </div>
+
+      <!-- Messages Container -->
+      <div class="chat-modal-messages" id="chat-modal-messages">
+        <div class="chat-msg bot-msg">
+          <div class="msg-avatar">🤖</div>
+          <div class="msg-content">
+            <div class="msg-sender">Halimon</div>
+            <div class="msg-text">
+              Hello! I am <strong>Halimon</strong>, your official Vault AI Assistant. Ask me anything about document uploads, 16-character secret codes, neural audio listening, or security!
+            </div>
+            <div class="msg-time">Just now</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Quick Question Chips -->
+      <div class="chat-modal-chips" id="chat-modal-chips">
+        <button type="button" class="chat-chip" data-q="How do 16-character secret codes work?">🔑 Secret Codes</button>
+        <button type="button" class="chat-chip" data-q="What are the PDF upload limits?">📤 Upload Limits</button>
+        <button type="button" class="chat-chip" data-q="How does the Neural Voice Reader work?">🎙️ Audio Reader</button>
+        <button type="button" class="chat-chip" data-q="How does the Quantum Scanner work?">⚡ Scanner</button>
+      </div>
+
+      <!-- Input Bar with 500-Character Limiter -->
+      <form class="chat-modal-form" id="chat-modal-form">
+        <div class="chat-input-wrapper">
+          <input 
+            type="text" 
+            id="chat-modal-input" 
+            class="chat-modal-input" 
+            placeholder="Ask Halimon a question about Vault PDF..." 
+            maxlength="500" 
+            autocomplete="off"
+            required
+          >
+          <span class="chat-char-counter" id="chat-char-counter">0/500</span>
+        </div>
+        <button type="submit" class="chat-modal-send" id="chat-modal-send" aria-label="Send message">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="22" y1="2" x2="11" y2="13"></line>
+            <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+          </svg>
+        </button>
+      </form>
+
+      <div class="chat-modal-footer">
+        <span>Encrypted session &bull; Zero third-party trackers</span>
+      </div>
+
     </div>
   </div>
 

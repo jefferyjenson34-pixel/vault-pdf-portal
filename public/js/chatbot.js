@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════════
-   HALIMON — CYBER SECURITY GUARDIAN ANIMATED SHOWCASE CONTROLLER
+   HALIMON — CYBER SECURITY GUARDIAN & OPENROUTER AI CHAT CONTROLLER
    Vault PDF Portal &bull; Enterprise Document Security
    ═══════════════════════════════════════════════════════════════ */
 
@@ -38,6 +38,9 @@
   let quoteInterval = null;
   let isScanning = false;
 
+  // In-memory conversation history (strictly last 6 messages, ephemeral in-memory)
+  const conversationHistory = [];
+
   // ─── Procedural Web Audio Synth for Cyber Chimes ────────────
   function playCyberChime(type = 'chime') {
     try {
@@ -52,7 +55,6 @@
       const now = ctx.currentTime;
 
       if (type === 'scan') {
-        // High-tech laser sweep sound
         const osc = ctx.createOscillator();
         const gain = ctx.createGain();
         osc.type = 'sawtooth';
@@ -65,7 +67,6 @@
         osc.start(now);
         osc.stop(now + 0.46);
       } else if (type === 'voice') {
-        // Futuristic double-tone greeting
         [587.33, 880].forEach((freq, i) => {
           const osc = ctx.createOscillator();
           const gain = ctx.createGain();
@@ -79,7 +80,6 @@
           osc.stop(now + i * 0.08 + 0.26);
         });
       } else {
-        // Gentle cyber chime
         [523.25, 659.25, 783.99, 1046.50].forEach((freq, i) => {
           const osc = ctx.createOscillator();
           const gain = ctx.createGain();
@@ -93,12 +93,10 @@
           osc.stop(now + i * 0.06 + 0.36);
         });
       }
-    } catch (_) {
-      // Audio context may be restricted before user gesture
-    }
+    } catch (_) {}
   }
 
-  // ─── Initialize Halimon Character Showcase ─────────────────
+  // ─── Initialize Halimon Showcase & OpenRouter Chat ──────────
   function initHalimonShowcase() {
     const card = document.getElementById('halimon-card');
     const trigger = document.getElementById('halimon-interactive-trigger');
@@ -111,8 +109,18 @@
     const btnPoke = document.getElementById('btn-halimon-poke');
     const btnVoice = document.getElementById('btn-halimon-voice');
     const btnScan = document.getElementById('btn-halimon-scan');
+    const btnChat = document.getElementById('btn-halimon-chat');
 
-    if (!card) return;
+    // Chat Modal Elements
+    const chatModal = document.getElementById('halimon-chat-modal');
+    const chatModalClose = document.getElementById('chat-modal-close');
+    const chatModalBackdrop = document.getElementById('chat-modal-backdrop');
+    const chatForm = document.getElementById('chat-modal-form');
+    const chatInput = document.getElementById('chat-modal-input');
+    const chatSendBtn = document.getElementById('chat-modal-send');
+    const chatMessagesEl = document.getElementById('chat-modal-messages');
+    const charCounterEl = document.getElementById('chat-char-counter');
+    const chipsContainer = document.getElementById('chat-modal-chips');
 
     // 1. Function to update speech bubble
     function updateSpeech(icon, htmlText, animate = true) {
@@ -139,7 +147,6 @@
       updateSpeech(q.icon, q.text, true);
     }
 
-    // Auto rotate quotes every 7.5 seconds
     quoteInterval = setInterval(nextQuote, 7500);
 
     // 3. Poke / Thumbs-up Interaction
@@ -147,7 +154,6 @@
       playCyberChime('chime');
       if (trigger) {
         trigger.classList.remove('halimon-react');
-        // Force reflow
         void trigger.offsetWidth;
         trigger.classList.add('halimon-react');
       }
@@ -162,7 +168,6 @@
       const randomQuote = pokeQuotes[Math.floor(Math.random() * pokeQuotes.length)];
       updateSpeech(randomQuote.icon, randomQuote.text, true);
 
-      // Reset auto-rotate timer
       clearInterval(quoteInterval);
       quoteInterval = setInterval(nextQuote, 9000);
     }
@@ -199,7 +204,6 @@
           utterance.rate = 1.04;
           utterance.pitch = 1.25;
 
-          // Pick best English voice if available
           const voices = window.speechSynthesis.getVoices();
           const roboticVoice = voices.find(v => v.lang.startsWith('en') && (v.name.includes('Google') || v.name.includes('Natural') || v.name.includes('Robot')));
           if (roboticVoice) utterance.voice = roboticVoice;
@@ -270,6 +274,202 @@
 
       showcaseContainer.addEventListener('mouseleave', () => {
         card.style.transform = 'perspective(1000px) rotateX(0deg) rotateY(0deg) scale3d(1, 1, 1)';
+      });
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // ─── OpenRouter Streaming Chat Modal Controller ───────────────
+    // ═══════════════════════════════════════════════════════════════
+    function openChatModal() {
+      if (!chatModal) return;
+      playCyberChime('chime');
+      chatModal.classList.add('is-open');
+      chatModal.setAttribute('aria-hidden', 'false');
+      if (chatInput) {
+        setTimeout(() => chatInput.focus(), 250);
+      }
+    }
+
+    function closeChatModal() {
+      if (!chatModal) return;
+      chatModal.classList.remove('is-open');
+      chatModal.setAttribute('aria-hidden', 'true');
+    }
+
+    if (btnChat) {
+      btnChat.addEventListener('click', openChatModal);
+    }
+    if (speechEl) {
+      speechEl.style.cursor = 'pointer';
+      speechEl.addEventListener('click', openChatModal);
+    }
+    if (chatModalClose) {
+      chatModalClose.addEventListener('click', closeChatModal);
+    }
+    if (chatModalBackdrop) {
+      chatModalBackdrop.addEventListener('click', closeChatModal);
+    }
+
+    // Escape key closes modal
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && chatModal && chatModal.classList.contains('is-open')) {
+        closeChatModal();
+      }
+    });
+
+    // 500-Character Counter
+    if (chatInput && charCounterEl) {
+      chatInput.addEventListener('input', () => {
+        const len = chatInput.value.length;
+        charCounterEl.textContent = `${len}/500`;
+        if (len >= 500) {
+          charCounterEl.style.color = '#ef4444';
+        } else {
+          charCounterEl.style.color = '#64748b';
+        }
+      });
+    }
+
+    // Quick Chips handler
+    if (chipsContainer && chatInput && chatForm) {
+      chipsContainer.addEventListener('click', (e) => {
+        const chip = e.target.closest('.chat-chip');
+        if (!chip) return;
+        const queryText = chip.getAttribute('data-q') || chip.textContent.replace(/^[^\w]+/, '').trim();
+        chatInput.value = queryText;
+        if (charCounterEl) charCounterEl.textContent = `${chatInput.value.length}/500`;
+        submitChatPrompt(queryText);
+      });
+    }
+
+    // Append Message UI helper
+    function appendMessageBubble(role, content) {
+      if (!chatMessagesEl) return null;
+      const isUser = role === 'user';
+      const msgDiv = document.createElement('div');
+      msgDiv.className = `chat-msg ${isUser ? 'user-msg' : 'bot-msg'}`;
+
+      const avatar = isUser ? '👤' : '🤖';
+      const sender = isUser ? 'You' : 'Halimon';
+
+      msgDiv.innerHTML = `
+        <div class="msg-avatar">${avatar}</div>
+        <div class="msg-content">
+          <div class="msg-sender">${sender}</div>
+          <div class="msg-text">${content}</div>
+          <div class="msg-time">Just now</div>
+        </div>
+      `;
+
+      chatMessagesEl.appendChild(msgDiv);
+      chatMessagesEl.scrollTop = chatMessagesEl.scrollHeight;
+      return msgDiv.querySelector('.msg-text');
+    }
+
+    // Submit Prompt & Handle Streaming SSE
+    async function submitChatPrompt(text) {
+      const trimmed = (text || '').trim();
+      if (!trimmed) return;
+      if (trimmed.length > 500) return;
+
+      if (chatInput) chatInput.value = '';
+      if (charCounterEl) charCounterEl.textContent = '0/500';
+      if (chatSendBtn) chatSendBtn.disabled = true;
+      if (chatInput) chatInput.disabled = true;
+
+      // 1. Render user message
+      appendMessageBubble('user', trimmed);
+      conversationHistory.push({ role: 'user', content: trimmed });
+
+      // 2. Prepare bot message bubble with streaming cursor
+      const botTextEl = appendMessageBubble('bot', '');
+      const cursorSpan = document.createElement('span');
+      cursorSpan.className = 'chat-cursor';
+      if (botTextEl) botTextEl.appendChild(cursorSpan);
+
+      let accumulatedReply = '';
+
+      try {
+        // Enforce: last 6 messages only
+        const historyPayload = conversationHistory.slice(-6);
+
+        const response = await fetch('/api/chat?stream=true', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'text/event-stream'
+          },
+          body: JSON.stringify({
+            message: trimmed,
+            messages: historyPayload,
+            stream: true
+          })
+        });
+
+        const isSSE = (response.headers.get('content-type') || '').includes('text/event-stream');
+
+        if (response.ok && isSSE && response.body) {
+          const reader = response.body.getReader();
+          const decoder = new TextDecoder();
+          let streamBuffer = '';
+
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+
+            streamBuffer += decoder.decode(value, { stream: true });
+            const lines = streamBuffer.split('\n');
+            streamBuffer = lines.pop();
+
+            for (const line of lines) {
+              const cleanLine = line.trim();
+              if (!cleanLine.startsWith('data:')) continue;
+              const rawData = cleanLine.slice(5).trim();
+              if (rawData === '[DONE]') continue;
+
+              try {
+                const parsed = JSON.parse(rawData);
+                if (parsed.token) {
+                  accumulatedReply += parsed.token;
+                  if (botTextEl) {
+                    botTextEl.textContent = accumulatedReply;
+                    botTextEl.appendChild(cursorSpan);
+                  }
+                  if (chatMessagesEl) chatMessagesEl.scrollTop = chatMessagesEl.scrollHeight;
+                }
+              } catch (_) {}
+            }
+          }
+        } else {
+          // Standard JSON fallback
+          const data = await response.json().catch(() => ({}));
+          accumulatedReply = data.reply || "The assistant is busy right now. Please try again later or use the Contact page.";
+        }
+      } catch (err) {
+        // Requirement: "If both models fail, show: 'The assistant is busy right now. Please try again later or use the Contact page.' Never show raw errors."
+        accumulatedReply = "The assistant is busy right now. Please try again later or use the Contact page.";
+      } finally {
+        if (cursorSpan && cursorSpan.parentNode) {
+          cursorSpan.parentNode.removeChild(cursorSpan);
+        }
+        if (botTextEl) {
+          botTextEl.textContent = accumulatedReply || "The assistant is busy right now. Please try again later or use the Contact page.";
+        }
+        conversationHistory.push({ role: 'assistant', content: accumulatedReply });
+
+        if (chatSendBtn) chatSendBtn.disabled = false;
+        if (chatInput) {
+          chatInput.disabled = false;
+          chatInput.focus();
+        }
+        if (chatMessagesEl) chatMessagesEl.scrollTop = chatMessagesEl.scrollHeight;
+      }
+    }
+
+    if (chatForm && chatInput) {
+      chatForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        submitChatPrompt(chatInput.value);
       });
     }
   }
