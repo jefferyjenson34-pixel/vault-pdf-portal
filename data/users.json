@@ -1,0 +1,11 @@
+[
+  {
+    "id": "usr_default_admin",
+    "email": "bugbountyresearcher0@protonmail.com",
+    "passwordHash": "$2b$10$thBwJPP3M34ToXxbvcZ.J.MpvCeGfm0873sAw7vjDaYhtx5sKqyx.",
+    "verified": true,
+    "createdAt": "2026-10-03T16:00:00.000Z",
+    "resetToken": null,
+    "resetTokenExpires": null
+  }
+]

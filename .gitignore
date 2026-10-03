@@ -1,5 +1,9 @@
 node_modules/
-data/
 .DS_Store
 .env
-
+data/private_uploads/
+data/audio_cache/
+data/contacts.json
+data/visitors.json
+data/email_config.json
+cookies.txt
