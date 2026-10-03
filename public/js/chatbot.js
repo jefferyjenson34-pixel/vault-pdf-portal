@@ -39,10 +39,19 @@
     dialog.innerHTML = `
       <div class="vault-chat-header">
         <div class="vault-chat-header-info">
-          <div class="vault-chat-avatar">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
-              <path d="m9 12 2 2 4-4"/>
+          <div class="vault-chat-avatar halimon-sentinel-avatar" style="width:36px; height:36px; animation: sentinelFloat 3s ease-in-out infinite;">
+            <svg viewBox="0 0 100 100" class="halimon-sentinel-svg">
+              <ellipse cx="50" cy="94" rx="20" ry="4" fill="#00f0ff" opacity="0.3"/>
+              <path d="M30 68 L50 88 L70 68 L64 56 L36 56 Z" fill="#0f172a" stroke="#38bdf8" stroke-width="1.8"/>
+              <polygon points="50,65 58,73 50,81 42,73" fill="#00f0ff" class="halimon-core-heart"/>
+              <rect x="25" y="24" width="50" height="34" rx="14" fill="#0f172a" stroke="#38bdf8" stroke-width="2"/>
+              <line x1="33" y1="24" x2="26" y2="10" stroke="#00f0ff" stroke-width="2.5" stroke-linecap="round"/>
+              <circle cx="26" cy="10" r="3.5" fill="#00f0ff" class="halimon-antenna-beacon"/>
+              <line x1="67" y1="24" x2="74" y2="10" stroke="#00f0ff" stroke-width="2.5" stroke-linecap="round"/>
+              <circle cx="74" cy="10" r="3.5" fill="#00f0ff" class="halimon-antenna-beacon"/>
+              <rect x="30" y="32" width="40" height="18" rx="8" fill="#020617" stroke="#00f0ff" stroke-width="1.5"/>
+              <ellipse cx="42" cy="41" rx="4" ry="4" fill="#00f0ff" class="halimon-eye halimon-eye-left"/>
+              <ellipse cx="58" cy="41" rx="4" ry="4" fill="#00f0ff" class="halimon-eye halimon-eye-right"/>
             </svg>
           </div>
           <div class="vault-chat-title-group">
@@ -337,10 +346,173 @@
     return clean;
   }
 
+  // ─── Hero Section In-Page AI Chatbot ─────────────────────────
+  function initHeroChatDOM() {
+    const heroChatContainer = document.getElementById('hero-ai-chatbot');
+    if (!heroChatContainer) return;
+
+    const messagesEl = document.getElementById('hero-chat-messages');
+    const formEl = document.getElementById('hero-chat-form');
+    const inputEl = document.getElementById('hero-chat-input');
+    const sendBtn = document.getElementById('hero-chat-send');
+    const clearBtn = document.getElementById('hero-chat-clear');
+    const avatarEl = document.getElementById('halimon-avatar');
+    const charCountEl = document.getElementById('hero-chat-char-count');
+    const suggestionChips = heroChatContainer.querySelectorAll('.chat-suggestion-chip');
+
+    if (!formEl || !inputEl || !messagesEl) return;
+
+    // Character counter
+    inputEl.addEventListener('input', () => {
+      const remaining = 500 - inputEl.value.length;
+      if (charCountEl) {
+        charCountEl.textContent = `${remaining} chars left`;
+      }
+    });
+
+    // Clear chat
+    if (clearBtn) {
+      clearBtn.addEventListener('click', () => {
+        conversationHistory = [];
+        messagesEl.innerHTML = `
+          <div class="chat-bubble bot-bubble">
+            <div class="chat-bubble-avatar">🤖</div>
+            <div class="chat-bubble-body">
+              <div class="chat-bubble-sender">Halimon</div>
+              <div class="chat-bubble-text">
+                Chat cleared. Hello! I am <strong>Halimon</strong>, your Vault AI Assistant. Ask me anything about uploading files, private 16-character secret codes, neural audio reading, document scanning, or security!
+              </div>
+              <span class="chat-bubble-time">Just now</span>
+            </div>
+          </div>
+        `;
+      });
+    }
+
+    // Suggestion chips
+    suggestionChips.forEach(chip => {
+      chip.addEventListener('click', () => {
+        const query = chip.getAttribute('data-query');
+        if (query && !isSending) {
+          sendHeroChatMessage(query);
+        }
+      });
+    });
+
+    // Submit form
+    formEl.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const text = inputEl.value.trim();
+      if (!text || isSending) return;
+      inputEl.value = '';
+      if (charCountEl) charCountEl.textContent = 'Max 500 chars';
+      sendHeroChatMessage(text);
+    });
+
+    async function sendHeroChatMessage(text) {
+      if (isSending) return;
+      isSending = true;
+      if (sendBtn) sendBtn.disabled = true;
+
+      // Append user bubble
+      const userBubble = document.createElement('div');
+      userBubble.className = 'chat-bubble user-bubble';
+      userBubble.innerHTML = `
+        <div class="chat-bubble-avatar">👤</div>
+        <div class="chat-bubble-body">
+          <div class="chat-bubble-sender">You</div>
+          <div class="chat-bubble-text">${escapeHtml(text)}</div>
+          <span class="chat-bubble-time">${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+        </div>
+      `;
+      messagesEl.appendChild(userBubble);
+
+      // Append typing indicator bubble
+      const typingBubble = document.createElement('div');
+      typingBubble.className = 'chat-bubble bot-bubble typing-state';
+      typingBubble.innerHTML = `
+        <div class="chat-bubble-avatar">🤖</div>
+        <div class="chat-bubble-body">
+          <div class="chat-bubble-sender">Halimon is thinking...</div>
+          <div class="chat-typing-dots">
+            <span></span><span></span><span></span>
+          </div>
+        </div>
+      `;
+      messagesEl.appendChild(typingBubble);
+      messagesEl.scrollTop = messagesEl.scrollHeight;
+
+      // Animate character thinking state
+      if (avatarEl) avatarEl.classList.add('thinking');
+
+      try {
+        const res = await fetch('/api/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ message: text })
+        });
+        const data = await res.json();
+        typingBubble.remove();
+
+        if (res.ok) {
+          const reply = data.reply || "I am Halimon, the Vault AI Assistant. How may I assist you with your documents?";
+          conversationHistory.push({ role: 'user', text }, { role: 'assistant', text: reply });
+
+          const botBubble = document.createElement('div');
+          botBubble.className = 'chat-bubble bot-bubble';
+          botBubble.innerHTML = `
+            <div class="chat-bubble-avatar">🤖</div>
+            <div class="chat-bubble-body">
+              <div class="chat-bubble-sender">Halimon</div>
+              <div class="chat-bubble-text">${formatReply(reply)}</div>
+              <span class="chat-bubble-time">${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+            </div>
+          `;
+          messagesEl.appendChild(botBubble);
+        } else {
+          const errBubble = document.createElement('div');
+          errBubble.className = 'chat-bubble bot-bubble';
+          errBubble.innerHTML = `
+            <div class="chat-bubble-avatar">⚠️</div>
+            <div class="chat-bubble-body">
+              <div class="chat-bubble-sender">Halimon</div>
+              <div class="chat-bubble-text" style="color:#fca5a5;">${escapeHtml(data.error || 'Unable to process query at this time.')}</div>
+              <span class="chat-bubble-time">System</span>
+            </div>
+          `;
+          messagesEl.appendChild(errBubble);
+        }
+      } catch (err) {
+        typingBubble.remove();
+        const errBubble = document.createElement('div');
+        errBubble.className = 'chat-bubble bot-bubble';
+        errBubble.innerHTML = `
+          <div class="chat-bubble-avatar">⚠️</div>
+          <div class="chat-bubble-body">
+            <div class="chat-bubble-sender">Halimon</div>
+            <div class="chat-bubble-text" style="color:#fca5a5;">Unable to reach server. Please check your connection.</div>
+            <span class="chat-bubble-time">Offline</span>
+          </div>
+        `;
+        messagesEl.appendChild(errBubble);
+      } finally {
+        isSending = false;
+        if (sendBtn) sendBtn.disabled = false;
+        if (avatarEl) avatarEl.classList.remove('thinking');
+        messagesEl.scrollTop = messagesEl.scrollHeight;
+      }
+    }
+  }
+
   // ─── Initialize on DOM Ready ─────────────────────────────────
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initChatbotDOM);
-  } else {
+  function initAllChatbotFeatures() {
     initChatbotDOM();
+    initHeroChatDOM();
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initAllChatbotFeatures);
+  } else {
+    initAllChatbotFeatures();
   }
 })();
