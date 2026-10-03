@@ -335,6 +335,19 @@
     riskEl: null,
     certBtn: null,
     lastReport: null,
+    lastScanData: null,
+    studioDeck: null,
+    studioDocTitle: null,
+    studioDocMeta: null,
+    studioBtnListen: null,
+    studioBtnToggleRead: null,
+    studioTextReader: null,
+    studioTextContent: null,
+    studioTextStats: null,
+    studioBtnCopyText: null,
+    studioBtnCloseReader: null,
+    studioBtnDlText: null,
+    studioBtnDlAudio: null,
 
     init() {
       this.dropzone = document.getElementById('scanner-dropzone');
@@ -345,6 +358,20 @@
       this.entropyBar = document.getElementById('metric-entropy-bar');
       this.riskEl = document.getElementById('metric-risk');
       this.certBtn = document.getElementById('btn-download-audit-cert');
+
+      // Studio Action Hub elements
+      this.studioDeck = document.getElementById('scanner-studio-deck');
+      this.studioDocTitle = document.getElementById('studio-doc-title');
+      this.studioDocMeta = document.getElementById('studio-doc-meta');
+      this.studioBtnListen = document.getElementById('studio-btn-listen');
+      this.studioBtnToggleRead = document.getElementById('studio-btn-toggle-read');
+      this.studioTextReader = document.getElementById('studio-text-reader');
+      this.studioTextContent = document.getElementById('studio-text-content');
+      this.studioTextStats = document.getElementById('studio-text-stats');
+      this.studioBtnCopyText = document.getElementById('studio-btn-copy-text');
+      this.studioBtnCloseReader = document.getElementById('studio-btn-close-reader');
+      this.studioBtnDlText = document.getElementById('studio-btn-download-text');
+      this.studioBtnDlAudio = document.getElementById('studio-btn-download-audio');
 
       if (!this.dropzone) return;
 
@@ -382,6 +409,88 @@
       if (this.certBtn) {
         this.certBtn.addEventListener('click', () => this.downloadCertificate());
       }
+
+      // Studio buttons setup
+      if (this.studioBtnToggleRead) {
+        this.studioBtnToggleRead.addEventListener('click', () => {
+          if (!this.studioTextReader) return;
+          const isHidden = this.studioTextReader.style.display === 'none';
+          this.studioTextReader.style.display = isHidden ? 'block' : 'none';
+          const label = document.getElementById('studio-read-label');
+          if (label) {
+            label.textContent = isHidden ? '✕ Close Text Reader' : '📖 Read Document Text';
+          }
+          if (isHidden) {
+            this.studioTextReader.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+          }
+        });
+      }
+
+      if (this.studioBtnCloseReader) {
+        this.studioBtnCloseReader.addEventListener('click', () => {
+          if (this.studioTextReader) this.studioTextReader.style.display = 'none';
+          const label = document.getElementById('studio-read-label');
+          if (label) label.textContent = '📖 Read Document Text';
+        });
+      }
+
+      if (this.studioBtnCopyText) {
+        this.studioBtnCopyText.addEventListener('click', async () => {
+          if (!this.lastScanData || !this.lastScanData.fullText) return;
+          try {
+            await navigator.clipboard.writeText(this.lastScanData.fullText);
+            const orig = this.studioBtnCopyText.innerHTML;
+            this.studioBtnCopyText.innerHTML = '<span>✓ Copied!</span>';
+            setTimeout(() => { this.studioBtnCopyText.innerHTML = orig; }, 2000);
+          } catch (e) {
+            alert('Could not copy to clipboard.');
+          }
+        });
+      }
+
+      if (this.studioBtnListen) {
+        this.studioBtnListen.addEventListener('click', () => {
+          if (this.lastScanData && window.VaultAudioReader) {
+            window.VaultAudioReader.playPdf(this.lastScanData.filename, this.lastScanData.originalName);
+          }
+        });
+      }
+
+      if (this.studioBtnDlAudio) {
+        this.studioBtnDlAudio.addEventListener('click', async (e) => {
+          if (!this.lastScanData) return;
+          e.preventDefault();
+          const btn = this.studioBtnDlAudio;
+          const origHtml = btn.innerHTML;
+          btn.innerHTML = `
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="animation: spin 1s linear infinite;">
+              <circle cx="12" cy="12" r="10" stroke-opacity="0.25"></circle>
+              <path d="M12 2a10 10 0 0 1 10 10"></path>
+            </svg>
+            <span>Generating Neural Audio...</span>
+          `;
+          btn.style.pointerEvents = 'none';
+
+          try {
+            const res = await fetch(this.lastScanData.audioDownloadUrl);
+            if (!res.ok) throw new Error('Audio synthesis failed');
+            const blob = await res.blob();
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = this.lastScanData.originalName.replace(/\.pdf$/i, '') + '.mp3';
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            setTimeout(() => URL.revokeObjectURL(url), 10000);
+          } catch (err) {
+            alert('Speech synthesis audio error: ' + err.message);
+          } finally {
+            btn.innerHTML = origHtml;
+            btn.style.pointerEvents = 'auto';
+          }
+        });
+      }
     },
 
     async processFile(file) {
@@ -390,7 +499,7 @@
 
       this.dropzone.classList.add('scanning');
       if (this.statusText) {
-        this.statusText.textContent = `Neural Scanning: ${file.name} (Calculating Bitstream Lattice)...`;
+        this.statusText.textContent = `Neural Scanning: ${file.name} (Calculating Bitstream Lattice & Synthesizing Text)...`;
       }
 
       try {
@@ -423,13 +532,28 @@
         const entropyScore = entropy.toFixed(3);
         const entropyPercent = Math.min(100, Math.round((entropy / 8.0) * 100));
 
-        // 4. Update UI with visual telemetry
+        // 4. Send to backend to extract text, chapters, and prepare audio pipeline
+        const formData = new FormData();
+        formData.append('pdf', file);
+        const uploadRes = await fetch('/api/pdf/client-upload-and-scan', {
+          method: 'POST',
+          body: formData
+        });
+        const scanData = await uploadRes.json();
+
+        if (!uploadRes.ok) {
+          throw new Error(scanData.error || 'Server processing error');
+        }
+
+        this.lastScanData = scanData;
+
+        // 5. Update UI with visual telemetry & Studio Deck
         setTimeout(() => {
           this.dropzone.classList.remove('scanning');
           SoundFX.playConfirm();
 
           if (this.statusText) {
-            this.statusText.textContent = `Verification Complete: 0 Tampering Detected • Kyber-1024 Quantum Validated`;
+            this.statusText.textContent = `Verification Complete: 0 Tampering Detected • Ready to Read & Listen`;
           }
           if (this.hash256El) this.hash256El.textContent = sha256Hex;
           if (this.hash512El) this.hash512El.textContent = `${sha512Hex.substring(0, 48)}...`;
@@ -438,7 +562,27 @@
           if (this.riskEl) {
             this.riskEl.innerHTML = `<span style="color: #10b981;">0.00% (Cryptographically Clean)</span>`;
           }
-          if (this.certBtn) this.certBtn.style.display = 'inline-flex';
+
+          // Populate Studio Hub
+          if (this.studioDocTitle) this.studioDocTitle.textContent = scanData.originalName;
+          if (this.studioDocMeta) {
+            this.studioDocMeta.textContent = `${scanData.totalPages} Pages • ${scanData.totalWords.toLocaleString()} Words • ~${scanData.estimatedMinutes} Min Listen`;
+          }
+          if (this.studioTextContent) this.studioTextContent.textContent = scanData.fullText;
+          if (this.studioTextStats) {
+            this.studioTextStats.textContent = `${scanData.totalWords.toLocaleString()} words (${scanData.fullText.length.toLocaleString()} chars)`;
+          }
+          if (this.studioBtnDlText) {
+            this.studioBtnDlText.href = scanData.textDownloadUrl;
+            this.studioBtnDlText.setAttribute('download', scanData.originalName.replace(/\.pdf$/i, '') + '.txt');
+          }
+          if (this.studioBtnDlAudio) {
+            this.studioBtnDlAudio.href = scanData.audioDownloadUrl;
+          }
+          if (this.studioDeck) {
+            this.studioDeck.style.display = 'block';
+            this.studioDeck.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+          }
 
           this.lastReport = {
             fileName: file.name,
@@ -448,7 +592,10 @@
             entropy: entropyScore,
             verifiedAt: new Date().toISOString()
           };
-        }, 1100);
+
+          // Notify catalog to reload and display newly scanned PDF
+          window.dispatchEvent(new CustomEvent('vault:docUploaded', { detail: scanData }));
+        }, 800);
 
       } catch (err) {
         this.dropzone.classList.remove('scanning');

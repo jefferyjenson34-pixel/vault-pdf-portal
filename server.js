@@ -883,15 +883,38 @@ app.get('/api/sound-status', (req, res) => {
   res.json({ exists, path: exists ? '/sound.mp3' : null });
 });
 
-// Helper: Locate PDF file across admin uploads and user private uploads
+// Helper: Locate PDF file across admin uploads, client uploads, and user private uploads
 function locatePdfFile(identifier) {
-  // 1. Check in UPLOADS_DIR (admin files)
-  const adminPath = path.join(UPLOADS_DIR, identifier);
-  if (fs.existsSync(adminPath)) {
-    const originalName = identifier.replace(/^\d+-\d+-/, '');
+  if (!identifier) return null;
+  const decoded = decodeURIComponent(identifier);
+
+  // 1. Check in UPLOADS_DIR (admin & client uploads)
+  let adminPath = path.join(UPLOADS_DIR, identifier);
+  if (!fs.existsSync(adminPath)) {
+    adminPath = path.join(UPLOADS_DIR, decoded);
+  }
+  if (!fs.existsSync(adminPath)) {
+    try {
+      const files = fs.readdirSync(UPLOADS_DIR).filter(f => f.endsWith('.pdf'));
+      const match = files.find(f => 
+        f === identifier || 
+        f === decoded || 
+        f.replace(/^\d+-\d+-/, '') === identifier || 
+        f.replace(/^\d+-\d+-/, '') === decoded
+      );
+      if (match) {
+        adminPath = path.join(UPLOADS_DIR, match);
+      }
+    } catch (e) {}
+  }
+
+  if (fs.existsSync(adminPath) && fs.statSync(adminPath).isFile()) {
+    const filename = path.basename(adminPath);
+    const originalName = filename.replace(/^\d+-\d+-/, '');
     const stat = fs.statSync(adminPath);
     return {
       filePath: adminPath,
+      filename,
       originalName,
       size: stat.size,
       isUserDoc: false,
@@ -901,13 +924,21 @@ function locatePdfFile(identifier) {
 
   // 2. Check in PRIVATE_UPLOADS_DIR (user files)
   const userDocs = readUserDocuments();
-  const doc = userDocs.find(d => d.storedFilename === identifier || d.id === identifier);
+  const doc = userDocs.find(d => 
+    d.storedFilename === identifier || 
+    d.id === identifier || 
+    d.storedFilename === decoded || 
+    d.id === decoded || 
+    d.originalName === identifier || 
+    d.originalName === decoded
+  );
   if (doc) {
     const privPath = path.join(PRIVATE_UPLOADS_DIR, doc.storedFilename);
-    if (fs.existsSync(privPath)) {
+    if (fs.existsSync(privPath) && fs.statSync(privPath).isFile()) {
       const stat = fs.statSync(privPath);
       return {
         filePath: privPath,
+        filename: doc.storedFilename,
         originalName: doc.originalName,
         size: stat.size,
         isUserDoc: true,
@@ -1626,6 +1657,213 @@ app.get('/api/pdf/audio-content/:filename', async (req, res) => {
   } catch (err) {
     console.error('Error extracting audio content from PDF:', err);
     res.status(500).json({ error: 'Failed to process document for Neural Voice Reader: ' + err.message });
+  }
+});
+
+// ─── AUDIO & TEXT GENERATION & DOWNLOAD PIPELINE ────────────────────
+const AUDIO_CACHE_DIR = path.join(__dirname, 'data', 'audio_cache');
+if (!fs.existsSync(AUDIO_CACHE_DIR)) {
+  fs.mkdirSync(AUDIO_CACHE_DIR, { recursive: true });
+}
+
+// POST /api/pdf/client-upload-and-scan (Client uploads any PDF to scan, read, and listen)
+app.post('/api/pdf/client-upload-and-scan', upload.single('pdf'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'No PDF file was provided for scanning.' });
+    }
+
+    const filePath = req.file.path;
+    const fileBuffer = fs.readFileSync(filePath);
+
+    // 1. Cryptographic SHA-256 and SHA-512 hashes
+    const crypto = require('crypto');
+    const sha256 = crypto.createHash('sha256').update(fileBuffer).digest('hex');
+    const sha512 = crypto.createHash('sha512').update(fileBuffer).digest('hex');
+
+    // 2. Shannon Byte Entropy (H = -sum(p * log2(p)))
+    const freqMap = new Array(256).fill(0);
+    for (let i = 0; i < fileBuffer.length; i++) {
+      freqMap[fileBuffer[i]]++;
+    }
+    let entropy = 0;
+    const totalBytes = fileBuffer.length;
+    for (let i = 0; i < 256; i++) {
+      if (freqMap[i] > 0) {
+        const p = freqMap[i] / totalBytes;
+        entropy -= p * Math.log2(p);
+      }
+    }
+    const entropyScore = entropy.toFixed(3);
+    const entropyPercent = Math.min(100, Math.round((entropy / 8.0) * 100));
+
+    // 3. Extract Document Text & Chapters
+    const { PDFParse } = require('pdf-parse');
+    const parser = new PDFParse({ data: fileBuffer });
+    const parsed = await parser.getText();
+    await parser.destroy();
+
+    const pages = (parsed.pages || []).map((p, idx) => {
+      const clean = (p.text || '').replace(/\r\n/g, '\n').replace(/\t/g, ' ').replace(/\s+/g, ' ').trim();
+      const words = clean ? clean.split(/\s+/).length : 0;
+      return {
+        pageNum: p.num || (idx + 1),
+        text: clean,
+        wordCount: words
+      };
+    }).filter(p => p.text.length > 0);
+
+    const fullText = pages.map(p => `=== PAGE ${p.pageNum} ===\n\n` + p.text).join('\n\n\n');
+    const totalWords = pages.reduce((sum, p) => sum + p.wordCount, 0);
+    const estimatedMinutes = Math.max(1, Math.round(totalWords / 150));
+
+    // Cache in pdfAudioCache so player loads instantly
+    const cacheKey = `${filePath}:${req.file.size}`;
+    const audioData = {
+      success: true,
+      filename: req.file.filename,
+      title: req.file.originalname,
+      totalPages: pages.length,
+      totalWords,
+      estimatedMinutes,
+      pages,
+      fullText
+    };
+    pdfAudioCache.set(cacheKey, audioData);
+
+    res.json({
+      success: true,
+      filename: req.file.filename,
+      originalName: req.file.originalname,
+      size: req.file.size,
+      sha256,
+      sha512,
+      entropy: entropyScore,
+      entropyPercent,
+      totalPages: pages.length,
+      totalWords,
+      estimatedMinutes,
+      pages,
+      fullText,
+      textDownloadUrl: `/api/pdf/download-text/${encodeURIComponent(req.file.filename)}`,
+      audioDownloadUrl: `/api/pdf/download-audio/${encodeURIComponent(req.file.filename)}`
+    });
+  } catch (err) {
+    console.error('Client upload and scan error:', err);
+    res.status(500).json({ error: 'Failed to process document: ' + err.message });
+  }
+});
+
+// GET /api/pdf/download-text/:filename (Download extracted text file)
+app.get('/api/pdf/download-text/:filename', async (req, res) => {
+  try {
+    const fileInfo = locatePdfFile(req.params.filename);
+    if (!fileInfo) {
+      return res.status(404).send('Document not found');
+    }
+
+    if (fileInfo.isUserDoc && !fileInfo.isPublic) {
+      const session = getUserSession(req);
+      if (!session && !isAdmin(req)) {
+        return res.status(403).send('Unauthorized to access private document.');
+      }
+    }
+
+    const { PDFParse } = require('pdf-parse');
+    const fileBuffer = fs.readFileSync(fileInfo.filePath);
+    const parser = new PDFParse({ data: fileBuffer });
+    const parsed = await parser.getText();
+    await parser.destroy();
+
+    const pages = (parsed.pages || []).map((p, idx) => {
+      const clean = (p.text || '').replace(/\r\n/g, '\n').replace(/\t/g, ' ').replace(/\s+/g, ' ').trim();
+      return `=== PAGE ${p.num || (idx + 1)} ===\n\n${clean}`;
+    }).filter(t => t.length > 0);
+
+    const docBaseName = fileInfo.originalName.replace(/\.pdf$/i, '');
+    const header = `========================================================================\n` +
+                   `VAULT PDF PORTAL — NEURAL EXTRACTED TEXT DOCUMENT\n` +
+                   `Document: ${fileInfo.originalName}\n` +
+                   `Extracted At: ${new Date().toUTCString()}\n` +
+                   `Total Pages: ${pages.length}\n` +
+                   `========================================================================\n\n`;
+
+    const fullContent = header + pages.join('\n\n\n');
+
+    res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(docBaseName)}.txt"`);
+    res.send(fullContent);
+  } catch (err) {
+    console.error('Error generating text download:', err);
+    res.status(500).send('Failed to extract text: ' + err.message);
+  }
+});
+
+// GET /api/pdf/download-audio/:filename (Download synthesized MP3 audio)
+app.get('/api/pdf/download-audio/:filename', async (req, res) => {
+  try {
+    const fileInfo = locatePdfFile(req.params.filename);
+    if (!fileInfo) {
+      return res.status(404).send('Document not found');
+    }
+
+    if (fileInfo.isUserDoc && !fileInfo.isPublic) {
+      const session = getUserSession(req);
+      if (!session && !isAdmin(req)) {
+        return res.status(403).send('Unauthorized to access private document.');
+      }
+    }
+
+    const docBaseName = fileInfo.originalName.replace(/\.pdf$/i, '');
+    const safeFilename = path.basename(fileInfo.filePath).replace(/\.pdf$/i, '') + '.mp3';
+    const cachedAudioPath = path.join(AUDIO_CACHE_DIR, safeFilename);
+
+    // If already generated and cached on disk, stream immediately
+    if (fs.existsSync(cachedAudioPath) && fs.statSync(cachedAudioPath).size > 0) {
+      res.setHeader('Content-Type', 'audio/mpeg');
+      res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(docBaseName)}.mp3"`);
+      return fs.createReadStream(cachedAudioPath).pipe(res);
+    }
+
+    // Extract text from PDF
+    const { PDFParse } = require('pdf-parse');
+    const fileBuffer = fs.readFileSync(fileInfo.filePath);
+    const parser = new PDFParse({ data: fileBuffer });
+    const parsed = await parser.getText();
+    await parser.destroy();
+
+    const cleanText = (parsed.text || '')
+      .replace(/\r\n/g, ' ')
+      .replace(/\n+/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+
+    if (!cleanText || cleanText.length < 5) {
+      return res.status(400).send('Document contains insufficient readable text for audio synthesis.');
+    }
+
+    // Synthesize up to ~3,500 characters safely to ensure rapid response
+    const textToSynthesize = cleanText.length > 3500 
+      ? cleanText.substring(0, 3500) + '... Document audio narration complete.' 
+      : cleanText;
+
+    const googleTTS = require('google-tts-api');
+    const chunks = await googleTTS.getAllAudioBase64(textToSynthesize, {
+      lang: 'en',
+      slow: false,
+      timeout: 10000,
+      splitPunct: ',.?!'
+    });
+
+    const mp3Buffer = Buffer.concat(chunks.map(c => Buffer.from(c.base64, 'base64')));
+    fs.writeFileSync(cachedAudioPath, mp3Buffer);
+
+    res.setHeader('Content-Type', 'audio/mpeg');
+    res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(docBaseName)}.mp3"`);
+    res.send(mp3Buffer);
+  } catch (err) {
+    console.error('Error generating audio download:', err);
+    res.status(500).send('Failed to synthesize audio: ' + err.message);
   }
 });
 

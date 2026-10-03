@@ -338,15 +338,94 @@
             </div>
           </div>
 
-          <!-- Download Audit Certificate Action -->
-          <div style="text-align: center; margin-top: 26px;">
-            <button class="btn-primary" id="btn-download-audit-cert" style="display: none; margin: 0 auto;">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
-                <polyline points="9 12 11 14 15 10"/>
-              </svg>
-              <span>Download Cryptographic Audit Certificate</span>
-            </button>
+          <!-- Neural Scan & Audio-Text Studio Action Hub -->
+          <div class="scanner-studio-deck" id="scanner-studio-deck" style="display: none; margin-top: 28px;">
+            <div class="studio-header">
+              <div class="studio-title-wrap">
+                <span class="studio-badge">
+                  <span class="studio-pulse-dot"></span>
+                  Neural Audio & Text Studio
+                </span>
+                <h4 class="studio-filename" id="studio-doc-title">Document Title</h4>
+                <div class="studio-meta" id="studio-doc-meta">-- Pages • -- Words • -- Min Listen</div>
+              </div>
+            </div>
+
+            <!-- Action Buttons Row -->
+            <div class="studio-actions-row">
+              <button type="button" class="btn-studio-action primary" id="studio-btn-listen" title="Listen with Neural Voice Reader">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+                  <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
+                  <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+                  <line x1="12" y1="19" x2="12" y2="23"></line>
+                </svg>
+                <span>🎙️ Listen Now</span>
+              </button>
+
+              <button type="button" class="btn-studio-action secondary" id="studio-btn-toggle-read" title="Read Extracted Text before downloading">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+                  <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path>
+                  <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path>
+                </svg>
+                <span id="studio-read-label">📖 Read Document Text</span>
+              </button>
+
+              <a href="#" class="btn-studio-action secondary" id="studio-btn-download-text" download title="Download Extracted Text (.txt)">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                  <polyline points="14 2 14 8 20 8"></polyline>
+                  <line x1="16" y1="13" x2="8" y2="13"></line>
+                  <line x1="16" y1="17" x2="8" y2="17"></line>
+                </svg>
+                <span>📄 Download Text (.txt)</span>
+              </a>
+
+              <a href="#" class="btn-studio-action secondary" id="studio-btn-download-audio" download title="Download Speech Audio (.mp3)">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+                  <path d="M9 18V5l12-2v13"></path>
+                  <circle cx="6" cy="18" r="3"></circle>
+                  <circle cx="18" cy="16" r="3"></circle>
+                </svg>
+                <span id="studio-audio-label">🎵 Download Audio (.mp3)</span>
+              </a>
+
+              <button type="button" class="btn-studio-action outline" id="btn-download-audit-cert" title="Download Cryptographic Audit Report">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+                  <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                  <polyline points="9 12 11 14 15 10"/>
+                </svg>
+                <span>🛡️ Audit Certificate</span>
+              </button>
+            </div>
+
+            <!-- In-Browser Document Text Reader Drawer -->
+            <div class="studio-text-reader-drawer" id="studio-text-reader" style="display: none;">
+              <div class="reader-toolbar">
+                <div class="reader-toolbar-left">
+                  <span>📖 Extracted Document Text</span>
+                  <span class="reader-char-count" id="studio-text-stats">0 words</span>
+                </div>
+                <div class="reader-toolbar-actions">
+                  <button type="button" class="btn-reader-tool" id="studio-btn-copy-text" title="Copy all text to clipboard">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                      <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                    </svg>
+                    <span>Copy</span>
+                  </button>
+                  <button type="button" class="btn-reader-tool" id="studio-btn-close-reader" title="Close reader">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <line x1="18" y1="6" x2="6" y2="18"></line>
+                      <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                  </button>
+                </div>
+              </div>
+              <div class="reader-body" id="studio-text-content">
+                <!-- Extracted text rendered here -->
+              </div>
+            </div>
+
           </div>
 
         </div>
@@ -1027,6 +1106,23 @@
             </svg>
             <span>Listen</span>
           </button>
+          <a href="#" class="modal-action-btn secondary modal-text-btn" id="modal-download-text-btn" download title="Download Extracted Text (.txt)" style="background:rgba(255,255,255,0.06);">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+              <polyline points="14 2 14 8 20 8"></polyline>
+              <line x1="16" y1="13" x2="8" y2="13"></line>
+              <line x1="16" y1="17" x2="8" y2="17"></line>
+            </svg>
+            <span>Text</span>
+          </a>
+          <a href="#" class="modal-action-btn secondary modal-audio-btn" id="modal-download-audio-btn" download title="Download Spoken Audio (.mp3)" style="background:rgba(255,255,255,0.06);">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+              <path d="M9 18V5l12-2v13"></path>
+              <circle cx="6" cy="18" r="3"></circle>
+              <circle cx="18" cy="16" r="3"></circle>
+            </svg>
+            <span>Audio</span>
+          </a>
           <button class="modal-action-btn secondary" id="modal-copy-link-btn" title="Copy Direct Share Link">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path>

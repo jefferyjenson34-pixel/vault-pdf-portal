@@ -410,6 +410,12 @@
                 <button class="btn-action-sm" onclick="listenToDoc('${doc.storedFilename || doc.id}', '${escapeHtml(doc.originalName)}')" title="Listen with Neural Voice Reader" style="background:rgba(99,102,241,0.12); border-color:rgba(124,58,237,0.35); color:#818cf8; display:inline-flex; align-items:center; gap:4px;">
                   <span>🎙️ Listen</span>
                 </button>
+                <a href="/api/pdf/download-text/${encodeURIComponent(doc.storedFilename || doc.id)}" download="${escapeHtml(doc.originalName.replace(/\.pdf$/i, ''))}.txt" class="btn-action-sm" title="Download Extracted Text (.txt)" style="text-decoration:none; display:inline-flex; align-items:center;">
+                  Text
+                </a>
+                <a href="/api/pdf/download-audio/${encodeURIComponent(doc.storedFilename || doc.id)}" download="${escapeHtml(doc.originalName.replace(/\.pdf$/i, ''))}.mp3" class="btn-action-sm" title="Download Spoken Audio (.mp3)" style="text-decoration:none; display:inline-flex; align-items:center;">
+                  Audio
+                </a>
                 <button class="btn-action-sm" onclick="toggleVisibility('${doc.id}', '${isPrivate ? 'public' : 'private'}')">
                   ${isPrivate ? 'Make Public' : 'Make Private'}
                 </button>

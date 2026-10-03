@@ -180,6 +180,18 @@
       };
     }
 
+    const modalTextBtn = document.getElementById('modal-download-text-btn');
+    if (modalTextBtn) {
+      modalTextBtn.href = `/api/pdf/download-text/${encodeURIComponent(file.filename)}`;
+      modalTextBtn.setAttribute('download', file.originalName.replace(/\.pdf$/i, '') + '.txt');
+    }
+
+    const modalAudioBtn = document.getElementById('modal-download-audio-btn');
+    if (modalAudioBtn) {
+      modalAudioBtn.href = `/api/pdf/download-audio/${encodeURIComponent(file.filename)}`;
+      modalAudioBtn.setAttribute('download', file.originalName.replace(/\.pdf$/i, '') + '.mp3');
+    }
+
     if (loader) loader.style.display = 'flex';
     iframe.onload = () => {
       if (loader) loader.style.display = 'none';
@@ -743,6 +755,14 @@
       renderDocuments();
     }
   }
+
+  // Listen for client document uploads & scans from the Neural Scanner
+  window.addEventListener('vault:docUploaded', (e) => {
+    loadDocuments();
+    if (e.detail && e.detail.originalName) {
+      showPortalToast(`✓ Scanned & ready: "${e.detail.originalName}"`);
+    }
+  });
 
   // ─── 15. Setup Filter Pills, Sort & View Mode Listeners ────────
   function initControls() {

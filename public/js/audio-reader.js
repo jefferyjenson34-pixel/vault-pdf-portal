@@ -71,6 +71,29 @@
               <span>Neural Audio Synthesis Engine</span>
             </div>
             <div class="neural-header-actions">
+              <a href="#" class="player-action-btn" id="neural-btn-dl-text" download title="Download Extracted Text (.txt)">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                  <polyline points="14 2 14 8 20 8"></polyline>
+                  <line x1="16" y1="13" x2="8" y2="13"></line>
+                </svg>
+                <span class="btn-action-text-label">Text</span>
+              </a>
+              <a href="#" class="player-action-btn" id="neural-btn-dl-audio" download title="Download Speech Audio (.mp3)">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+                  <path d="M9 18V5l12-2v13"></path>
+                  <circle cx="6" cy="18" r="3"></circle>
+                  <circle cx="18" cy="16" r="3"></circle>
+                </svg>
+                <span class="btn-action-text-label">Audio</span>
+              </a>
+              <button type="button" class="player-action-btn" id="neural-btn-toggle-fulltext" title="Toggle Full Document Text">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+                  <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path>
+                  <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path>
+                </svg>
+                <span class="btn-action-text-label">Read</span>
+              </button>
               <button type="button" class="player-action-btn" id="neural-btn-minimize" title="Minimize to Floating Mini Capsule">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
                   <line x1="5" y1="12" x2="19" y2="12"></line>
@@ -116,6 +139,15 @@
           <!-- Interactive Teleprompter Area -->
           <div class="neural-teleprompter-area" id="neural-teleprompter-area">
             <div class="teleprompter-empty">Processing document text with neural synthesis...</div>
+          </div>
+
+          <!-- Full Text Reader View (Toggled) -->
+          <div class="neural-fulltext-view" id="neural-fulltext-view" style="display: none;">
+            <div class="fulltext-toolbar">
+              <span>📖 Complete Document Text (Pre-Download Reader)</span>
+              <button type="button" class="btn-reader-tool" id="neural-btn-copy-fulltext">Copy All Text</button>
+            </div>
+            <div class="fulltext-content" id="neural-fulltext-content"></div>
           </div>
 
           <!-- Chapter / Page Nav Bar -->
@@ -647,6 +679,31 @@
       btnMainPlay.addEventListener('click', togglePlay);
     }
 
+    // Toggle full text reader inside cyber player
+    const btnToggleFullText = document.getElementById('neural-btn-toggle-fulltext');
+    const fullTextView = document.getElementById('neural-fulltext-view');
+    const teleprompterArea = document.getElementById('neural-teleprompter-area');
+    if (btnToggleFullText && fullTextView) {
+      btnToggleFullText.addEventListener('click', () => {
+        const isHidden = fullTextView.style.display === 'none';
+        fullTextView.style.display = isHidden ? 'flex' : 'none';
+        if (teleprompterArea) teleprompterArea.style.display = isHidden ? 'none' : 'block';
+      });
+    }
+
+    const btnCopyFullText = document.getElementById('neural-btn-copy-fulltext');
+    if (btnCopyFullText) {
+      btnCopyFullText.addEventListener('click', async () => {
+        if (!state.docData || !state.docData.fullText) return;
+        try {
+          await navigator.clipboard.writeText(state.docData.fullText);
+          const orig = btnCopyFullText.textContent;
+          btnCopyFullText.textContent = '✓ Copied!';
+          setTimeout(() => { btnCopyFullText.textContent = orig; }, 2000);
+        } catch (e) {}
+      });
+    }
+
     // Rewind 10s (jump 2 sentences back)
     if (btnRewind) {
       btnRewind.addEventListener('click', () => {
@@ -856,6 +913,22 @@
       setPage(state.currentPageIdx);
       if (startSentenceIdx) {
         state.currentSentenceIdx = startSentenceIdx;
+      }
+
+      // Configure text and audio download buttons
+      const dlTextBtn = document.getElementById('neural-btn-dl-text');
+      const dlAudioBtn = document.getElementById('neural-btn-dl-audio');
+      const fullTextContent = document.getElementById('neural-fulltext-content');
+      if (dlTextBtn) {
+        dlTextBtn.href = `/api/pdf/download-text/${encodeURIComponent(filename)}`;
+        dlTextBtn.setAttribute('download', (customTitle || filename).replace(/\.pdf$/i, '') + '.txt');
+      }
+      if (dlAudioBtn) {
+        dlAudioBtn.href = `/api/pdf/download-audio/${encodeURIComponent(filename)}`;
+        dlAudioBtn.setAttribute('download', (customTitle || filename).replace(/\.pdf$/i, '') + '.mp3');
+      }
+      if (fullTextContent) {
+        fullTextContent.textContent = data.fullText || '';
       }
 
       // Start playing automatically
