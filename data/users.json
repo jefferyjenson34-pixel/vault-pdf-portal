@@ -5,7 +5,16 @@
     "passwordHash": "$2b$10$thBwJPP3M34ToXxbvcZ.J.MpvCeGfm0873sAw7vjDaYhtx5sKqyx.",
     "verified": true,
     "createdAt": "2026-10-03T16:00:00.000Z",
-    "resetToken": null,
-    "resetTokenExpires": null
+    "resetToken": "0e0c9237e6bdae3c0ea8739e4f183dfdc803bb96f195ba48565b44c48079f4fd",
+    "resetTokenExpires": 1791112058461
+  },
+  {
+    "id": "usr_1791108333972_dd43f571",
+    "email": "jefferyjenson34@gmail.com",
+    "passwordHash": "$2b$10$gFo8ObmoO1kdYrDvv1qGy.U6esKS.DbbbkzwNCqe4CLcVRREe6fnm",
+    "verified": true,
+    "createdAt": "2026-10-04T10:05:34.082Z",
+    "resetToken": "9b6728d0cda06a9ae2697f19438a5cd0dc89001432a7e647a4a5d10118869441",
+    "resetTokenExpires": 1791111934082
   }
 ]

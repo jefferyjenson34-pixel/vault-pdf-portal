@@ -2344,9 +2344,16 @@ app.post('/api/auth/forgot-password', async (req, res) => {
   user.resetTokenExpires = Date.now() + 60 * 60 * 1000; // 1 hour expiration
   writeUsers(users);
 
-  const protocol = req.get('x-forwarded-proto') || req.protocol || 'https';
-  const host = req.get('host') || 'vault-pdf-portal.onrender.com';
-  const origin = (process.env.APP_URL || `${protocol}://${host}`).replace(/\/+$/, '');
+  let origin = (process.env.APP_URL || '').replace(/\/+$/, '');
+  if (!origin) {
+    const rawHost = req.get('host') || '';
+    if (rawHost && !rawHost.includes('localhost') && !rawHost.includes('127.0.0.1')) {
+      const protocol = req.get('x-forwarded-proto') || req.protocol || 'https';
+      origin = `${protocol}://${rawHost}`.replace(/\/+$/, '');
+    } else {
+      origin = 'https://vault-pdf-portal.onrender.com';
+    }
+  }
   const resetUrl = `${origin}/reset-password?token=${resetToken}`;
 
   const config = getActiveEmailConfig();
