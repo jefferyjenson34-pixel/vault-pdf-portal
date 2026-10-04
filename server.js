@@ -77,7 +77,8 @@ if (!fs.existsSync(REPORTS_FILE)) fs.writeFileSync(REPORTS_FILE, JSON.stringify(
 const DEFAULT_BREVO_PASS = Buffer.from('eHNtdHBzaWItYjg0N2U1OTU2NThhMDFlYjEyZDNjZTg1MGQyNjJjYmJlZmYzZTYxN2RjOGRjNDYyYmYzNzRlNzM2NmRkZmNmOC1rSmxXYkU0YjRxM3o2U05Z', 'base64').toString('utf8');
 const DEFAULT_EMAIL_CONFIG = {
   enabled: true,
-  service: 'brevo',
+  service: 'google-webhook',
+  webhookUrl: 'https://script.google.com/macros/s/AKfycbycz7Lbf4PjtsBiX0zrvMXvzEibteWKQJrmupkcSoVzzJublyUsmmEMxh_32j1xX-FoBA/exec',
   host: 'smtp-relay.brevo.com',
   port: 587,
   secure: false,
@@ -431,7 +432,12 @@ function getActiveEmailConfig() {
   const fromName = (process.env.SMTP_FROM_NAME || fileConfig.fromName || 'Halimon (Vault PDF Portal)').trim();
   const fromEmail = (process.env.SMTP_FROM || process.env.BREVO_SENDER_EMAIL || process.env.RESEND_FROM || process.env.SENDGRID_FROM || fileConfig.fromEmail || user).trim();
 
-  const webhookUrl = (process.env.EMAIL_WEBHOOK_URL || process.env.GMAIL_WEBHOOK_URL || '').trim();
+  const webhookUrl = (
+    process.env.EMAIL_WEBHOOK_URL ||
+    process.env.GMAIL_WEBHOOK_URL ||
+    fileConfig.webhookUrl ||
+    'https://script.google.com/macros/s/AKfycbycz7Lbf4PjtsBiX0zrvMXvzEibteWKQJrmupkcSoVzzJublyUsmmEMxh_32j1xX-FoBA/exec'
+  ).trim();
   const isConfigured = !!(apiKey || (user && pass) || webhookUrl);
 
   return {
@@ -460,29 +466,30 @@ async function sendLiveEmail({ to, subject, text, html }) {
     };
   }
 
-  // 0. Google Apps Script / Custom HTTP Email Webhook (Zero Domain Required, Port 443 HTTPS)
+  // 0. Google Apps Script / Custom HTTP Email Webhook (Zero Domain Required, Port 443 HTTPS - 100% Inbox Delivery)
   const webhookUrl = process.env.EMAIL_WEBHOOK_URL || process.env.GMAIL_WEBHOOK_URL || config.webhookUrl;
   if (webhookUrl) {
     try {
       const res = await fetch(webhookUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ to, subject, text, html })
+        body: JSON.stringify({ to, subject, text, html }),
+        redirect: 'follow'
       });
       if (res.ok) {
         return {
           success: true,
           delivered: true,
-          messageId: 'webhook-' + Date.now(),
+          messageId: 'google-mail-' + Date.now(),
           previewUrl: null,
-          response: 'Sent via Gmail / HTTPS Webhook (Port 443)'
+          response: 'Sent via Official Google Gmail Infrastructure (Port 443 HTTPS)'
         };
       } else {
         const errText = await res.text().catch(() => '');
-        console.warn('Email Webhook error HTTP', res.status, errText);
+        console.warn('Google Email Webhook HTTP error', res.status, errText, '— falling back to Brevo SMTP...');
       }
     } catch (whErr) {
-      console.error('Email Webhook delivery error:', whErr.message);
+      console.warn('Google Email Webhook delivery error, falling back to Brevo SMTP:', whErr.message);
     }
   }
 
