@@ -678,7 +678,12 @@ async function sendLiveEmail({ to, subject, text, html }) {
     to,
     subject,
     text,
-    html
+    html,
+    headers: {
+      'X-Entity-Ref-ID': 'vault-' + Date.now(),
+      'X-Auto-Response-Suppress': 'OOF, AutoReply',
+      'Auto-Submitted': 'auto-generated'
+    }
   };
   if (replyTo) mailOptions.replyTo = replyTo;
 
@@ -1337,7 +1342,7 @@ function generateAcknowledgmentHtml(userName) {
       <p style="margin-bottom: 4px;">With deepest gratitude and warmest regards,</p>
       <p style="font-weight: 700; color: #f8fafc; margin-bottom: 2px;">Halimon</p>
       <p style="margin-bottom: 8px;">Creator, Vault PDF Portal</p>
-      <p><a href="https://vault-pdf-portal.onrender.com/">https://vault-pdf-portal.onrender.com/</a></p>
+      <p><a href="https://vault-pdf-portal.onrender.com/" style="color:#a78bfa; font-weight:600; text-decoration:underline;">Visit Vault PDF Portal &rarr;</a></p>
     </div>
   </div>
 </body>
@@ -2364,7 +2369,7 @@ app.post('/api/auth/forgot-password', async (req, res) => {
     try {
       const delivery = await sendLiveEmail({
         to: user.email,
-        subject: 'Password Recovery Link — Vault PDF Portal',
+        subject: 'Vault PDF Portal: Reset your password',
         text: `Hello,\n\nA request was received to reset your password for Vault PDF Portal (${user.email}).\n\nClick the link below to choose a new password:\n${resetUrl}\n\nThis recovery link will expire in 60 minutes.\n\nIf you did not request a password reset, you can safely ignore this message—your account remains protected.\n\nBest regards,\nVault PDF Security Team\n${origin}`,
         html: `
           <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif; max-width:540px; margin:0 auto; background:#0b0f19; color:#f8fafc; padding:36px 30px; border-radius:18px; border:1px solid rgba(124,58,237,0.4); box-shadow:0 24px 50px rgba(0,0,0,0.6);">
@@ -2387,10 +2392,12 @@ app.post('/api/auth/forgot-password', async (req, res) => {
               </a>
             </div>
 
-            <p style="color:#94a3b8; font-size:13px; line-height:1.5; margin-bottom:18px;">
-              If the button above does not open, copy and paste this recovery URL directly into your browser:<br>
-              <a href="${resetUrl}" style="color:#38bdf8; word-break:break-all; text-decoration:underline;">${resetUrl}</a>
+            <p style="color:#94a3b8; font-size:13px; line-height:1.5; margin-bottom:8px;">
+              If the button above does not open, copy and paste this recovery URL directly into your browser:
             </p>
+            <div style="background:#020617; border:1px solid rgba(255,255,255,0.12); border-radius:8px; padding:12px; font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace; font-size:12px; color:#38bdf8; word-break:break-all; line-height:1.5; margin-bottom:22px;">
+              ${resetUrl}
+            </div>
 
             <div style="background:rgba(255,255,255,0.04); border-left:3px solid #7c3aed; padding:14px 16px; border-radius:6px; margin-top:26px;">
               <p style="color:#94a3b8; font-size:12px; margin:0; line-height:1.6;">
@@ -2401,7 +2408,7 @@ app.post('/api/auth/forgot-password', async (req, res) => {
 
             <div style="margin-top:32px; padding-top:22px; border-top:1px solid rgba(255,255,255,0.08); text-align:center; color:#64748b; font-size:12px; line-height:1.6;">
               Vault PDF Portal &bull; Zero-Knowledge Forensic Document Repository<br>
-              <a href="${origin}" style="color:#818cf8; text-decoration:none;">${origin}</a>
+              <a href="${origin}" style="color:#818cf8; text-decoration:none;">Visit Vault PDF Portal &rarr;</a>
             </div>
           </div>
         `
