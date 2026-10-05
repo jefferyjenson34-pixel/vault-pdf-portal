@@ -1,0 +1,674 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Vault Secure Share — Self-Destructing Forensic Document Access</title>
+  <meta name="description" content="Access an encrypted, self-destructing document via Vault PDF Portal secure relay.">
+  <meta name="robots" content="noindex, nofollow">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@500;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/futuristic.css">
+  <link rel="stylesheet" href="/css/auth.css">
+  <link rel="stylesheet" href="/css/pdf-chat.css">
+  <style>
+    :root {
+      --bg-dark: #07090e;
+      --card-bg: rgba(15, 23, 42, 0.85);
+      --border-glow: rgba(124, 58, 237, 0.4);
+      --neon-cyan: #38bdf8;
+      --neon-purple: #a855f7;
+      --neon-red: #ef4444;
+      --neon-amber: #f59e0b;
+      --neon-emerald: #10b981;
+    }
+
+    body {
+      background: var(--bg-dark);
+      color: #f1f5f9;
+      font-family: 'Inter', -apple-system, sans-serif;
+      margin: 0;
+      padding: 0;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .share-container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 24px 20px 60px;
+      width: 100%;
+      box-sizing: border-box;
+      flex: 1;
+    }
+
+    /* Ambient Background Glow */
+    .ambient-glow {
+      position: fixed;
+      width: 500px;
+      height: 500px;
+      border-radius: 50%;
+      filter: blur(120px);
+      pointer-events: none;
+      z-index: 0;
+      opacity: 0.15;
+    }
+    .ambient-1 { top: -100px; left: 10%; background: #7c3aed; }
+    .ambient-2 { bottom: -100px; right: 10%; background: #06b6d4; }
+
+    /* Top Brand Bar */
+    .top-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 16px 0 28px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      position: relative;
+      z-index: 10;
+    }
+    .brand-group {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      text-decoration: none;
+      color: #ffffff;
+    }
+    .brand-shield {
+      width: 38px;
+      height: 38px;
+      border-radius: 10px;
+      background: linear-gradient(135deg, #7c3aed, #06b6d4);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #ffffff;
+      box-shadow: 0 4px 15px rgba(124, 58, 237, 0.4);
+    }
+    .brand-title {
+      font-size: 1.15rem;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+    }
+    .brand-title span { color: #a78bfa; }
+
+    /* Security Telemetry Pill */
+    .sec-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(16, 185, 129, 0.1);
+      border: 1px solid rgba(16, 185, 129, 0.3);
+      padding: 6px 14px;
+      border-radius: 20px;
+      font-size: 0.78rem;
+      font-weight: 600;
+      color: #34d399;
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .pulse-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: #10b981;
+      box-shadow: 0 0 8px #10b981;
+      animation: pulse 2s infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.4; transform: scale(0.85); }
+    }
+
+    /* Status Banner */
+    .status-banner {
+      margin: 24px 0;
+      background: rgba(30, 41, 59, 0.7);
+      border: 1px solid rgba(124, 58, 237, 0.35);
+      border-radius: 16px;
+      padding: 18px 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 16px;
+      backdrop-filter: blur(12px);
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+    }
+    .status-info {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+    .status-icon {
+      font-size: 1.8rem;
+    }
+    .status-title {
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: #f8fafc;
+      margin: 0 0 4px 0;
+    }
+    .status-desc {
+      font-size: 0.85rem;
+      color: #94a3b8;
+      margin: 0;
+    }
+
+    /* Countdown Clock */
+    .countdown-box {
+      background: #020617;
+      border: 1px solid rgba(245, 158, 11, 0.4);
+      padding: 10px 18px;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .countdown-label {
+      font-size: 0.72rem;
+      color: #f59e0b;
+      text-transform: uppercase;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+    }
+    .countdown-time {
+      font-size: 1.25rem;
+      font-weight: 800;
+      color: #fbbf24;
+      letter-spacing: 0.08em;
+    }
+
+    /* Main Viewer Card */
+    .viewer-card {
+      background: rgba(15, 23, 42, 0.8);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 18px;
+      overflow: hidden;
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6);
+      backdrop-filter: blur(16px);
+      display: flex;
+      flex-direction: column;
+      height: 780px;
+    }
+    .viewer-header {
+      padding: 16px 24px;
+      background: rgba(2, 6, 23, 0.6);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 14px;
+    }
+    .doc-meta-title {
+      font-size: 1.05rem;
+      font-weight: 700;
+      color: #ffffff;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .doc-actions-bar {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    /* Action Buttons */
+    .btn-cyber {
+      background: linear-gradient(135deg, #7c3aed, #4f46e5);
+      color: #ffffff;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 10px;
+      font-size: 0.85rem;
+      font-weight: 700;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      transition: all 0.2s ease;
+      text-decoration: none;
+      box-shadow: 0 4px 15px rgba(124, 58, 237, 0.35);
+    }
+    .btn-cyber:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(124, 58, 237, 0.5);
+    }
+    .btn-cyber-outline {
+      background: rgba(255, 255, 255, 0.06);
+      color: #e2e8f0;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      padding: 8px 16px;
+      border-radius: 10px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      transition: all 0.2s ease;
+      text-decoration: none;
+    }
+    .btn-cyber-outline:hover {
+      background: rgba(255, 255, 255, 0.12);
+      border-color: rgba(255, 255, 255, 0.3);
+      color: #ffffff;
+    }
+    .btn-danger {
+      background: rgba(239, 68, 68, 0.15);
+      border: 1px solid rgba(239, 68, 68, 0.4);
+      color: #f87171;
+    }
+    .btn-danger:hover {
+      background: rgba(239, 68, 68, 0.25);
+      border-color: #ef4444;
+      color: #ffffff;
+    }
+
+    /* Iframe / PDF Container */
+    .viewer-frame-wrap {
+      flex: 1;
+      width: 100%;
+      height: 100%;
+      position: relative;
+      background: #0b0f19;
+    }
+    .viewer-frame {
+      width: 100%;
+      height: 100%;
+      border: none;
+    }
+
+    /* Burned / Destroyed Screen */
+    .burned-card {
+      max-width: 600px;
+      margin: 80px auto;
+      background: rgba(20, 10, 15, 0.85);
+      border: 1px solid rgba(239, 68, 68, 0.4);
+      border-radius: 20px;
+      padding: 44px 36px;
+      text-align: center;
+      box-shadow: 0 20px 60px rgba(239, 68, 68, 0.25);
+      backdrop-filter: blur(16px);
+      position: relative;
+    }
+    .burned-icon {
+      font-size: 3.5rem;
+      margin-bottom: 20px;
+      animation: flameWiggle 1.5s infinite alternate;
+    }
+    @keyframes flameWiggle {
+      from { transform: scale(1) rotate(-3deg); }
+      to { transform: scale(1.08) rotate(3deg); }
+    }
+    .burned-title {
+      font-size: 1.5rem;
+      font-weight: 800;
+      color: #ef4444;
+      margin: 0 0 12px;
+      font-family: 'JetBrains Mono', monospace;
+      letter-spacing: -0.01em;
+    }
+    .burned-desc {
+      font-size: 0.95rem;
+      color: #cbd5e1;
+      line-height: 1.6;
+      margin-bottom: 24px;
+    }
+    .audit-shred-box {
+      background: #020617;
+      border: 1px dashed rgba(239, 68, 68, 0.35);
+      border-radius: 10px;
+      padding: 14px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.78rem;
+      color: #94a3b8;
+      text-align: left;
+      line-height: 1.7;
+      margin-bottom: 28px;
+    }
+
+    /* Password Unlock Box */
+    .password-card {
+      max-width: 480px;
+      margin: 90px auto;
+      background: rgba(15, 23, 42, 0.9);
+      border: 1px solid rgba(124, 58, 237, 0.4);
+      border-radius: 20px;
+      padding: 40px 32px;
+      text-align: center;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+    }
+
+    /* Loading Spinner */
+    .loading-wrap {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 120px 20px;
+      gap: 16px;
+    }
+    .cyber-spinner {
+      width: 50px;
+      height: 50px;
+      border: 3px solid rgba(124, 58, 237, 0.2);
+      border-top-color: #38bdf8;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+
+  <div class="ambient-glow ambient-1"></div>
+  <div class="ambient-glow ambient-2"></div>
+
+  <div class="share-container">
+    <!-- Top Bar -->
+    <header class="top-bar">
+      <a href="/" class="brand-group">
+        <div class="brand-shield">🛡️</div>
+        <div class="brand-title">Vault <span>PDF Share</span></div>
+      </a>
+      <div class="sec-pill">
+        <span class="pulse-dot"></span>
+        <span>ZERO-KNOWLEDGE RELAY</span>
+      </div>
+    </header>
+
+    <!-- State 1: Loading -->
+    <div id="view-loading" class="loading-wrap">
+      <div class="cyber-spinner"></div>
+      <p style="color: #94a3b8; font-family:'JetBrains Mono', monospace; font-size:0.85rem;">
+        Decrypting secure token cipher &bull; Validating link state...
+      </p>
+    </div>
+
+    <!-- State 2: Burned / Expired Screen -->
+    <div id="view-burned" class="burned-card" style="display: none;">
+      <div class="burned-icon">🔥</div>
+      <h2 class="burned-title">[DOCUMENT SELF-DESTRUCTED]</h2>
+      <p class="burned-desc" id="burned-message">
+        This document link was configured with a strict access policy and has been permanently destroyed from the relay.
+      </p>
+      <div class="audit-shred-box" id="burned-audit">
+        • STATUS: ACCESS PERMANENTLY TERMINATED<br>
+        • REASON: MAXIMUM VIEW LIMIT OR EXPIRATION REACHED<br>
+        • FORENSIC ACTION: Cryptographic relay shredded
+      </div>
+      <a href="/" class="btn-cyber" style="justify-content: center;">
+        <span>Return to Vault Home &rarr;</span>
+      </a>
+    </div>
+
+    <!-- State 3: Password Required Screen -->
+    <div id="view-password" class="password-card" style="display: none;">
+      <div style="font-size: 2.8rem; margin-bottom: 14px;">🔐</div>
+      <h2 style="font-size: 1.3rem; margin: 0 0 8px; color:#ffffff;">Access Cipher Required</h2>
+      <p style="color: #94a3b8; font-size: 0.88rem; margin-bottom: 24px;">
+        The sender has secured this document with an encryption password.
+      </p>
+      <form id="unlock-form">
+        <input type="password" id="share-password-input" placeholder="Enter password to decrypt..." required style="width: 100%; box-sizing:border-box; background:#020617; border:1px solid rgba(255,255,255,0.15); border-radius:10px; padding:13px 16px; color:#ffffff; font-size:0.95rem; margin-bottom:14px; outline:none;">
+        <div id="unlock-error" style="color:#ef4444; font-size:0.82rem; margin-bottom:12px; display:none;"></div>
+        <button type="submit" class="btn-cyber" style="width: 100%; justify-content: center; padding: 13px;">
+          <span>Unlock &amp; View Document</span>
+        </button>
+      </form>
+    </div>
+
+    <!-- State 4: Active Secure Document Viewer -->
+    <div id="view-active" style="display: none;">
+      <!-- Status Banner -->
+      <div class="status-banner">
+        <div class="status-info">
+          <div class="status-icon" id="policy-icon">⏳</div>
+          <div>
+            <div class="status-title" id="policy-title">Self-Destructing Document Active</div>
+            <div class="status-desc" id="policy-desc">This document access is governed by automatic forensic expiration rules.</div>
+          </div>
+        </div>
+
+        <div class="countdown-box" id="countdown-wrap" style="display: none;">
+          <div class="countdown-label">Time Remaining</div>
+          <div class="countdown-time" id="countdown-display">00:00:00</div>
+        </div>
+      </div>
+
+      <!-- Main Viewer Card -->
+      <div class="viewer-card">
+        <div class="viewer-header">
+          <div class="doc-meta-title">
+            <span>📄</span>
+            <span id="doc-title-text">Document.pdf</span>
+            <span id="doc-size-badge" style="font-size:0.75rem; background:rgba(255,255,255,0.08); padding:3px 8px; border-radius:6px; color:#94a3b8; font-weight:500;">PDF</span>
+          </div>
+
+          <div class="doc-actions-bar">
+            <!-- Ask AI Button -->
+            <button class="btn-cyber" id="btn-share-ai">
+              <span>💬</span>
+              <span>Ask AI About This Doc</span>
+            </button>
+
+            <!-- Download Button -->
+            <a href="#" class="btn-cyber-outline" id="btn-share-download" download style="display: none;">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              <span>Download</span>
+            </a>
+
+            <!-- Burn Now Button -->
+            <button class="btn-cyber-outline btn-danger" id="btn-burn-now" title="Permanently destroy this link right now">
+              <span>💥</span>
+              <span>Burn Link Now</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="viewer-frame-wrap">
+          <iframe id="pdf-embed-frame" class="viewer-frame" title="PDF Document Viewer"></iframe>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Telemetry and Chat Components -->
+  <script src="/js/tracker.js"></script>
+  <script src="/js/pdf-chat.js"></script>
+
+  <script>
+    (function() {
+      const token = window.location.pathname.split('/').pop();
+      let linkMeta = null;
+      let countdownTimer = null;
+
+      const viewLoading = document.getElementById('view-loading');
+      const viewBurned = document.getElementById('view-burned');
+      const viewPassword = document.getElementById('view-password');
+      const viewActive = document.getElementById('view-active');
+
+      const burnedMsg = document.getElementById('burned-message');
+      const burnedAudit = document.getElementById('burned-audit');
+      const unlockForm = document.getElementById('unlock-form');
+      const unlockError = document.getElementById('unlock-error');
+      const passwordInput = document.getElementById('share-password-input');
+
+      const policyIcon = document.getElementById('policy-icon');
+      const policyTitle = document.getElementById('policy-title');
+      const policyDesc = document.getElementById('policy-desc');
+      const countdownWrap = document.getElementById('countdown-wrap');
+      const countdownDisplay = document.getElementById('countdown-display');
+      const docTitleText = document.getElementById('doc-title-text');
+      const docSizeBadge = document.getElementById('doc-size-badge');
+      const pdfEmbedFrame = document.getElementById('pdf-embed-frame');
+      const btnShareDownload = document.getElementById('btn-share-download');
+      const btnShareAi = document.getElementById('btn-share-ai');
+      const btnBurnNow = document.getElementById('btn-burn-now');
+
+      function hideAll() {
+        viewLoading.style.display = 'none';
+        viewBurned.style.display = 'none';
+        viewPassword.style.display = 'none';
+        viewActive.style.display = 'none';
+      }
+
+      function showBurned(reason, time) {
+        hideAll();
+        viewBurned.style.display = 'block';
+        if (reason === 'MAX_VIEWS_REACHED') {
+          burnedMsg.textContent = 'This document was protected by a Burn-After-Reading policy and has reached its maximum view limit. The file is permanently locked and unlinked.';
+        } else if (reason === 'EXPIRED_TIME') {
+          burnedMsg.textContent = 'This document link has exceeded its configured security time window and has automatically self-destructed.';
+        } else {
+          burnedMsg.textContent = 'This document link has been permanently burned and is no longer accessible.';
+        }
+        burnedAudit.innerHTML = `• STATUS: ACCESS PERMANENTLY TERMINATED<br>` +
+                                `• TRIGGER: ${reason || 'SELF_DESTRUCT'}<br>` +
+                                `• AUDIT TIME: ${new Date(time || Date.now()).toUTCString()}<br>` +
+                                `• FORENSIC ACTION: Cryptographic relay shredded`;
+      }
+
+      function startCountdown(expiresAt) {
+        if (!expiresAt) return;
+        countdownWrap.style.display = 'flex';
+
+        function tick() {
+          const rem = expiresAt - Date.now();
+          if (rem <= 0) {
+            clearInterval(countdownTimer);
+            showBurned('EXPIRED_TIME', Date.now());
+            return;
+          }
+          const hrs = Math.floor(rem / (1000 * 60 * 60));
+          const mins = Math.floor((rem % (1000 * 60 * 60)) / (1000 * 60));
+          const secs = Math.floor((rem % (1000 * 60)) / 1000);
+          countdownDisplay.textContent = `${String(hrs).padStart(2, '0')}:${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+        }
+        tick();
+        countdownTimer = setInterval(tick, 1000);
+      }
+
+      function renderActiveDocument(meta) {
+        hideAll();
+        viewActive.style.display = 'block';
+
+        docTitleText.textContent = meta.originalName || 'Encrypted Document';
+        if (meta.fileSize) {
+          docSizeBadge.textContent = (meta.fileSize / (1024 * 1024)).toFixed(1) + ' MB';
+        }
+
+        // Configure policy banner
+        if (meta.maxViews === 1) {
+          policyIcon.textContent = '🔥';
+          policyTitle.textContent = 'Burn-After-Reading Active';
+          policyDesc.textContent = 'Warning: This link can only be viewed once. Access will permanently self-destruct once you leave or close this tab.';
+        } else if (meta.maxViews) {
+          policyIcon.textContent = '👁️';
+          policyTitle.textContent = `View Limited Link (${(meta.viewCount || 0) + 1} of ${meta.maxViews})`;
+          policyDesc.textContent = `This link will self-destruct after reaching ${meta.maxViews} total views.`;
+        } else if (meta.expiresAt) {
+          policyIcon.textContent = '⏳';
+          policyTitle.textContent = 'Time-Locked Expiring Link';
+          policyDesc.textContent = 'This document link will automatically self-destruct when the countdown reaches zero.';
+        }
+
+        if (meta.expiresAt) {
+          startCountdown(meta.expiresAt);
+        }
+
+        // Setup PDF file stream URL
+        const fileUrl = `/api/share/${encodeURIComponent(token)}/file`;
+        pdfEmbedFrame.src = fileUrl;
+
+        // Download button
+        if (meta.allowDownload !== false) {
+          btnShareDownload.href = fileUrl;
+          btnShareDownload.download = meta.originalName || 'document.pdf';
+          btnShareDownload.style.display = 'inline-flex';
+        }
+
+        // Ask AI Button
+        btnShareAi.onclick = () => {
+          if (window.VaultPdfChat) {
+            window.VaultPdfChat.open(meta.filename, meta.originalName);
+          }
+        };
+
+        // Burn now button
+        btnBurnNow.onclick = () => {
+          if (confirm('Are you sure you want to permanently self-destruct this link right now? No one will ever be able to open it again.')) {
+            fetch(`/api/share/${encodeURIComponent(token)}/burn-view`, { method: 'POST' })
+              .then(() => showBurned('USER_MANUAL_BURN', Date.now()));
+          }
+        };
+
+        // Trigger view count increment on server
+        fetch(`/api/share/${encodeURIComponent(token)}/burn-view`, { method: 'POST' })
+          .catch(() => {});
+      }
+
+      // Initial Fetch Link Status
+      async function init() {
+        try {
+          const res = await fetch(`/api/share/${encodeURIComponent(token)}/meta`);
+          const data = await res.json();
+
+          if (!res.ok || data.error) {
+            showBurned(data.burnReason || 'INVALID_LINK', data.burnedAt);
+            return;
+          }
+
+          if (data.burned) {
+            showBurned(data.burnReason, data.burnedAt);
+            return;
+          }
+
+          linkMeta = data;
+
+          if (data.requiresPassword) {
+            hideAll();
+            viewPassword.style.display = 'block';
+            return;
+          }
+
+          renderActiveDocument(data);
+        } catch (err) {
+          showBurned('NETWORK_ERROR', Date.now());
+        }
+      }
+
+      // Password Unlock Form
+      unlockForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const pwd = passwordInput.value;
+        unlockError.style.display = 'none';
+
+        try {
+          const res = await fetch(`/api/share/${encodeURIComponent(token)}/unlock`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ password: pwd })
+          });
+          const data = await res.json();
+          if (res.ok && data.authorized) {
+            renderActiveDocument(linkMeta);
+          } else {
+            unlockError.textContent = data.error || 'Incorrect decryption cipher.';
+            unlockError.style.display = 'block';
+          }
+        } catch (err) {
+          unlockError.textContent = 'Network error while attempting to decrypt.';
+          unlockError.style.display = 'block';
+        }
+      });
+
+      init();
+    })();
+  </script>
+</body>
+</html>

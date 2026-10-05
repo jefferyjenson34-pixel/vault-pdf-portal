@@ -239,11 +239,39 @@
               </div>
             </div>
 
+            <!-- Geolocation Security Radar Cards -->
+            <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(210px, 1fr)); gap:12px; margin-top:4px;">
+              <div style="background:var(--bg-card); border:1px solid var(--border-medium); border-radius:12px; padding:14px 16px;">
+                <div style="font-size:0.72rem; text-transform:uppercase; color:var(--text-muted); font-weight:700; letter-spacing:0.05em;">Unique IPs Tracked</div>
+                <div style="font-size:1.5rem; font-weight:800; color:var(--accent-indigo); margin-top:4px;" id="geo-unique-ips">--</div>
+                <div style="font-size:0.75rem; color:var(--text-secondary); margin-top:2px;" id="geo-total-visits">0 total visits logged</div>
+              </div>
+              <div style="background:var(--bg-card); border:1px solid var(--border-medium); border-radius:12px; padding:14px 16px;">
+                <div style="font-size:0.72rem; text-transform:uppercase; color:var(--text-muted); font-weight:700; letter-spacing:0.05em;">Top Origin Countries</div>
+                <div style="font-size:0.85rem; font-weight:600; color:var(--text-primary); margin-top:6px; display:flex; flex-wrap:wrap; gap:6px;" id="geo-top-countries-list">
+                  <span style="color:var(--text-muted); font-size:0.8rem;">Scanning radar...</span>
+                </div>
+              </div>
+              <div style="background:var(--bg-card); border:1px solid var(--border-medium); border-radius:12px; padding:14px 16px;">
+                <div style="font-size:0.72rem; text-transform:uppercase; color:var(--text-muted); font-weight:700; letter-spacing:0.05em;">Datacenter / VPN Threat Detections</div>
+                <div style="font-size:1.5rem; font-weight:800; color:#f59e0b; margin-top:4px;" id="geo-datacenter-count">0</div>
+                <div style="font-size:0.75rem; color:var(--text-secondary); margin-top:2px;">Automated cloud/proxy visits</div>
+              </div>
+              <div style="background:var(--bg-card); border:1px solid var(--border-medium); border-radius:12px; padding:14px 16px;">
+                <div style="font-size:0.72rem; text-transform:uppercase; color:var(--text-muted); font-weight:700; letter-spacing:0.05em;">Security Radar Status</div>
+                <div style="font-size:0.92rem; font-weight:700; color:#10b981; margin-top:8px; display:flex; align-items:center; gap:6px;">
+                  <span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:#10b981; box-shadow:0 0 8px #10b981;"></span>
+                  Geo-Telemetry Active
+                </div>
+                <div style="font-size:0.75rem; color:var(--text-secondary); margin-top:2px;">Real-time GPS + IP-API enrichment</div>
+              </div>
+            </div>
+
             <!-- Filter & Sort Bar -->
             <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; background:var(--bg-card); border:1px solid var(--border-medium); border-radius:12px; padding:10px 14px;">
               <div style="display:flex; align-items:center; gap:10px; flex:1; min-width:240px;">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--text-secondary);"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-                <input type="text" id="visitor-search" placeholder="Search by IP, visited page, or browser..." style="background:transparent; border:none; color:var(--text-primary); font-size:0.85rem; width:100%; outline:none;" autocomplete="off">
+                <input type="text" id="visitor-search" placeholder="Search by IP, country, city, ISP, page..." style="background:transparent; border:none; color:var(--text-primary); font-size:0.85rem; width:100%; outline:none;" autocomplete="off">
               </div>
 
               <div style="display:flex; align-items:center; gap:10px;">
@@ -256,13 +284,15 @@
             </div>
           </div>
 
-          <div class="visitors-table-wrapper">
+          <div class="visitors-table-wrapper" style="overflow-x:auto;">
             <table class="visitors-table" id="visitors-table">
               <thead>
                 <tr>
-                  <th>IP Address</th>
+                  <th>IP & Security</th>
+                  <th>Location / Coordinates</th>
                   <th>Page / Action</th>
-                  <th>Browser</th>
+                  <th>Network / ISP</th>
+                  <th>Client / Browser</th>
                   <th>Timestamp</th>
                 </tr>
               </thead>

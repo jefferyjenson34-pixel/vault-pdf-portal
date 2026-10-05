@@ -14,6 +14,8 @@
   <link rel="stylesheet" href="/css/auth.css">
   <link rel="stylesheet" href="/css/chatbot.css">
   <link rel="stylesheet" href="/css/audio-reader.css">
+  <link rel="stylesheet" href="/css/pdf-chat.css">
+  <link rel="stylesheet" href="/css/share-modal.css">
   <style>
     .code-badge {
       display: inline-flex;
@@ -454,7 +456,13 @@
             <td><strong style="color:var(--navy-900);">${doc.downloads || 0}</strong></td>
             <td style="font-size:0.82rem; color:var(--text-muted);">${new Date(doc.uploadedAt).toLocaleDateString()}</td>
             <td style="text-align:right;">
-              <div style="display:flex; justify-content:flex-end; gap:6px;">
+              <div style="display:flex; justify-content:flex-end; gap:6px; flex-wrap:wrap;">
+                <button class="btn-action-sm" onclick="VaultPdfChat.open('${doc.storedFilename || doc.id}', '${escapeHtml(doc.originalName)}')" title="Chat with Document (AI Analysis)" style="background:rgba(0,240,255,0.12); border-color:rgba(0,240,255,0.35); color:#00f0ff; display:inline-flex; align-items:center; gap:4px;">
+                  <span>💬 Ask AI</span>
+                </button>
+                <button class="btn-action-sm" onclick="VaultShareModal.open('${doc.storedFilename || doc.id}', '${escapeHtml(doc.originalName)}')" title="Generate Self-Destructing / Expiring Share Link" style="background:rgba(255,0,85,0.12); border-color:rgba(255,0,85,0.35); color:#ff0055; display:inline-flex; align-items:center; gap:4px;">
+                  <span>🔥 Share</span>
+                </button>
                 <button class="btn-action-sm" onclick="listenToDoc('${doc.storedFilename || doc.id}', '${escapeHtml(doc.originalName)}')" title="Listen with Neural Voice Reader" style="background:rgba(99,102,241,0.12); border-color:rgba(124,58,237,0.35); color:#818cf8; display:inline-flex; align-items:center; gap:4px;">
                   <span>🎙️ Listen</span>
                 </button>
@@ -657,5 +665,8 @@
   </script>
   <script src="/js/chatbot.js"></script>
   <script src="/js/audio-reader.js"></script>
+  <script src="/js/tracker.js"></script>
+  <script src="/js/pdf-chat.js"></script>
+  <script src="/js/share-modal.js"></script>
 </body>
 </html>

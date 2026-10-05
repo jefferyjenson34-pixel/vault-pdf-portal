@@ -550,8 +550,9 @@
     }
   };
 
-  // ─── Permanent Visitor Logs & Date Sorting ──────────────────
+  // ─── Permanent Visitor Logs & Geolocation Security Radar ───
   let allVisitors = [];
+  let geoStats = null;
   let currentVisitorSort = 'desc';
   let currentVisitorSearch = '';
 
@@ -564,15 +565,21 @@
 
     let filtered = allVisitors.slice();
 
-    // 1. Search Filter
+    // 1. Search Filter (multi-attribute)
     if (currentVisitorSearch) {
       const q = currentVisitorSearch.toLowerCase();
       filtered = filtered.filter(v => {
         const ip = (v.ip || '').toLowerCase();
         const page = (v.page || '').toLowerCase();
+        const country = (v.country || '').toLowerCase();
+        const city = (v.city || '').toLowerCase();
+        const region = (v.region || '').toLowerCase();
+        const isp = (v.isp || v.org || '').toLowerCase();
         const browser = parseBrowser(v.userAgent).toLowerCase();
         const dateStr = formatDate(v.timestamp).toLowerCase();
-        return ip.includes(q) || page.includes(q) || browser.includes(q) || dateStr.includes(q);
+        return ip.includes(q) || page.includes(q) || country.includes(q) ||
+               city.includes(q) || region.includes(q) || isp.includes(q) ||
+               browser.includes(q) || dateStr.includes(q);
       });
     }
 
@@ -604,30 +611,118 @@
     if (tableWrapper) tableWrapper.style.display = '';
     if (emptyEl) emptyEl.style.display = 'none';
 
-    tbody.innerHTML = filtered.map(v => `
-      <tr>
-        <td><span class="ip-badge">${escapeHtml(v.ip)}</span></td>
-        <td><span class="page-badge">${escapeHtml(v.page || '/')}</span></td>
-        <td>${escapeHtml(parseBrowser(v.userAgent))}</td>
-        <td style="font-weight:500; color:var(--text-primary);">${formatDate(v.timestamp)}</td>
-      </tr>
-    `).join('');
+    tbody.innerHTML = filtered.map(v => {
+      const isDc = Boolean(v.isDatacenter);
+      const securityBadge = isDc
+        ? `<span style="display:inline-block; font-size:0.68rem; font-weight:700; color:#f59e0b; background:rgba(245,158,11,0.15); border:1px solid rgba(245,158,11,0.3); border-radius:4px; padding:1px 6px; margin-left:4px;">⚠️ Datacenter</span>`
+        : `<span style="display:inline-block; font-size:0.68rem; font-weight:700; color:#10b981; background:rgba(16,185,129,0.12); border:1px solid rgba(16,185,129,0.25); border-radius:4px; padding:1px 6px; margin-left:4px;">🟢 Residential</span>`;
+
+      const platformInfo = (v.platform || v.screen)
+        ? `<div style="font-size:0.72rem; color:var(--text-muted); margin-top:3px;">${escapeHtml(v.platform || '')}${v.screen ? ' &bull; ' + escapeHtml(v.screen) : ''}</div>`
+        : '';
+
+      const locationCity = v.city ? escapeHtml(v.city) : 'Unknown City';
+      const locationRegion = v.region ? `, ${escapeHtml(v.region)}` : '';
+      const flagEmoji = v.flag || '🌐';
+      const countryName = escapeHtml(v.country || 'Unknown Country');
+
+      const mapLink = (v.lat && v.lon)
+        ? `<a href="https://www.openstreetmap.org/?mlat=${v.lat}&mlon=${v.lon}#map=12/${v.lat}/${v.lon}" target="_blank" rel="noopener noreferrer" style="display:inline-flex; align-items:center; gap:3px; font-size:0.72rem; color:var(--accent-indigo); text-decoration:none; margin-top:2px;">
+            <span>📍 ${Number(v.lat).toFixed(2)}, ${Number(v.lon).toFixed(2)}</span>
+            <span style="font-size:0.65rem;">↗</span>
+           </a>`
+        : '';
+
+      const ispName = escapeHtml(v.isp || v.org || 'Internal / Private Host');
+      const tzText = v.timezone ? `<div style="font-size:0.72rem; color:var(--text-muted);">🕒 ${escapeHtml(v.timezone)}</div>` : '';
+      const langText = v.language ? `<div style="font-size:0.72rem; color:var(--text-muted);">🌐 ${escapeHtml(v.language)}</div>` : '';
+      const refText = v.referrer ? `<div style="font-size:0.7rem; color:var(--text-muted); margin-top:3px; max-width:160px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${escapeHtml(v.referrer)}">ref: ${escapeHtml(v.referrer)}</div>` : '';
+
+      return `
+        <tr>
+          <td>
+            <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
+              <span class="ip-badge">${escapeHtml(v.ip)}</span>
+              ${securityBadge}
+            </div>
+            ${platformInfo}
+          </td>
+          <td>
+            <div style="font-weight:600; color:var(--text-primary); display:flex; align-items:center; gap:6px;">
+              <span>${flagEmoji}</span>
+              <span>${locationCity}${locationRegion}</span>
+            </div>
+            <div style="font-size:0.74rem; color:var(--text-muted);">${countryName}</div>
+            ${mapLink}
+          </td>
+          <td>
+            <span class="page-badge">${escapeHtml(v.page || '/')}</span>
+            ${refText}
+          </td>
+          <td>
+            <div style="font-size:0.8rem; color:var(--text-primary); font-weight:500;">${ispName}</div>
+            ${tzText}
+          </td>
+          <td>
+            <div style="font-size:0.82rem; color:var(--text-primary);">${escapeHtml(parseBrowser(v.userAgent))}</div>
+            ${langText}
+          </td>
+          <td style="font-weight:500; color:var(--text-primary); font-size:0.82rem;">${formatDate(v.timestamp)}</td>
+        </tr>
+      `;
+    }).join('');
   }
 
   async function loadVisitors() {
     try {
-      const res = await authFetch('/api/visitors');
-      if (res.status === 401) {
+      const [resVis, resGeo] = await Promise.all([
+        authFetch('/api/visitors'),
+        authFetch('/api/admin/geo-stats')
+      ]);
+
+      if (resVis.status === 401) {
         adminToken = null;
         localStorage.removeItem('vault_admin_token');
         showLogin();
         return;
       }
-      allVisitors = await res.json();
+
+      allVisitors = await resVis.json();
       if (!Array.isArray(allVisitors)) allVisitors = [];
+
+      if (resGeo && resGeo.ok) {
+        geoStats = await resGeo.json();
+        updateGeoRadarUI(geoStats);
+      }
+
       renderVisitorsTable();
     } catch (e) {
-      showToast('Failed to load visitor data', 'error');
+      showToast('Failed to load visitor telemetry', 'error');
+    }
+  }
+
+  function updateGeoRadarUI(stats) {
+    if (!stats) return;
+    const uniqueEl = document.getElementById('geo-unique-ips');
+    const totalVisitsEl = document.getElementById('geo-total-visits');
+    const dcEl = document.getElementById('geo-datacenter-count');
+    const topCountriesEl = document.getElementById('geo-top-countries-list');
+
+    if (uniqueEl) uniqueEl.textContent = stats.uniqueVisitors || 0;
+    if (totalVisitsEl) totalVisitsEl.textContent = `${stats.totalLogs || allVisitors.length} total visits logged`;
+    if (dcEl) dcEl.textContent = `${stats.datacenterCount || 0} detected`;
+
+    if (topCountriesEl && Array.isArray(stats.topCountries)) {
+      if (stats.topCountries.length === 0) {
+        topCountriesEl.innerHTML = '<span style="color:var(--text-muted); font-size:0.8rem;">No geo records yet</span>';
+      } else {
+        topCountriesEl.innerHTML = stats.topCountries.slice(0, 5).map(c => `
+          <span style="display:inline-flex; align-items:center; gap:4px; background:var(--bg-glass-strong); border:1px solid var(--border-subtle); border-radius:6px; padding:2px 8px; font-size:0.75rem;">
+            <span>${escapeHtml(c.country)}</span>
+            <strong style="color:var(--accent-indigo);">${c.count}</strong>
+          </span>
+        `).join('');
+      }
     }
   }
 
@@ -638,12 +733,44 @@
       return;
     }
 
-    const headers = ['IP Address', 'Page / Action', 'Browser', 'User Agent', 'Timestamp (ISO)', 'Local Date'];
+    const headers = [
+      'IP Address',
+      'Threat / Datacenter',
+      'Country',
+      'Country Code',
+      'City',
+      'Region',
+      'Latitude',
+      'Longitude',
+      'ISP / Org',
+      'Page / Action',
+      'Referrer',
+      'Browser',
+      'Platform',
+      'Screen Resolution',
+      'Timezone',
+      'Language',
+      'Timestamp (ISO)',
+      'Local Date'
+    ];
+
     const rows = allVisitors.map(v => [
       `"${(v.ip || '').replace(/"/g, '""')}"`,
+      `"${v.isDatacenter ? 'Datacenter / Proxy' : 'Residential / Cellular'}"`,
+      `"${(v.country || '').replace(/"/g, '""')}"`,
+      `"${(v.countryCode || '').replace(/"/g, '""')}"`,
+      `"${(v.city || '').replace(/"/g, '""')}"`,
+      `"${(v.region || '').replace(/"/g, '""')}"`,
+      `"${v.lat != null ? v.lat : ''}"`,
+      `"${v.lon != null ? v.lon : ''}"`,
+      `"${(v.isp || v.org || '').replace(/"/g, '""')}"`,
       `"${(v.page || '/').replace(/"/g, '""')}"`,
+      `"${(v.referrer || '').replace(/"/g, '""')}"`,
       `"${parseBrowser(v.userAgent)}"`,
-      `"${(v.userAgent || '').replace(/"/g, '""')}"`,
+      `"${(v.platform || '').replace(/"/g, '""')}"`,
+      `"${(v.screen || '').replace(/"/g, '""')}"`,
+      `"${(v.timezone || '').replace(/"/g, '""')}"`,
+      `"${(v.language || '').replace(/"/g, '""')}"`,
       `"${v.timestamp || ''}"`,
       `"${formatDate(v.timestamp)}"`
     ]);
@@ -653,12 +780,12 @@
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.setAttribute('download', `vault_visitor_logs_${new Date().toISOString().slice(0, 10)}.csv`);
+    link.setAttribute('download', `vault_visitor_geologs_${new Date().toISOString().slice(0, 10)}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
-    showToast(`Exported ${allVisitors.length} visitor records to CSV`, 'success');
+    showToast(`Exported ${allVisitors.length} enriched visitor records to CSV`, 'success');
   }
 
   // ─── Visitor Controls ────────────────────────────────────────

@@ -1,0 +1,19 @@
+{
+  "vlt_aa8e15a6232cad50d9d97005204e": {
+    "token": "vlt_aa8e15a6232cad50d9d97005204e",
+    "filename": "1790601356207-528375591-FasalKawach_Pitch_Document_v2.pdf",
+    "originalName": "1790601356207-528375591-FasalKawach_Pitch_Document_v2.pdf",
+    "fileSize": 112221,
+    "isPrivate": false,
+    "createdAt": 1791237163710,
+    "expiresAt": 1791323563710,
+    "maxViews": 1,
+    "viewCount": 1,
+    "passwordHash": "$2b$10$Ffy9.BLN9do.LuIj3vCyh.tAO2wfhbTMoUlTjudnnG/BE89yPuJKi",
+    "hasPassword": true,
+    "allowDownload": true,
+    "burned": true,
+    "burnReason": "MAX_VIEWS_REACHED",
+    "burnedAt": 1791237917413
+  }
+}

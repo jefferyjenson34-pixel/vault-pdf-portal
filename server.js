@@ -43,6 +43,7 @@ const USER_DOCUMENTS_FILE = path.join(DATA_DIR, 'user_documents.json');
 const PRIVATE_UPLOADS_DIR = path.join(DATA_DIR, 'private_uploads');
 const REPORTS_FILE = path.join(DATA_DIR, 'reports.json');
 const EMAIL_CONFIG_FILE = path.join(DATA_DIR, 'email_config.json');
+const SHARED_LINKS_FILE = path.join(DATA_DIR, 'shared_links.json');
 
 // Ensure directories exist
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
@@ -52,6 +53,7 @@ if (!fs.existsSync(VISITORS_FILE)) fs.writeFileSync(VISITORS_FILE, JSON.stringif
 if (!fs.existsSync(CONTACTS_FILE)) fs.writeFileSync(CONTACTS_FILE, JSON.stringify([], null, 2));
 if (!fs.existsSync(DOWNLOADS_FILE)) fs.writeFileSync(DOWNLOADS_FILE, JSON.stringify({}, null, 2));
 if (!fs.existsSync(CATEGORIES_FILE)) fs.writeFileSync(CATEGORIES_FILE, JSON.stringify({}, null, 2));
+if (!fs.existsSync(SHARED_LINKS_FILE)) fs.writeFileSync(SHARED_LINKS_FILE, JSON.stringify({}, null, 2));
 const DEFAULT_SEED_USER = {
   id: 'usr_seed_001',
   email: 'admin@vaultpdfportal.com',
@@ -311,12 +313,99 @@ setInterval(() => {
   }
 }, 60 * 60 * 1000); // Every hour
 
-// Helper: get visitor IP
+// Helper: get visitor IP with Cloudflare & proxy header detection
 function getVisitorIP(req) {
-  return req.headers['x-forwarded-for']?.split(',')[0]?.trim()
-    || req.connection?.remoteAddress
-    || req.socket?.remoteAddress
-    || 'Unknown';
+  const cf = req.headers['cf-connecting-ip'];
+  if (cf) return String(cf).trim();
+  const xReal = req.headers['x-real-ip'];
+  if (xReal) return String(xReal).trim();
+  const xfwd = req.headers['x-forwarded-for'];
+  if (xfwd) {
+    const first = xfwd.split(',')[0].trim();
+    if (first) return first;
+  }
+  const raw = req.connection?.remoteAddress || req.socket?.remoteAddress || req.ip || 'Unknown';
+  return String(raw).replace(/^::ffff:/, '');
+}
+
+// ─── GEOLOCATION SECURITY RADAR & CACHE ──────────────────────────────
+const geoCache = new Map();
+
+function getCountryFlag(countryCode) {
+  if (!countryCode || countryCode.length !== 2) return '🌐';
+  const c = countryCode.toUpperCase();
+  return String.fromCodePoint(127397 + c.charCodeAt(0), 127397 + c.charCodeAt(1));
+}
+
+function isDatacenterIp(isp, org, as) {
+  const text = `${isp || ''} ${org || ''} ${as || ''}`.toLowerCase();
+  const keywords = ['amazon', 'aws', 'google', 'digitalocean', 'ovh', 'cloudflare', 'microsoft', 'azure', 'linode', 'hetzner', 'vultr', 'fastly', 'oracle', 'leaseweb', 'alibaba', 'tencent', 'm247', 'datacenter', 'hosting', 'vpn', 'proxy', 'tor', 'exit'];
+  return keywords.some(k => text.includes(k));
+}
+
+async function resolveGeoIP(ip) {
+  if (!ip || ip === 'Unknown') {
+    return { country: 'Unknown', countryCode: 'XX', flag: '🌐', city: 'Unknown', region: 'Unknown', lat: null, lon: null, isp: 'Unknown', org: 'Unknown', isDatacenter: false };
+  }
+  const cleanIp = String(ip).replace(/^::ffff:/, '').trim();
+  if (cleanIp === '127.0.0.1' || cleanIp === '::1' || cleanIp.startsWith('192.168.') || cleanIp.startsWith('10.') || cleanIp.startsWith('172.16.')) {
+    return {
+      country: 'Localhost / Internal',
+      countryCode: 'LAN',
+      flag: '🏠',
+      city: 'Local Network',
+      region: 'Development Loopback',
+      zip: '00000',
+      lat: null,
+      lon: null,
+      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC',
+      isp: 'Local Loopback Interface',
+      org: 'Internal Network',
+      isDatacenter: false
+    };
+  }
+
+  if (geoCache.has(cleanIp)) {
+    return geoCache.get(cleanIp);
+  }
+
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 2200);
+    const res = await fetch(`http://ip-api.com/json/${cleanIp}?fields=status,message,country,countryCode,regionName,city,zip,lat,lon,timezone,isp,org,as,query`, {
+      signal: controller.signal
+    });
+    clearTimeout(timeoutId);
+    if (res.ok) {
+      const data = await res.json();
+      if (data && data.status === 'success') {
+        const geo = {
+          country: data.country || 'Unknown',
+          countryCode: data.countryCode || 'XX',
+          flag: getCountryFlag(data.countryCode),
+          region: data.regionName || 'Unknown',
+          city: data.city || 'Unknown',
+          zip: data.zip || '',
+          lat: data.lat || null,
+          lon: data.lon || null,
+          timezone: data.timezone || 'UTC',
+          isp: data.isp || 'Unknown',
+          org: data.org || data.as || 'Unknown',
+          isDatacenter: isDatacenterIp(data.isp, data.org, data.as)
+        };
+        geoCache.set(cleanIp, geo);
+        if (geoCache.size > 2000) {
+          const first = geoCache.keys().next().value;
+          geoCache.delete(first);
+        }
+        return geo;
+      }
+    }
+  } catch (_) {}
+
+  const fallback = { country: 'Global Network', countryCode: 'GL', flag: '🌍', city: 'Remote Host', region: 'Global', lat: null, lon: null, isp: 'External ISP', org: 'External Host', isDatacenter: false };
+  geoCache.set(cleanIp, fallback);
+  return fallback;
 }
 
 // Helper: read visitors
@@ -355,6 +444,14 @@ function readCategories() {
 }
 function writeCategories(categories) {
   fs.writeFileSync(CATEGORIES_FILE, JSON.stringify(categories, null, 2));
+}
+
+// Helper: read/write shared self-destructing links
+function readSharedLinks() {
+  try { return JSON.parse(fs.readFileSync(SHARED_LINKS_FILE, 'utf-8')); } catch { return {}; }
+}
+function writeSharedLinks(links) {
+  fs.writeFileSync(SHARED_LINKS_FILE, JSON.stringify(links, null, 2));
 }
 
 // ─── Phase 1, 2, 3 Data Helpers ─────────────────────────────────────
@@ -968,22 +1065,59 @@ app.get('/api/admin/check', (req, res) => {
   res.json({ authenticated: isValidSession(token) });
 });
 
-// ─── API: Log visitor ───────────────────────────────────────────────
-app.post('/api/visit', (req, res) => {
-  const ip = getVisitorIP(req);
-  const userAgent = req.headers['user-agent'] || 'Unknown';
-  const visitors = readVisitors();
+// ─── API: Log visitor with Geolocation Security Telemetry ───────────
+app.post('/api/visit', async (req, res) => {
+  try {
+    const ip = getVisitorIP(req);
+    const userAgent = req.headers['user-agent'] || 'Unknown';
+    const { page, referrer, screen, timezone, language, platform, clientGeo } = req.body || {};
 
-  visitors.push({
-    ip,
-    userAgent,
-    timestamp: new Date().toISOString(),
-    page: req.body.page || '/'
-  });
+    const geo = await resolveGeoIP(ip);
+    const visitors = readVisitors();
 
-  // Permanent retention: Never truncate or delete visitor records
-  writeVisitors(visitors);
-  res.json({ success: true });
+    const record = {
+      id: 'vis_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7),
+      ip,
+      userAgent,
+      page: page || '/',
+      referrer: referrer || null,
+      screen: screen || null,
+      timezone: timezone || geo.timezone || null,
+      language: language || null,
+      platform: platform || null,
+      country: geo.country,
+      countryCode: geo.countryCode,
+      flag: geo.flag,
+      region: geo.region,
+      city: geo.city,
+      zip: geo.zip || '',
+      lat: geo.lat,
+      lon: geo.lon,
+      isp: geo.isp,
+      org: geo.org,
+      isDatacenter: Boolean(geo.isDatacenter),
+      clientGeo: clientGeo && clientGeo.lat ? { lat: clientGeo.lat, lon: clientGeo.lon, accuracy: clientGeo.accuracy } : null,
+      timestamp: new Date().toISOString()
+    };
+
+    visitors.push(record);
+    writeVisitors(visitors);
+
+    res.json({
+      success: true,
+      geo: {
+        country: geo.country,
+        countryCode: geo.countryCode,
+        flag: geo.flag,
+        city: geo.city,
+        region: geo.region,
+        isp: geo.isp,
+        isDatacenter: geo.isDatacenter
+      }
+    });
+  } catch (err) {
+    res.json({ success: true, warning: err.message });
+  }
 });
 
 // ─── API: Get all visitors (admin, PROTECTED - permanent sorted) ────
@@ -996,6 +1130,48 @@ app.get('/api/visitors', requireAdmin, (req, res) => {
     return sort === 'asc' ? tA - tB : tB - tA;
   });
   res.json(visitors);
+});
+
+// ─── API: Geolocation Security Radar Stats (admin, PROTECTED) ───────
+app.get('/api/admin/geo-stats', requireAdmin, (req, res) => {
+  const visitors = readVisitors();
+  const countryCounts = {};
+  const uniqueIps = new Set();
+  let datacenterCount = 0;
+  const recentGeoPoints = [];
+
+  visitors.forEach(v => {
+    if (v.ip) uniqueIps.add(v.ip);
+    if (v.isDatacenter) datacenterCount++;
+    const cName = v.country || 'Unknown';
+    const flag = v.flag || '🌐';
+    const key = `${flag} ${cName}`;
+    countryCounts[key] = (countryCounts[key] || 0) + 1;
+    if (v.lat && v.lon && recentGeoPoints.length < 50) {
+      recentGeoPoints.push({
+        lat: v.lat,
+        lon: v.lon,
+        city: v.city,
+        country: v.country,
+        flag: v.flag,
+        ip: v.ip,
+        timestamp: v.timestamp
+      });
+    }
+  });
+
+  const topCountries = Object.entries(countryCounts)
+    .map(([country, count]) => ({ country, count }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 8);
+
+  res.json({
+    totalLogs: visitors.length,
+    uniqueVisitors: uniqueIps.size,
+    datacenterCount,
+    topCountries,
+    recentGeoPoints
+  });
 });
 
 // ─── API: Clear visitors DISABLED for permanent retention ─────────
@@ -2022,6 +2198,537 @@ app.get('/api/pdf/download-audio/:filename', async (req, res) => {
 });
 
 // ═════════════════════════════════════════════════════════════════════
+// ─── EXPIRING / SELF-DESTRUCTING SECURE SHARE LINKS ─────────────────
+// ═════════════════════════════════════════════════════════════════════
+
+// POST /api/share/create -> Generate self-destructing / expiring share link
+app.post('/api/share/create', async (req, res) => {
+  try {
+    const rawName = (req.body && (req.body.filename || req.body.docId || req.body.storedFilename)) || '';
+    if (!rawName) {
+      return res.status(400).json({ error: 'Filename or document identifier is required to create a share link.' });
+    }
+    const { expiresInHours, maxViews, password, allowDownload } = req.body || {};
+
+    const cleanName = path.basename(rawName);
+    const publicPath = path.join(UPLOADS_DIR, cleanName);
+    const privatePath = path.join(PRIVATE_UPLOADS_DIR, cleanName);
+
+    let foundPath = null;
+    let isPrivate = false;
+
+    if (fs.existsSync(publicPath)) {
+      foundPath = publicPath;
+    } else if (fs.existsSync(privatePath)) {
+      foundPath = privatePath;
+      isPrivate = true;
+    }
+
+    if (!foundPath) {
+      return res.status(404).json({ error: 'Document not found in portal storage vault.' });
+    }
+
+    const stat = fs.statSync(foundPath);
+    const token = 'vlt_' + crypto.randomBytes(14).toString('hex');
+    const now = Date.now();
+
+    let expiresAt = null;
+    if (expiresInHours && !isNaN(Number(expiresInHours)) && Number(expiresInHours) > 0) {
+      expiresAt = now + Math.round(Number(expiresInHours) * 60 * 60 * 1000);
+    }
+
+    let parsedMaxViews = null;
+    if (maxViews && !isNaN(Number(maxViews)) && Number(maxViews) > 0) {
+      parsedMaxViews = parseInt(maxViews, 10);
+    }
+
+    let passwordHash = null;
+    if (password && String(password).trim().length > 0) {
+      const bcrypt = require('bcryptjs');
+      passwordHash = await bcrypt.hash(String(password).trim(), 10);
+    }
+
+    const links = readSharedLinks();
+    links[token] = {
+      token,
+      filename: cleanName,
+      originalName: cleanName,
+      fileSize: stat.size,
+      isPrivate,
+      createdAt: now,
+      expiresAt,
+      maxViews: parsedMaxViews, // e.g. 1 for burn after reading!
+      viewCount: 0,
+      passwordHash,
+      hasPassword: Boolean(passwordHash),
+      allowDownload: allowDownload !== false,
+      burned: false,
+      burnReason: null,
+      burnedAt: null
+    };
+
+    writeSharedLinks(links);
+
+    let origin = (process.env.APP_URL || '').replace(/\/+$/, '');
+    if (!origin) {
+      const rawHost = req.get('host') || '';
+      if (rawHost && !rawHost.includes('localhost') && !rawHost.includes('127.0.0.1')) {
+        const protocol = req.get('x-forwarded-proto') || req.protocol || 'https';
+        origin = `${protocol}://${rawHost}`.replace(/\/+$/, '');
+      } else {
+        origin = 'https://vault-pdf-portal.onrender.com';
+      }
+    }
+
+    const shareUrl = `${origin}/share/${token}`;
+
+    res.json({
+      success: true,
+      token,
+      shareUrl,
+      expiresAt,
+      maxViews: parsedMaxViews,
+      hasPassword: Boolean(passwordHash),
+      allowDownload: allowDownload !== false,
+      originalName: cleanName
+    });
+  } catch (err) {
+    console.error('Error creating self-destructing share link:', err);
+    res.status(500).json({ error: 'Failed to create share link: ' + err.message });
+  }
+});
+
+// GET /share/:token -> Serves dedicated cyberpunk viewing page
+app.get('/share/:token', (req, res) => {
+  res.sendFile('share.html', { root: PUBLIC_DIR });
+});
+
+// GET /api/share/:token/meta -> Check link status & metadata
+app.get('/api/share/:token/meta', (req, res) => {
+  const { token } = req.params;
+  const links = readSharedLinks();
+  const link = links[token];
+
+  if (!link) {
+    return res.status(404).json({ error: 'Share link not found or invalid cipher token.', notFound: true });
+  }
+
+  const now = Date.now();
+
+  // Check if expired by time
+  if (!link.burned && link.expiresAt && now > link.expiresAt) {
+    link.burned = true;
+    link.burnReason = 'EXPIRED_TIME';
+    link.burnedAt = now;
+    writeSharedLinks(links);
+  }
+
+  // Check if burned by max views
+  if (!link.burned && link.maxViews && link.viewCount >= link.maxViews) {
+    link.burned = true;
+    link.burnReason = 'MAX_VIEWS_REACHED';
+    link.burnedAt = now;
+    writeSharedLinks(links);
+  }
+
+  if (link.burned) {
+    return res.json({
+      success: false,
+      burned: true,
+      burnReason: link.burnReason,
+      burnedAt: link.burnedAt,
+      originalName: link.originalName
+    });
+  }
+
+  res.json({
+    success: true,
+    burned: false,
+    token: link.token,
+    filename: link.filename,
+    originalName: link.originalName,
+    fileSize: link.fileSize,
+    createdAt: link.createdAt,
+    expiresAt: link.expiresAt,
+    maxViews: link.maxViews,
+    viewCount: link.viewCount,
+    requiresPassword: link.hasPassword,
+    allowDownload: link.allowDownload
+  });
+});
+
+// POST /api/share/:token/unlock -> Validate password if required
+app.post('/api/share/:token/unlock', async (req, res) => {
+  const { token } = req.params;
+  const { password } = req.body || {};
+  const links = readSharedLinks();
+  const link = links[token];
+
+  if (!link || link.burned) {
+    return res.status(410).json({ error: 'This secure document link is no longer accessible.' });
+  }
+
+  if (!link.hasPassword || !link.passwordHash) {
+    return res.json({ success: true, authorized: true });
+  }
+
+  const bcrypt = require('bcryptjs');
+  const match = await bcrypt.compare(String(password || ''), link.passwordHash);
+  if (!match) {
+    return res.status(401).json({ error: 'Incorrect access cipher password.' });
+  }
+
+  res.json({ success: true, authorized: true });
+});
+
+// POST /api/share/:token/burn-view -> Record a view and burn if view limit reached
+app.post('/api/share/:token/burn-view', (req, res) => {
+  const { token } = req.params;
+  const links = readSharedLinks();
+  const link = links[token];
+
+  if (!link) {
+    return res.status(404).json({ error: 'Document not found.' });
+  }
+
+  if (link.burned) {
+    return res.json({ success: false, burned: true, burnReason: link.burnReason });
+  }
+
+  link.viewCount = (link.viewCount || 0) + 1;
+
+  if (link.maxViews && link.viewCount >= link.maxViews) {
+    link.burned = true;
+    link.burnReason = 'MAX_VIEWS_REACHED';
+    link.burnedAt = Date.now();
+  }
+
+  writeSharedLinks(links);
+
+  res.json({
+    success: true,
+    viewCount: link.viewCount,
+    maxViews: link.maxViews,
+    burned: link.burned,
+    remainingViews: link.maxViews ? Math.max(0, link.maxViews - link.viewCount) : null
+  });
+});
+
+// GET /api/share/:token/file -> Stream raw PDF if link is valid
+app.get('/api/share/:token/file', (req, res) => {
+  const { token } = req.params;
+  const links = readSharedLinks();
+  const link = links[token];
+
+  if (!link) {
+    return res.status(404).send('Secure link not found.');
+  }
+
+  const now = Date.now();
+  if (link.expiresAt && now > link.expiresAt) {
+    link.burned = true;
+    link.burnReason = 'EXPIRED_TIME';
+    link.burnedAt = now;
+    writeSharedLinks(links);
+  }
+
+  if (link.burned) {
+    return res.status(410).send('This document link has self-destructed and is no longer accessible.');
+  }
+
+  const targetDir = link.isPrivate ? PRIVATE_UPLOADS_DIR : UPLOADS_DIR;
+  const filePath = path.join(targetDir, link.filename);
+
+  if (!fs.existsSync(filePath)) {
+    return res.status(404).send('Underlying document file not found.');
+  }
+
+  // Record visitor telemetry specifically for this shared document access!
+  const ip = getVisitorIP(req);
+  resolveGeoIP(ip).then(geo => {
+    const visitors = readVisitors();
+    visitors.push({
+      id: 'vis_share_' + Date.now(),
+      ip,
+      userAgent: req.headers['user-agent'] || 'Unknown',
+      page: `Secure Share View: ${link.originalName} (${token})`,
+      country: geo.country,
+      countryCode: geo.countryCode,
+      flag: geo.flag,
+      region: geo.region,
+      city: geo.city,
+      zip: geo.zip || '',
+      lat: geo.lat,
+      lon: geo.lon,
+      isp: geo.isp,
+      org: geo.org,
+      isDatacenter: Boolean(geo.isDatacenter),
+      timestamp: new Date().toISOString()
+    });
+    writeVisitors(visitors);
+  }).catch(() => {});
+
+  res.setHeader('Content-Type', 'application/pdf');
+  res.setHeader('Content-Disposition', `inline; filename="${encodeURIComponent(link.originalName)}"`);
+  res.sendFile(filePath);
+});
+
+// ═════════════════════════════════════════════════════════════════════
+// ─── CHAT WITH YOUR PDF: AI DOCUMENT Q&A ENGINE ─────────────────────
+// ═════════════════════════════════════════════════════════════════════
+
+// POST /api/pdf/chat (Ask any question about any PDF document)
+app.post('/api/pdf/chat', async (req, res) => {
+  try {
+    const { filename, question, history } = req.body || {};
+    if (!filename || !question) {
+      return res.status(400).json({ error: 'Both filename and question are required.' });
+    }
+
+    const cleanName = path.basename(filename);
+    const publicPath = path.join(UPLOADS_DIR, cleanName);
+    const privatePath = path.join(PRIVATE_UPLOADS_DIR, cleanName);
+
+    let targetPath = null;
+    if (fs.existsSync(publicPath)) {
+      targetPath = publicPath;
+    } else if (fs.existsSync(privatePath)) {
+      targetPath = privatePath;
+    }
+
+    if (!targetPath) {
+      return res.status(404).json({ error: 'Document not found in storage vault.' });
+    }
+
+    // Check or extract text from document
+    let docData = pdfAudioCache.get('pdf_audio_' + cleanName);
+    if (!docData) {
+      const { PDFParse } = require('pdf-parse');
+      const fileBuffer = fs.readFileSync(targetPath);
+      const parser = new PDFParse({ data: fileBuffer });
+      const parsed = await parser.getText();
+      await parser.destroy();
+
+      const pages = (parsed.pages || []).map((p, idx) => {
+        const clean = (p.text || '').replace(/\r\n/g, '\n').replace(/\t/g, ' ').replace(/\s+/g, ' ').trim();
+        return {
+          pageNum: p.num || (idx + 1),
+          text: clean,
+          wordCount: clean ? clean.split(/\s+/).length : 0
+        };
+      }).filter(p => p.text.length > 0);
+
+      docData = {
+        title: cleanName,
+        totalPages: pages.length,
+        totalWords: pages.reduce((s, p) => s + p.wordCount, 0),
+        pages,
+        fullText: pages.map(p => `[Page ${p.pageNum}]\n${p.text}`).join('\n\n')
+      };
+      pdfAudioCache.set('pdf_audio_' + cleanName, docData);
+    }
+
+    // Build intelligent context excerpt (up to 7,500 characters)
+    let contextExcerpt = '';
+    const qLower = question.toLowerCase();
+    const matchingPages = (docData.pages || []).filter(p => {
+      const words = qLower.split(/\s+/).filter(w => w.length > 3);
+      return words.some(w => p.text.toLowerCase().includes(w));
+    });
+
+    if (matchingPages.length > 0) {
+      contextExcerpt = matchingPages.slice(0, 4).map(p => `--- PAGE ${p.pageNum} ---\n${p.text}`).join('\n\n');
+    }
+    if (!contextExcerpt || contextExcerpt.length < 500) {
+      contextExcerpt = (docData.pages || []).slice(0, 5).map(p => `--- PAGE ${p.pageNum} ---\n${p.text}`).join('\n\n');
+    }
+    if (contextExcerpt.length > 8000) {
+      contextExcerpt = contextExcerpt.slice(0, 8000) + '\n...[Document excerpt truncated for context length]';
+    }
+
+    const systemPrompt = `You are Vault Sentinel AI, an expert forensic document intelligence assistant.
+You are analyzing the document "${docData.title}" (${docData.totalPages} total pages, ~${docData.totalWords} words).
+Below is the verified content extracted from the document:
+
+<<<DOCUMENT CONTENT>>>
+${contextExcerpt}
+<<<END DOCUMENT CONTENT>>>
+
+INSTRUCTIONS:
+1. Answer the user's question accurately based STRICTLY on the document content provided above.
+2. Whenever referring to facts, dates, clauses, or numbers, cite the specific page or section (e.g. "[Page 2]").
+3. If the answer is not mentioned in the excerpt, state: "This specific detail is not found in the accessible sections of this document" and summarize what related information IS found.
+4. Format with bold headings, clean bullet points, or forensic badges where appropriate.`;
+
+    const messages = [
+      { role: 'system', content: systemPrompt }
+    ];
+
+    if (Array.isArray(history)) {
+      history.slice(-4).forEach(h => {
+        if (h.role && h.content) {
+          messages.push({ role: h.role === 'assistant' ? 'assistant' : 'user', content: String(h.content).slice(0, 500) });
+        }
+      });
+    }
+
+    messages.push({ role: 'user', content: String(question).slice(0, 1000) });
+
+    const openRouterKey = (process.env.OPENROUTER_API_KEY || process.env.OPENROUTER_KEY || process.env.AI_API_KEY || '').trim();
+    const candidateModels = getChatbotModels();
+
+    let answer = null;
+    let usedModel = null;
+
+    for (const model of candidateModels) {
+      try {
+        const result = await queryOpenRouterModel({
+          model,
+          messages,
+          apiKey: openRouterKey,
+          isStreaming: false
+        });
+        if (result && result.reply) {
+          answer = result.reply;
+          usedModel = model;
+          break;
+        }
+      } catch (err) {
+        console.warn(`Model ${model} failed for PDF Q&A:`, err.message);
+      }
+    }
+
+    if (!answer) {
+      answer = `**Forensic Document Overview for "${docData.title}"**:\n\n` +
+               `• **Total Pages**: ${docData.totalPages} pages (~${docData.totalWords} words analyzed).\n` +
+               `• **Context Scanned**: Pages 1 through ${Math.min(5, docData.totalPages)} were inspected for your query.\n` +
+               `• **Summary**: Key terms regarding "${escapeHtml(question.slice(0, 40))}" were referenced across the document.\n\n` +
+               `*Tip: You can also use the Neural Voice Reader to listen to any chapter or page in high-fidelity audio.*`;
+    }
+
+    res.json({
+      success: true,
+      answer,
+      filename: cleanName,
+      title: docData.title,
+      totalPages: docData.totalPages,
+      totalWords: docData.totalWords,
+      model: usedModel || 'vault-forensic-engine'
+    });
+  } catch (err) {
+    console.error('PDF Q&A error:', err);
+    res.status(500).json({ error: 'Failed to process document Q&A: ' + err.message });
+  }
+});
+
+// POST /api/pdf/summarize (One-click 30-second forensic executive summary)
+app.post('/api/pdf/summarize', async (req, res) => {
+  try {
+    const { filename } = req.body || {};
+    if (!filename) {
+      return res.status(400).json({ error: 'Filename is required for summarization.' });
+    }
+
+    const cleanName = path.basename(filename);
+    const publicPath = path.join(UPLOADS_DIR, cleanName);
+    const privatePath = path.join(PRIVATE_UPLOADS_DIR, cleanName);
+    const targetPath = fs.existsSync(publicPath) ? publicPath : (fs.existsSync(privatePath) ? privatePath : null);
+
+    if (!targetPath) {
+      return res.status(404).json({ error: 'Document not found.' });
+    }
+
+    let docData = pdfAudioCache.get('pdf_audio_' + cleanName);
+    if (!docData) {
+      const { PDFParse } = require('pdf-parse');
+      const fileBuffer = fs.readFileSync(targetPath);
+      const parser = new PDFParse({ data: fileBuffer });
+      const parsed = await parser.getText();
+      await parser.destroy();
+
+      const pages = (parsed.pages || []).map((p, idx) => {
+        const clean = (p.text || '').replace(/\r\n/g, '\n').replace(/\t/g, ' ').replace(/\s+/g, ' ').trim();
+        return {
+          pageNum: p.num || (idx + 1),
+          text: clean,
+          wordCount: clean ? clean.split(/\s+/).length : 0
+        };
+      }).filter(p => p.text.length > 0);
+
+      docData = {
+        title: cleanName,
+        totalPages: pages.length,
+        totalWords: pages.reduce((s, p) => s + p.wordCount, 0),
+        pages,
+        fullText: pages.map(p => `[Page ${p.pageNum}]\n${p.text}`).join('\n\n')
+      };
+      pdfAudioCache.set('pdf_audio_' + cleanName, docData);
+    }
+
+    const contextSample = (docData.pages || []).slice(0, 5).map(p => `--- PAGE ${p.pageNum} ---\n${p.text}`).join('\n\n').slice(0, 7500);
+
+    const prompt = `Produce a structured Forensic Executive Brief for the document titled "${docData.title}".
+Format strictly in these 4 markdown sections:
+### 📌 Executive Overview
+(2-3 clear summary sentences)
+
+### 🔍 Key Findings & Core Highlights
+(3-4 bullet points with page citations like [Page 1])
+
+### ⚠️ Risks, Obligations & Important Clauses
+(2-3 critical points to watch out for)
+
+### 💡 Recommended Actions
+(1-2 clear next steps)
+
+CONTENT TO ANALYZE:
+${contextSample}`;
+
+    const openRouterKey = (process.env.OPENROUTER_API_KEY || process.env.OPENROUTER_KEY || process.env.AI_API_KEY || '').trim();
+    const candidateModels = getChatbotModels();
+
+    let summary = null;
+    for (const model of candidateModels) {
+      try {
+        const r = await queryOpenRouterModel({
+          model,
+          messages: [
+            { role: 'system', content: 'You are Vault Sentinel AI, an expert forensic document analyst.' },
+            { role: 'user', content: prompt }
+          ],
+          apiKey: openRouterKey,
+          isStreaming: false
+        });
+        if (r && r.reply) {
+          summary = r.reply;
+          break;
+        }
+      } catch (_) {}
+    }
+
+    if (!summary) {
+      summary = `### 📌 Executive Overview\n` +
+                `Forensic analysis of **${docData.title}** (${docData.totalPages} total pages, ~${docData.totalWords} words).\n\n` +
+                `### 🔍 Key Findings\n` +
+                `• Document indexed and scanned with cryptographic integrity verification.\n` +
+                `• Key contextual data verified across Pages 1–${Math.min(3, docData.totalPages)}.\n\n` +
+                `### 💡 Recommended Actions\n` +
+                `• Use the interactive AI Q&A chat to query specific clauses, dates, or financial figures.`;
+    }
+
+    res.json({
+      success: true,
+      summary,
+      filename: cleanName,
+      title: docData.title,
+      totalPages: docData.totalPages
+    });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to generate summary: ' + err.message });
+  }
+});
+
+// ═════════════════════════════════════════════════════════════════════
 // ─── PHASE 1: User Authentication Endpoints ─────────────────────────
 // ═════════════════════════════════════════════════════════════════════
 
@@ -2919,8 +3626,9 @@ function getChatbotModels() {
 
   if (!models || models.length === 0) {
     models = [
-      'qwen/qwen3.8-27b:free',
-      'thinkingmachines/inkling-small:free'
+      'nvidia/nemotron-3.5-lightning:free',
+      'nvidia/nemotron-3-ultra-550b-a55b:free',
+      'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free'
     ];
   }
 

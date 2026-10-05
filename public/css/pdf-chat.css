@@ -1,0 +1,376 @@
+/**
+ * ═══════════════════════════════════════════════════════════════════════
+ *  VAULT SENTINEL AI: CHAT WITH YOUR PDF — FORENSIC Q&A STYLES
+ * ═══════════════════════════════════════════════════════════════════════
+ */
+
+.pdf-chat-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(3, 7, 18, 0.75);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  z-index: 99990;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.pdf-chat-backdrop.active {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.pdf-chat-drawer {
+  width: 100%;
+  max-width: 520px;
+  height: 100vh;
+  background: #0b0f19;
+  border-left: 1px solid rgba(124, 58, 237, 0.35);
+  box-shadow: -15px 0 50px rgba(0, 0, 0, 0.7);
+  display: flex;
+  flex-direction: column;
+  transform: translateX(100%);
+  transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+  box-sizing: border-box;
+  position: relative;
+  z-index: 99995;
+}
+
+.pdf-chat-backdrop.active .pdf-chat-drawer {
+  transform: translateX(0);
+}
+
+/* Header */
+.pdf-chat-header {
+  padding: 18px 20px;
+  background: rgba(15, 23, 42, 0.95);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.pdf-chat-header-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.pdf-chat-bot-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #7c3aed, #06b6d4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.25rem;
+  color: #ffffff;
+  box-shadow: 0 4px 14px rgba(124, 58, 237, 0.4);
+  flex-shrink: 0;
+}
+
+.pdf-chat-title-wrap {
+  min-width: 0;
+}
+
+.pdf-chat-main-title {
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: #ffffff;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.pdf-chat-main-title span {
+  color: #38bdf8;
+}
+
+.pdf-chat-doc-sub {
+  font-size: 0.78rem;
+  color: #94a3b8;
+  margin: 3px 0 0 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 320px;
+}
+
+.pdf-chat-close-btn {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #cbd5e1;
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-size: 1rem;
+}
+
+.pdf-chat-close-btn:hover {
+  background: rgba(239, 68, 68, 0.15);
+  border-color: rgba(239, 68, 68, 0.4);
+  color: #ef4444;
+}
+
+/* Quick Prompt Suggestions Chips */
+.pdf-chat-chips-bar {
+  padding: 10px 16px;
+  background: rgba(2, 6, 23, 0.6);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.pdf-chat-chips-bar::-webkit-scrollbar {
+  display: none;
+}
+
+.pdf-prompt-chip {
+  background: rgba(124, 58, 237, 0.12);
+  border: 1px solid rgba(124, 58, 237, 0.28);
+  color: #cbd5e1;
+  padding: 5px 12px;
+  border-radius: 16px;
+  font-size: 0.76rem;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.pdf-prompt-chip:hover {
+  background: rgba(124, 58, 237, 0.25);
+  border-color: #a855f7;
+  color: #ffffff;
+  transform: translateY(-1px);
+}
+
+/* Messages Area */
+.pdf-chat-messages {
+  flex: 1;
+  padding: 18px 20px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  scroll-behavior: smooth;
+}
+
+.pdf-msg {
+  display: flex;
+  gap: 12px;
+  max-width: 90%;
+  animation: pdfMsgFade 0.25s ease-out forwards;
+}
+
+@keyframes pdfMsgFade {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.pdf-msg-user {
+  align-self: flex-end;
+  flex-direction: row-reverse;
+}
+
+.pdf-msg-ai {
+  align-self: flex-start;
+}
+
+.pdf-msg-bubble {
+  padding: 12px 16px;
+  border-radius: 14px;
+  font-size: 0.88rem;
+  line-height: 1.6;
+  position: relative;
+  word-break: break-word;
+}
+
+.pdf-msg-user .pdf-msg-bubble {
+  background: linear-gradient(135deg, #7c3aed, #4f46e5);
+  color: #ffffff;
+  border-bottom-right-radius: 4px;
+  box-shadow: 0 4px 15px rgba(124, 58, 237, 0.35);
+}
+
+.pdf-msg-ai .pdf-msg-bubble {
+  background: rgba(30, 41, 59, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #e2e8f0;
+  border-bottom-left-radius: 4px;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+}
+
+.pdf-msg-bubble p {
+  margin: 0 0 10px 0;
+}
+.pdf-msg-bubble p:last-child {
+  margin-bottom: 0;
+}
+
+.pdf-msg-bubble ul, .pdf-msg-bubble ol {
+  margin: 6px 0 10px 18px;
+  padding: 0;
+}
+
+.pdf-msg-bubble li {
+  margin-bottom: 4px;
+}
+
+.pdf-msg-bubble strong {
+  color: #ffffff;
+  font-weight: 700;
+}
+
+.pdf-msg-bubble code {
+  font-family: 'JetBrains Mono', monospace;
+  background: rgba(0, 0, 0, 0.35);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 0.8em;
+  color: #38bdf8;
+}
+
+/* Citations badge inside AI answers */
+.doc-citation {
+  display: inline-block;
+  background: rgba(56, 189, 248, 0.15);
+  border: 1px solid rgba(56, 189, 248, 0.35);
+  color: #38bdf8;
+  font-size: 0.72rem;
+  font-family: 'JetBrains Mono', monospace;
+  padding: 1px 6px;
+  border-radius: 6px;
+  font-weight: 700;
+  margin: 0 3px;
+}
+
+/* Copy Action */
+.pdf-msg-footer {
+  margin-top: 8px;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.btn-copy-reply {
+  background: transparent;
+  border: none;
+  color: #94a3b8;
+  font-size: 0.72rem;
+  font-family: 'JetBrains Mono', monospace;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  transition: all 0.2s;
+}
+
+.btn-copy-reply:hover {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+/* Typing Indicator */
+.typing-dots {
+  display: flex;
+  gap: 5px;
+  padding: 6px 2px;
+}
+.typing-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #38bdf8;
+  animation: typingBounce 1.4s infinite ease-in-out;
+}
+.typing-dot:nth-child(2) { animation-delay: 0.2s; }
+.typing-dot:nth-child(3) { animation-delay: 0.4s; }
+
+@keyframes typingBounce {
+  0%, 80%, 100% { transform: scale(0.6); opacity: 0.4; }
+  40% { transform: scale(1.1); opacity: 1; }
+}
+
+/* Input Bar */
+.pdf-chat-input-bar {
+  padding: 14px 18px;
+  background: rgba(15, 23, 42, 0.95);
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  display: flex;
+  gap: 10px;
+  align-items: flex-end;
+}
+
+.pdf-chat-textarea {
+  flex: 1;
+  background: #020617;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 12px;
+  padding: 12px 14px;
+  color: #f8fafc;
+  font-size: 0.88rem;
+  font-family: inherit;
+  resize: none;
+  max-height: 120px;
+  min-height: 44px;
+  line-height: 1.4;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.pdf-chat-textarea:focus {
+  border-color: #a855f7;
+  box-shadow: 0 0 10px rgba(168, 85, 247, 0.25);
+}
+
+.pdf-chat-send-btn {
+  background: linear-gradient(135deg, #7c3aed, #06b6d4);
+  border: none;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s;
+  box-shadow: 0 4px 15px rgba(124, 58, 237, 0.35);
+  flex-shrink: 0;
+}
+
+.pdf-chat-send-btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(124, 58, 237, 0.5);
+}
+
+.pdf-chat-send-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+@media (max-width: 640px) {
+  .pdf-chat-drawer {
+    max-width: 100%;
+  }
+}

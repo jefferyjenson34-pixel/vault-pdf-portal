@@ -396,7 +396,12 @@
             <span>Scan</span>
           </button>
 
-          <button class="doc-share-btn" title="Copy shareable link" aria-label="Share ${escapeHtml(file.originalName)}">
+          <button class="btn-doc-ai-chat" title="Chat with PDF (AI Intelligence Q&amp;A)" aria-label="Ask AI about ${escapeHtml(file.originalName)}" data-filename="${escapeHtml(file.filename)}" data-title="${escapeHtml(file.originalName)}" style="background:rgba(56,189,248,0.12); border:1px solid rgba(56,189,248,0.3); color:#38bdf8; font-weight:700; padding:6px 10px; border-radius:8px; cursor:pointer; font-size:0.76rem; display:inline-flex; align-items:center; gap:5px; transition:all 0.2s;">
+            <span>💬</span>
+            <span>Ask AI</span>
+          </button>
+
+          <button class="doc-share-btn" title="Create self-destructing share link" aria-label="Share ${escapeHtml(file.originalName)}" data-filename="${escapeHtml(file.filename)}" data-title="${escapeHtml(file.originalName)}">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path>
               <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path>
@@ -552,7 +557,11 @@
             </svg>
             <span>Scan</span>
           </button>
-          <button class="doc-share-btn btn-table-share" title="Copy shareable link" aria-label="Share ${escapeHtml(file.originalName)}">
+          <button class="btn-doc-ai-chat btn-table-ai" title="Chat with PDF (AI Intelligence Q&amp;A)" aria-label="Ask AI about ${escapeHtml(file.originalName)}" data-filename="${escapeHtml(file.filename)}" data-title="${escapeHtml(file.originalName)}" style="background:rgba(56,189,248,0.12); border:1px solid rgba(56,189,248,0.3); color:#38bdf8; font-weight:700; padding:5px 9px; border-radius:6px; cursor:pointer; font-size:0.75rem; display:inline-flex; align-items:center; gap:4px;">
+            <span>💬</span>
+            <span>Ask AI</span>
+          </button>
+          <button class="doc-share-btn btn-table-share" title="Create self-destructing share link" aria-label="Share ${escapeHtml(file.originalName)}" data-filename="${escapeHtml(file.filename)}" data-title="${escapeHtml(file.originalName)}">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path>
               <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path>

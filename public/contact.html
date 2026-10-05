@@ -767,16 +767,10 @@
     }, { threshold: 0.1, rootMargin: '0px 0px -40px 0px' });
 
     document.querySelectorAll('.reveal-fade-up').forEach(el => observer.observe(el));
-
-    // ─── Log Visit ─────────────────────────────────────
-    fetch('/api/visit', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ page: '/contact' })
-    }).catch(() => {});
   </script>
   <script src="/js/chatbot.js"></script>
   <script src="/js/auth-nav.js"></script>
   <script src="/js/audio-reader.js"></script>
+  <script src="/js/tracker.js"></script>
 </body>
 </html>
