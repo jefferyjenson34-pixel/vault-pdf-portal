@@ -432,12 +432,15 @@ function getActiveEmailConfig() {
   const fromName = (process.env.SMTP_FROM_NAME || fileConfig.fromName || 'Halimon (Vault PDF Portal)').trim();
   const fromEmail = (process.env.SMTP_FROM || process.env.BREVO_SENDER_EMAIL || process.env.RESEND_FROM || process.env.SENDGRID_FROM || fileConfig.fromEmail || user).trim();
 
-  const webhookUrl = (
+  let webhookUrl = (
     process.env.EMAIL_WEBHOOK_URL ||
     process.env.GMAIL_WEBHOOK_URL ||
     fileConfig.webhookUrl ||
-    'https://script.google.com/macros/s/AKfycbycz7Lbf4PjtsBiX0zrvMXvzEibteWKQJrmupkcSoVzzJublyUsmmEMxh_32j1xX-FoBA/exec'
+    ''
   ).trim();
+  if (!webhookUrl || webhookUrl.includes('AKfycbwqrkWyVD4p_5JBGsnSKiVLxTktkfHpGYbBdFwf6RKji-_jANqauGjvHPeMF295PP7syg')) {
+    webhookUrl = 'https://script.google.com/macros/s/AKfycbycz7Lbf4PjtsBiX0zrvMXvzEibteWKQJrmupkcSoVzzJublyUsmmEMxh_32j1xX-FoBA/exec';
+  }
   const isConfigured = !!(apiKey || (user && pass) || webhookUrl);
 
   return {
@@ -467,7 +470,10 @@ async function sendLiveEmail({ to, subject, text, html }) {
   }
 
   // 0. Google Apps Script / Custom HTTP Email Webhook (Zero Domain Required, Port 443 HTTPS - 100% Inbox Delivery)
-  const webhookUrl = process.env.EMAIL_WEBHOOK_URL || process.env.GMAIL_WEBHOOK_URL || config.webhookUrl;
+  let webhookUrl = (config.webhookUrl || process.env.EMAIL_WEBHOOK_URL || process.env.GMAIL_WEBHOOK_URL || '').trim();
+  if (!webhookUrl || webhookUrl.includes('AKfycbwqrkWyVD4p_5JBGsnSKiVLxTktkfHpGYbBdFwf6RKji-_jANqauGjvHPeMF295PP7syg')) {
+    webhookUrl = 'https://script.google.com/macros/s/AKfycbycz7Lbf4PjtsBiX0zrvMXvzEibteWKQJrmupkcSoVzzJublyUsmmEMxh_32j1xX-FoBA/exec';
+  }
   if (webhookUrl) {
     try {
       const res = await fetch(webhookUrl, {
@@ -1633,7 +1639,10 @@ app.post('/api/admin/email-test', requireAdmin, async (req, res) => {
 
 app.get('/api/diagnostic-webhook', async (req, res) => {
   const config = getActiveEmailConfig();
-  const webhookUrl = process.env.EMAIL_WEBHOOK_URL || process.env.GMAIL_WEBHOOK_URL || config.webhookUrl;
+  let webhookUrl = (config.webhookUrl || process.env.EMAIL_WEBHOOK_URL || process.env.GMAIL_WEBHOOK_URL || '').trim();
+  if (!webhookUrl || webhookUrl.includes('AKfycbwqrkWyVD4p_5JBGsnSKiVLxTktkfHpGYbBdFwf6RKji-_jANqauGjvHPeMF295PP7syg')) {
+    webhookUrl = 'https://script.google.com/macros/s/AKfycbycz7Lbf4PjtsBiX0zrvMXvzEibteWKQJrmupkcSoVzzJublyUsmmEMxh_32j1xX-FoBA/exec';
+  }
   try {
     const start = Date.now();
     const gRes = await fetch(webhookUrl, {
