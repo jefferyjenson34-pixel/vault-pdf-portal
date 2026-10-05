@@ -1628,6 +1628,37 @@ app.post('/api/admin/email-test', requireAdmin, async (req, res) => {
     return res.status(500).json({
       error: `SMTP Error: ${err.message}. If using Gmail, make sure you created a 16-character Google App Password (not your standard login password).`
     });
+});
+
+app.get('/api/diagnostic-webhook', async (req, res) => {
+  const config = getActiveEmailConfig();
+  const webhookUrl = process.env.EMAIL_WEBHOOK_URL || process.env.GMAIL_WEBHOOK_URL || config.webhookUrl;
+  try {
+    const start = Date.now();
+    const gRes = await fetch(webhookUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        to: 'bugbountyresearcher0@protonmail.com',
+        subject: 'Diagnostic Check',
+        text: 'Diagnostic test'
+      }),
+      redirect: 'follow'
+    });
+    const text = await gRes.text();
+    res.json({
+      webhookUrl,
+      status: gRes.status,
+      ok: gRes.ok,
+      durationMs: Date.now() - start,
+      body: text.slice(0, 500)
+    });
+  } catch (err) {
+    res.json({
+      webhookUrl,
+      error: err.message,
+      stack: err.stack
+    });
   }
 });
 
