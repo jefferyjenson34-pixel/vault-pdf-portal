@@ -1628,6 +1628,7 @@ app.post('/api/admin/email-test', requireAdmin, async (req, res) => {
     return res.status(500).json({
       error: `SMTP Error: ${err.message}. If using Gmail, make sure you created a 16-character Google App Password (not your standard login password).`
     });
+  }
 });
 
 app.get('/api/diagnostic-webhook', async (req, res) => {
