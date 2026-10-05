@@ -973,8 +973,8 @@
         if (portInput) portInput.value = config.port || 465;
         if (secureCheckbox) secureCheckbox.checked = config.secure !== false;
         if (userInput) userInput.value = config.user || '';
-        if (fromNameInput) fromNameInput.value = config.fromName || 'Halimon (Vault PDF Portal)';
-        if (fromEmailInput) fromEmailInput.value = config.fromEmail || '';
+        if (fromNameInput) fromNameInput.value = config.fromName || 'Vault PDF Portal';
+        if (fromEmailInput) fromEmailInput.value = config.fromEmail || 'noreply@vaultpdfportal.com';
 
         if (passStatus) {
           passStatus.textContent = config.hasPassword ? '● Password Saved' : 'Not set';
@@ -1105,8 +1105,8 @@
           secure: document.getElementById('smtp-secure')?.checked,
           user: document.getElementById('smtp-user')?.value || '',
           pass: document.getElementById('smtp-pass')?.value || '',
-          fromName: document.getElementById('smtp-from-name')?.value || 'Halimon (Vault PDF Portal)',
-          fromEmail: document.getElementById('smtp-from-email')?.value || ''
+          fromName: document.getElementById('smtp-from-name')?.value || 'Vault PDF Portal',
+          fromEmail: document.getElementById('smtp-from-email')?.value || 'noreply@vaultpdfportal.com'
         };
 
         try {

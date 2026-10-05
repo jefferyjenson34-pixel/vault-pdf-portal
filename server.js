@@ -54,7 +54,7 @@ if (!fs.existsSync(DOWNLOADS_FILE)) fs.writeFileSync(DOWNLOADS_FILE, JSON.string
 if (!fs.existsSync(CATEGORIES_FILE)) fs.writeFileSync(CATEGORIES_FILE, JSON.stringify({}, null, 2));
 const DEFAULT_SEED_USER = {
   id: 'usr_seed_001',
-  email: 'bugbountyresearcher0@protonmail.com',
+  email: 'admin@vaultpdfportal.com',
   passwordHash: '$2b$10$w8T9J5bCg0q87gU4v.z6i.88p3q7P5Y2zQW9q1d0K.5O2l3m4n5o6',
   verified: true,
   createdAt: new Date().toISOString()
@@ -84,8 +84,8 @@ const DEFAULT_EMAIL_CONFIG = {
   secure: false,
   user: 'bc32f5001@smtp-brevo.com',
   pass: process.env.SMTP_PASS || DEFAULT_BREVO_PASS,
-  fromName: 'Halimon (Vault PDF Portal)',
-  fromEmail: 'bc32f5001@smtp-brevo.com'
+  fromName: 'Vault PDF Portal',
+  fromEmail: 'noreply@vaultpdfportal.com'
 };
 if (!fs.existsSync(EMAIL_CONFIG_FILE)) {
   fs.writeFileSync(EMAIL_CONFIG_FILE, JSON.stringify(DEFAULT_EMAIL_CONFIG, null, 2));
@@ -429,8 +429,8 @@ function getActiveEmailConfig() {
     : (fileConfig.secure !== undefined ? !!fileConfig.secure : (port === 465));
   const user = (process.env.SMTP_USER || process.env.GMAIL_USER || fileConfig.user || '').trim();
   const pass = (process.env.SMTP_PASS || process.env.GMAIL_PASS || fileConfig.pass || '').trim();
-  const fromName = (process.env.SMTP_FROM_NAME || fileConfig.fromName || 'Halimon (Vault PDF Portal)').trim();
-  const fromEmail = (process.env.SMTP_FROM || process.env.BREVO_SENDER_EMAIL || process.env.RESEND_FROM || process.env.SENDGRID_FROM || fileConfig.fromEmail || user).trim();
+  const fromName = (process.env.SMTP_FROM_NAME || fileConfig.fromName || 'Vault PDF Portal').trim();
+  const fromEmail = (process.env.SMTP_FROM || process.env.BREVO_SENDER_EMAIL || process.env.RESEND_FROM || process.env.SENDGRID_FROM || fileConfig.fromEmail || 'noreply@vaultpdfportal.com').trim();
 
   let webhookUrl = (
     process.env.EMAIL_WEBHOOK_URL ||
@@ -469,6 +469,9 @@ async function sendLiveEmail({ to, subject, text, html }) {
     };
   }
 
+  const senderDisplayName = config.fromName || 'Vault PDF Portal';
+  const publicSenderEmail = 'noreply@vaultpdfportal.com';
+
   // 0. Google Apps Script / Custom HTTP Email Webhook (Zero Domain Required, Port 443 HTTPS - 100% Inbox Delivery)
   let webhookUrl = (config.webhookUrl || process.env.EMAIL_WEBHOOK_URL || process.env.GMAIL_WEBHOOK_URL || '').trim();
   if (!webhookUrl || webhookUrl.includes('AKfycbwqrkWyVD4p_5JBGsnSKiVLxTktkfHpGYbBdFwf6RKji-_jANqauGjvHPeMF295PP7syg')) {
@@ -479,7 +482,16 @@ async function sendLiveEmail({ to, subject, text, html }) {
       const res = await fetch(webhookUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ to, subject, text, html }),
+        body: JSON.stringify({
+          to,
+          subject,
+          text,
+          html,
+          fromName: `${senderDisplayName} <${publicSenderEmail}>`,
+          name: `${senderDisplayName} <${publicSenderEmail}>`,
+          fromEmail: publicSenderEmail,
+          replyTo: publicSenderEmail
+        }),
         redirect: 'follow'
       });
       if (res.ok) {
@@ -508,8 +520,7 @@ async function sendLiveEmail({ to, subject, text, html }) {
   ).trim();
   if (resendKey) {
     try {
-      const senderFrom = process.env.RESEND_FROM || process.env.SMTP_FROM || (config.fromEmail && !config.fromEmail.includes('@') ? null : config.fromEmail);
-      const fromAddress = senderFrom || `${config.fromName || 'Halimon (Vault PDF Portal)'} <onboarding@resend.dev>`;
+      const fromAddress = `${senderDisplayName} <${publicSenderEmail}>`;
       const res = await fetch('https://api.resend.com/emails', {
         method: 'POST',
         headers: {
@@ -521,7 +532,8 @@ async function sendLiveEmail({ to, subject, text, html }) {
           to: [to],
           subject,
           text,
-          html
+          html,
+          reply_to: publicSenderEmail
         })
       });
       const data = await res.json().catch(() => ({}));
@@ -548,10 +560,6 @@ async function sendLiveEmail({ to, subject, text, html }) {
     (config.pass && config.pass.startsWith('xkeysib-') ? config.pass : '')
   ).trim();
   if (brevoApiKey) {
-    let senderEmail = process.env.BREVO_SENDER_EMAIL || process.env.SMTP_FROM || config.fromEmail;
-    if (!senderEmail || senderEmail.includes('vault-pdf-portal.com')) {
-      senderEmail = 'bugbountyresearcher0@protonmail.com';
-    }
     try {
       const res = await fetch('https://api.brevo.com/v3/smtp/email', {
         method: 'POST',
@@ -562,8 +570,12 @@ async function sendLiveEmail({ to, subject, text, html }) {
         },
         body: JSON.stringify({
           sender: {
-            name: config.fromName || 'Halimon (Vault PDF Portal)',
-            email: senderEmail
+            name: senderDisplayName,
+            email: publicSenderEmail
+          },
+          replyTo: {
+            name: senderDisplayName,
+            email: publicSenderEmail
           },
           to: [{ email: to }],
           subject,
@@ -595,10 +607,6 @@ async function sendLiveEmail({ to, subject, text, html }) {
     (config.pass && config.pass.startsWith('SG.') ? config.pass : '')
   ).trim();
   if (sendgridKey) {
-    let senderEmail = process.env.SENDGRID_FROM || process.env.SMTP_FROM || config.fromEmail;
-    if (!senderEmail || senderEmail.includes('vault-pdf-portal.com')) {
-      senderEmail = 'bugbountyresearcher0@protonmail.com';
-    }
     try {
       const res = await fetch('https://api.sendgrid.com/v3/mail/send', {
         method: 'POST',
@@ -609,8 +617,12 @@ async function sendLiveEmail({ to, subject, text, html }) {
         body: JSON.stringify({
           personalizations: [{ to: [{ email: to }] }],
           from: {
-            name: config.fromName || 'Halimon (Vault PDF Portal)',
-            email: senderEmail
+            name: senderDisplayName,
+            email: publicSenderEmail
+          },
+          reply_to: {
+            name: senderDisplayName,
+            email: publicSenderEmail
           },
           subject,
           content: [
@@ -670,20 +682,15 @@ async function sendLiveEmail({ to, subject, text, html }) {
 
   const transporter = nodemailer.createTransport(transporterOptions);
   let fromHeader;
-  let replyTo = undefined;
+  let replyTo = publicSenderEmail;
 
   if (config.service === 'brevo' || (config.host && config.host.includes('brevo.com'))) {
-    // For Brevo SMTP relay: The envelope sender must match the authenticated Brevo account login
-    const brevoSender = config.user || 'bc32f5001@smtp-brevo.com';
-    fromHeader = `"${config.fromName || 'Halimon (Vault PDF Portal)'}" <${brevoSender}>`;
-    replyTo = 'bugbountyresearcher0@protonmail.com';
+    // For Brevo SMTP relay: Display header shows branded address
+    fromHeader = `"${senderDisplayName}" <${publicSenderEmail}>`;
+    replyTo = publicSenderEmail;
   } else {
-    fromHeader = config.fromEmail
-      ? `"${config.fromName}" <${config.fromEmail}>`
-      : `"${config.fromName}" <${config.user}>`;
-    if (config.fromEmail && config.user && config.fromEmail !== config.user) {
-      replyTo = config.fromEmail;
-    }
+    fromHeader = `"${senderDisplayName}" <${publicSenderEmail}>`;
+    replyTo = publicSenderEmail;
   }
 
   const mailOptions = {
@@ -692,6 +699,7 @@ async function sendLiveEmail({ to, subject, text, html }) {
     subject,
     text,
     html,
+    replyTo,
     headers: {
       'X-Entity-Ref-ID': 'vault-' + Date.now(),
       'X-Auto-Response-Suppress': 'OOF, AutoReply',
@@ -1578,8 +1586,8 @@ app.post('/api/admin/email-config', requireAdmin, (req, res) => {
     secure: secure !== undefined ? !!secure : (port == 465),
     user: (user !== undefined ? user : current.user || '').trim(),
     pass: (pass && pass.trim()) ? pass.trim() : (current.pass || ''),
-    fromName: (fromName || current.fromName || 'Halimon (Vault PDF Portal)').trim(),
-    fromEmail: (fromEmail || current.fromEmail || user || current.user || '').trim()
+    fromName: (fromName || current.fromName || 'Vault PDF Portal').trim(),
+    fromEmail: (fromEmail || current.fromEmail || 'noreply@vaultpdfportal.com').trim()
   };
 
   writeEmailConfig(newConfig);
@@ -1604,7 +1612,7 @@ app.post('/api/admin/email-test', requireAdmin, async (req, res) => {
     const testResult = await sendLiveEmail({
       to: testEmail,
       subject: 'Test Message: Vault PDF Portal Live SMTP Verification',
-      text: `Hello,\n\nThis is a live test transmission from Vault PDF Portal.\n\nYour SMTP sender credentials (${config.service || config.host}) are functioning correctly and outbound emails are reaching real mailboxes!\n\nBest regards,\nHalimon\nVault PDF Portal\nhttps://vault-pdf-portal.onrender.com/`,
+      text: `Hello,\n\nThis is a live test transmission from Vault PDF Portal.\n\nYour SMTP sender credentials (${config.service || config.host}) are functioning correctly and outbound emails are reaching real mailboxes!\n\nBest regards,\nVault Support Team\nVault PDF Portal\nhttps://vault-pdf-portal.onrender.com/`,
       html: `
         <div style="font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif; max-width:550px; margin:auto; background:#131a2a; color:#f8fafc; padding:32px; border-radius:14px; border:1px solid #7c3aed; box-shadow:0 10px 25px rgba(0,0,0,0.5);">
           <div style="font-size:1.2rem; font-weight:800; color:#ffffff; margin-bottom:16px;">Vault <span style="color:#a78bfa;">PDF Portal</span></div>
@@ -1616,7 +1624,7 @@ app.post('/api/admin/email-test', requireAdmin, async (req, res) => {
             • Port: ${config.port} (Secure: ${config.secure})<br>
             • Dispatched: ${new Date().toISOString()}
           </div>
-          <p style="margin-bottom:0; color:#94a3b8; font-size:13px;">Halimon &bull; Creator, Vault PDF Portal</p>
+          <p style="margin-bottom:0; color:#94a3b8; font-size:13px;">Vault Support Team &bull; Vault PDF Portal</p>
         </div>
       `
     });
