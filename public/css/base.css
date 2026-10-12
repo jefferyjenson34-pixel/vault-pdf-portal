@@ -1,0 +1,215 @@
+/* ─── Vault Design System: Base Stylesheet ─── */
+/* Scope: strictly scoped under body.ds without bare element selectors or global resets */
+
+body.ds {
+  margin: 0;
+  padding: 0;
+  background-color: var(--ds-color-bg-page);
+  color: var(--ds-color-text-primary);
+  font-family: var(--ds-font-family);
+  font-size: 16px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body.ds *,
+body.ds *::before,
+body.ds *::after {
+  box-sizing: border-box;
+}
+
+/* ── Typography Utility Classes ── */
+body.ds .ds-text-display {
+  font: var(--ds-text-display);
+  letter-spacing: -0.03em;
+  color: var(--ds-color-text-primary);
+}
+
+body.ds .ds-text-h2 {
+  font: var(--ds-text-h2);
+  letter-spacing: -0.02em;
+  color: var(--ds-color-text-primary);
+}
+
+body.ds .ds-text-h3 {
+  font: var(--ds-text-h3);
+  letter-spacing: -0.015em;
+  color: var(--ds-color-text-primary);
+}
+
+body.ds .ds-text-body {
+  font: var(--ds-text-body);
+  color: var(--ds-color-text-primary);
+}
+
+body.ds .ds-text-body-medium {
+  font: var(--ds-text-body-medium);
+  color: var(--ds-color-text-primary);
+}
+
+body.ds .ds-text-meta {
+  font: var(--ds-text-meta);
+  color: var(--ds-color-text-secondary);
+}
+
+body.ds .ds-text-meta-medium {
+  font: var(--ds-text-meta-medium);
+  color: var(--ds-color-text-secondary);
+}
+
+/* ── Component: Form Controls (16px Inputs, 13px Labels) ── */
+body.ds .ds-form-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ds-space-1);
+}
+
+body.ds .ds-label {
+  font: var(--ds-text-meta-medium);
+  color: var(--ds-color-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+body.ds .ds-input {
+  height: 44px;
+  padding: 0 var(--ds-space-4);
+  font-family: var(--ds-font-family);
+  font-size: 16px;
+  color: var(--ds-color-text-primary);
+  background-color: var(--ds-color-bg-surface);
+  border: 1px solid var(--ds-color-border-primary);
+  border-radius: var(--ds-radius-md);
+  outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+body.ds .ds-input:focus {
+  border-color: var(--ds-color-accent);
+  box-shadow: 0 0 0 3px var(--ds-color-accent-subtle);
+}
+
+body.ds .ds-input::placeholder {
+  color: var(--ds-color-text-tertiary);
+}
+
+body.ds .ds-form-error {
+  font: var(--ds-text-meta);
+  color: var(--ds-color-danger);
+  min-height: 18px;
+}
+
+/* ── Component: Buttons ── */
+body.ds .ds-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--ds-space-2);
+  height: 42px;
+  padding: 0 var(--ds-space-4);
+  font-family: var(--ds-font-family);
+  font-size: 16px;
+  font-weight: 500;
+  line-height: 1;
+  border-radius: var(--ds-radius-md);
+  border: 1px solid transparent;
+  cursor: pointer;
+  text-decoration: none;
+  white-space: nowrap;
+  user-select: none;
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
+}
+
+body.ds .ds-btn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--ds-color-accent-subtle);
+}
+
+body.ds .ds-btn-primary {
+  background-color: var(--ds-color-accent);
+  color: var(--ds-color-text-inverse);
+  border-color: var(--ds-color-accent);
+}
+
+body.ds .ds-btn-primary:hover {
+  background-color: var(--ds-color-accent-hover);
+  border-color: var(--ds-color-accent-hover);
+}
+
+body.ds .ds-btn-secondary {
+  background-color: var(--ds-color-bg-surface);
+  color: var(--ds-color-text-primary);
+  border-color: var(--ds-color-border-primary);
+}
+
+body.ds .ds-btn-secondary:hover {
+  background-color: var(--ds-color-bg-subtle);
+  border-color: var(--ds-color-border-strong);
+}
+
+body.ds .ds-btn-outline {
+  background-color: transparent;
+  color: var(--ds-color-text-primary);
+  border-color: var(--ds-color-border-primary);
+}
+
+body.ds .ds-btn-outline:hover {
+  background-color: var(--ds-color-bg-subtle);
+  border-color: var(--ds-color-border-strong);
+}
+
+body.ds .ds-btn-danger {
+  background-color: transparent;
+  color: var(--ds-color-danger);
+  border-color: var(--ds-color-danger);
+}
+
+body.ds .ds-btn-danger:hover {
+  background-color: var(--ds-color-danger-subtle);
+}
+
+body.ds .ds-btn-sm {
+  height: 34px;
+  padding: 0 var(--ds-space-3);
+  font-size: 13px;
+}
+
+body.ds .ds-btn:disabled,
+body.ds .ds-btn[disabled] {
+  opacity: 0.5;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+/* ── Component: Cards & Surfaces ── */
+body.ds .ds-card {
+  background-color: var(--ds-color-bg-surface);
+  border: 1px solid var(--ds-color-border-primary);
+  border-radius: var(--ds-radius-lg);
+  box-shadow: var(--ds-shadow-sm);
+}
+
+/* ── Component: Badges ── */
+body.ds .ds-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  font: var(--ds-text-meta-medium);
+  border-radius: var(--ds-radius-sm);
+  border: 1px solid var(--ds-color-border-subtle);
+  background-color: var(--ds-color-bg-subtle);
+  color: var(--ds-color-text-secondary);
+}
+
+body.ds .ds-badge-accent {
+  background-color: var(--ds-color-accent-subtle);
+  border-color: rgba(37, 67, 201, 0.2);
+  color: var(--ds-color-accent);
+}
+
+body.ds .ds-badge-danger {
+  background-color: var(--ds-color-danger-subtle);
+  border-color: rgba(215, 0, 21, 0.2);
+  color: var(--ds-color-danger);
+}
