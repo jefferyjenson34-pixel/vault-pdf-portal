@@ -156,7 +156,7 @@
       background-color: var(--ds-color-bg-subtle);
       border: 1px solid var(--ds-color-border-primary);
       border-radius: var(--ds-radius-md);
-      font-family: var(--ds-font-mono);
+      font-family: var(--ds-font-family);
       font-size: 13px;
       line-height: 1.6;
       color: var(--ds-color-text-secondary);
@@ -308,9 +308,8 @@
         This document link was configured with a strict access policy and has been permanently destroyed from the relay.
       </p>
       <div class="audit-shred-box ds-audit-box" id="burned-audit">
-        • STATUS: ACCESS PERMANENTLY TERMINATED<br>
-        • REASON: MAXIMUM VIEW LIMIT OR EXPIRATION REACHED<br>
-        • STATUS: Link closed and removed
+        • STATUS: Link closed and removed<br>
+        • REASON: MAXIMUM VIEW LIMIT OR EXPIRATION REACHED
       </div>
       <a href="/" class="btn-cyber ds-btn ds-btn-primary" style="justify-content: center;">
         <span>Return to Vault Home &rarr;</span>
@@ -440,10 +439,9 @@
         } else {
           burnedMsg.textContent = 'This document link has been permanently burned and is no longer accessible.';
         }
-        burnedAudit.innerHTML = `• STATUS: ACCESS PERMANENTLY TERMINATED<br>` +
+        burnedAudit.innerHTML = `• STATUS: Link closed and removed<br>` +
                                 `• TRIGGER: ${reason || 'SELF_DESTRUCT'}<br>` +
-                                `• AUDIT TIME: ${new Date(time || Date.now()).toUTCString()}<br>` +
-                                `• STATUS: Link closed and removed`;
+                                `• AUDIT TIME: ${new Date(time || Date.now()).toUTCString()}`;
       }
 
       function startCountdown(expiresAt) {
