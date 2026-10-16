@@ -199,7 +199,8 @@
     }
 
     body.ds .ds-countdown-display {
-      font-family: var(--ds-font-mono);
+      font-family: var(--ds-font-family);
+      font-variant-numeric: tabular-nums;
       font-size: 20px;
       font-weight: 600;
       color: var(--ds-color-danger);
@@ -305,11 +306,11 @@
       </div>
       <h2 class="burned-title ds-text-h3">This link has been used up</h2>
       <p class="burned-desc ds-text-body ds-state-desc" id="burned-message">
-        This document link was configured with a strict access policy and has been permanently destroyed from the relay.
+        This document link is no longer active and cannot be accessed.
       </p>
       <div class="audit-shred-box ds-audit-box" id="burned-audit">
-        • STATUS: Link closed and removed<br>
-        • REASON: MAXIMUM VIEW LIMIT OR EXPIRATION REACHED
+        • Status: Link closed<br>
+        • Reason: View limit reached or link expired
       </div>
       <a href="/" class="btn-cyber ds-btn ds-btn-primary" style="justify-content: center;">
         <span>Return to Vault Home &rarr;</span>
@@ -432,16 +433,25 @@
       function showBurned(reason, time) {
         hideAll();
         viewBurned.style.display = 'block';
+        const reasonLabels = {
+          MAX_VIEWS_REACHED: 'View limit reached',
+          EXPIRED_TIME: 'Link expired',
+          USER_MANUAL_BURN: 'Closed by owner',
+          INVALID_LINK: 'Link not found',
+          NETWORK_ERROR: 'Network error'
+        };
+        const reasonText = reasonLabels[reason] || 'Link closed';
+        const formattedTime = new Date(time || Date.now()).toUTCString();
         if (reason === 'MAX_VIEWS_REACHED') {
-          burnedMsg.textContent = 'This document was protected by a Burn-After-Reading policy and has reached its maximum view limit. The file is permanently locked and unlinked.';
+          burnedMsg.textContent = 'This document has reached its view limit and is no longer available.';
         } else if (reason === 'EXPIRED_TIME') {
           burnedMsg.textContent = 'This document link has expired and is no longer available.';
         } else {
-          burnedMsg.textContent = 'This document link has been permanently burned and is no longer accessible.';
+          burnedMsg.textContent = 'This document link is no longer active and cannot be accessed.';
         }
-        burnedAudit.innerHTML = `• STATUS: Link closed and removed<br>` +
-                                `• TRIGGER: ${reason || 'SELF_DESTRUCT'}<br>` +
-                                `• AUDIT TIME: ${new Date(time || Date.now()).toUTCString()}`;
+        burnedAudit.innerHTML = `• Status: Link closed<br>` +
+                                `• Reason: ${reasonText}<br>` +
+                                `• Time: ${formattedTime}`;
       }
 
       function startCountdown(expiresAt) {
