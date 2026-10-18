@@ -1997,7 +1997,9 @@ if (!fs.existsSync(AUDIO_CACHE_DIR)) {
 }
 
 // POST /api/pdf/client-upload-and-scan (Client uploads any PDF to scan, read, and listen)
-app.post('/api/pdf/client-upload-and-scan', upload.single('pdf'), async (req, res) => {
+app.post('/api/pdf/client-upload-and-scan', (req, res, next) => {
+  return res.status(503).json({ error: 'Scanner temporarily unavailable' });
+}, upload.single('pdf'), async (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ error: 'No PDF file was provided for scanning.' });
