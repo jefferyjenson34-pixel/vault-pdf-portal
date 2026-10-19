@@ -4409,12 +4409,13 @@ const SUPPORTED_LANGUAGES = [
 const translationCache = new Map();
 
 // Helper: Translate a single text block with multi-engine fallback
-async function translateText(text, targetLang) {
+async function translateText(text, targetLang, sourceLang = 'en') {
   if (!text || !text.trim()) return '';
+  const trimmed = text.trim();
 
   // 1. Try Google Translate gtx
   try {
-    const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=${encodeURIComponent(targetLang)}&dt=t&q=${encodeURIComponent(text)}`;
+    const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=${encodeURIComponent(sourceLang)}&tl=${encodeURIComponent(targetLang)}&dt=t&q=${encodeURIComponent(trimmed)}`;
     const response = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0' } });
     if (response.ok) {
       const data = await response.json();
@@ -4429,60 +4430,42 @@ async function translateText(text, targetLang) {
 
   // 2. Fallback to MyMemory Neural Translate API
   try {
-    const mmUrl = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(text.slice(0, 500))}&langpair=auto|${encodeURIComponent(targetLang)}`;
+    const mmUrl = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(trimmed.slice(0, 500))}&langpair=${encodeURIComponent(sourceLang)}|${encodeURIComponent(targetLang)}`;
     const mmRes = await fetch(mmUrl);
     if (mmRes.ok) {
       const mmData = await mmRes.json();
       if (mmData && mmData.responseData && mmData.responseData.translatedText) {
-        return mmData.responseData.translatedText;
+        const trans = mmData.responseData.translatedText;
+        if (trans && !trans.includes('INVALID SOURCE LANGUAGE')) {
+          return trans;
+        }
       }
     }
   } catch (err) {
     console.warn(`Translation fallback error for [${targetLang}]:`, err.message);
   }
 
-  return text;
+  return trimmed;
 }
 
 // Helper: Batch translate array of paragraphs efficiently
 async function translateParagraphBatch(paragraphs, targetLang) {
   if (!paragraphs || paragraphs.length === 0) return [];
-  const SEP = '\n\n[[VLT_SEP]]\n\n';
+  const CHUNK_SIZE = 4;
   const results = [];
-  let currentBatch = [];
-  let currentLen = 0;
 
-  for (const para of paragraphs) {
-    if (currentLen + para.length > 3000 && currentBatch.length > 0) {
-      const combined = currentBatch.join(SEP);
-      const translated = await translateText(combined, targetLang);
-      const parts = translated.split(/\[\[\s*VLT_SEP\s*\]\]/i);
-      if (parts.length === currentBatch.length) {
-        results.push(...parts.map(p => p.trim()));
-      } else {
-        // Fallback for this batch
-        for (const p of currentBatch) {
-          results.push(await translateText(p, targetLang));
-        }
+  for (let i = 0; i < paragraphs.length; i += CHUNK_SIZE) {
+    const chunk = paragraphs.slice(i, i + CHUNK_SIZE);
+    const chunkResults = await Promise.all(chunk.map(async (para) => {
+      if (!para || !para.trim()) return '';
+      if (para.length > 450) {
+        const sentences = para.match(/[^.!?\n]+[.!?\n]+(\s|$)/g) || [para];
+        const transSentences = await Promise.all(sentences.map(s => translateText(s.trim(), targetLang)));
+        return transSentences.join(' ');
       }
-      currentBatch = [];
-      currentLen = 0;
-    }
-    currentBatch.push(para);
-    currentLen += para.length + 20;
-  }
-
-  if (currentBatch.length > 0) {
-    const combined = currentBatch.join(SEP);
-    const translated = await translateText(combined, targetLang);
-    const parts = translated.split(/\[\[\s*VLT_SEP\s*\]\]/i);
-    if (parts.length === currentBatch.length) {
-      results.push(...parts.map(p => p.trim()));
-    } else {
-      for (const p of currentBatch) {
-        results.push(await translateText(p, targetLang));
-      }
-    }
+      return translateText(para, targetLang);
+    }));
+    results.push(...chunkResults);
   }
 
   return results;
