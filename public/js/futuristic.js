@@ -372,6 +372,7 @@
       this.studioBtnCloseReader = document.getElementById('studio-btn-close-reader');
       this.studioBtnDlText = document.getElementById('studio-btn-download-text');
       this.studioBtnDlAudio = document.getElementById('studio-btn-download-audio');
+      this.studioBtnTranslate = document.getElementById('studio-btn-translate');
 
       if (!this.dropzone) return;
 
@@ -452,6 +453,19 @@
         this.studioBtnListen.addEventListener('click', () => {
           if (this.lastScanData && window.VaultAudioReader) {
             window.VaultAudioReader.playPdf(this.lastScanData.filename, this.lastScanData.originalName);
+          }
+        });
+      }
+
+      if (this.studioBtnTranslate) {
+        this.studioBtnTranslate.addEventListener('click', () => {
+          if (this.lastScanData && window.VaultTranslator) {
+            window.VaultTranslator.open({
+              filename: this.lastScanData.filename,
+              originalName: this.lastScanData.originalName,
+              size: this.lastScanData.size || 0,
+              fullText: this.lastScanData.fullText || ''
+            });
           }
         });
       }

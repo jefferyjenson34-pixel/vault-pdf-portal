@@ -4409,13 +4409,27 @@ const SUPPORTED_LANGUAGES = [
 const translationCache = new Map();
 
 // Helper: Translate a single text block with multi-engine fallback
-async function translateText(text, targetLang, sourceLang = 'en') {
+async function translateText(text, targetLang, sourceLang = 'auto') {
   if (!text || !text.trim()) return '';
   const trimmed = text.trim();
 
-  // 1. Try Google Translate gtx
+  // 1. Try Google Chrome Extension Client API (clients5 - fast & reliable)
   try {
-    const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=${encodeURIComponent(sourceLang)}&tl=${encodeURIComponent(targetLang)}&dt=t&q=${encodeURIComponent(trimmed)}`;
+    const url = `https://clients5.google.com/translate_a/t?client=dict-chrome-ex&sl=auto&tl=${encodeURIComponent(targetLang)}&q=${encodeURIComponent(trimmed)}`;
+    const response = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0' } });
+    if (response.ok) {
+      const data = await response.json();
+      if (Array.isArray(data) && Array.isArray(data[0]) && data[0][0]) {
+        return data[0][0];
+      }
+    }
+  } catch (_) {
+    // Continue to fallback
+  }
+
+  // 2. Try Google Translate gtx
+  try {
+    const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=${encodeURIComponent(targetLang)}&dt=t&q=${encodeURIComponent(trimmed)}`;
     const response = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0' } });
     if (response.ok) {
       const data = await response.json();
@@ -4428,10 +4442,10 @@ async function translateText(text, targetLang, sourceLang = 'en') {
     // Continue to fallback
   }
 
-  // 2. Fallback to MyMemory Neural Translate API
+  // 3. Fallback to MyMemory Neural Translate API
   try {
-    const mmUrl = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(trimmed.slice(0, 500))}&langpair=${encodeURIComponent(sourceLang)}|${encodeURIComponent(targetLang)}`;
-    const mmRes = await fetch(mmUrl);
+    const mmUrl = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(trimmed.slice(0, 500))}&langpair=en|${encodeURIComponent(targetLang)}`;
+    const mmRes = await fetch(mmUrl, { headers: { 'User-Agent': 'Mozilla/5.0' } });
     if (mmRes.ok) {
       const mmData = await mmRes.json();
       if (mmData && mmData.responseData && mmData.responseData.translatedText) {
@@ -4471,7 +4485,7 @@ async function translateParagraphBatch(paragraphs, targetLang) {
   return results;
 }
 
-// GET /api/translate/languages (List of 32 supported languages)
+// GET /api/translate/languages (List of 33 supported languages)
 app.get('/api/translate/languages', (req, res) => {
   res.json({ success: true, languages: SUPPORTED_LANGUAGES });
 });
@@ -4501,10 +4515,12 @@ app.post('/api/translate/document', async (req, res) => {
     let docTitle = 'Document Translation';
 
     if (customText && customText.trim()) {
-      docTitle = 'Direct Input Document';
+      docTitle = filename ? (scannedDocsCache.has(filename) ? scannedDocsCache.get(filename).originalName : filename) : 'Scanned Document Translation';
+      const paras = customText.split(/\n\s*\n/).map(p => p.trim()).filter(p => p.length > 0);
       pagesToTranslate = [{
         pageNum: 1,
-        text: customText.trim()
+        text: customText.trim(),
+        paragraphs: paras
       }];
     } else if (filename) {
       if (scannedDocsCache.has(filename)) {
@@ -4555,7 +4571,7 @@ app.post('/api/translate/document', async (req, res) => {
     // Extract all paragraphs across active pages
     const allOrigParas = [];
     activePages.forEach(page => {
-      const rawParas = page.text.split(/\n\s*\n/).map(p => p.trim()).filter(p => p.length > 0);
+      const rawParas = page.paragraphs || page.text.split(/\n\s*\n/).map(p => p.trim()).filter(p => p.length > 0);
       if (rawParas.length > 0) {
         allOrigParas.push(...rawParas);
       } else if (page.text.trim()) {
@@ -4588,10 +4604,14 @@ app.post('/api/translate/document', async (req, res) => {
       translatedParagraphs: allTransParas
     };
 
-    translationCache.set(cacheKey, result);
-    if (translationCache.size > 100) {
-      const oldest = translationCache.keys().next().value;
-      translationCache.delete(oldest);
+    // Only cache if translation produced valid non-identical output
+    const hasTranslation = allTransParas.some((p, i) => p && p !== allOrigParas[i]);
+    if (hasTranslation) {
+      translationCache.set(cacheKey, result);
+      if (translationCache.size > 100) {
+        const oldest = translationCache.keys().next().value;
+        translationCache.delete(oldest);
+      }
     }
 
     res.json(result);

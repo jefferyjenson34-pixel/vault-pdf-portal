@@ -356,7 +356,11 @@
       const res = await fetch('/api/translate/document', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ filename: file.filename, targetLang })
+        body: JSON.stringify({
+          filename: file.filename,
+          customText: file.fullText || file.customText || '',
+          targetLang
+        })
       });
 
       if (!res.ok) {
