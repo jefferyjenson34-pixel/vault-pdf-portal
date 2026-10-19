@@ -4490,6 +4490,32 @@ app.get('/api/translate/languages', (req, res) => {
   res.json({ success: true, languages: SUPPORTED_LANGUAGES });
 });
 
+app.get('/api/debug-translate', async (req, res) => {
+  const q = req.query.q || 'Hello world';
+  const tl = req.query.tl || 'ml';
+  const logs = [];
+
+  try {
+    const url1 = `https://clients5.google.com/translate_a/t?client=dict-chrome-ex&sl=auto&tl=${tl}&q=${encodeURIComponent(q)}`;
+    const r1 = await fetch(url1, { headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' } });
+    const text1 = await r1.text();
+    logs.push({ provider: 'clients5', status: r1.status, body: text1.slice(0, 200) });
+  } catch (e1) {
+    logs.push({ provider: 'clients5', error: e1.message });
+  }
+
+  try {
+    const url2 = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(q)}&langpair=en|${tl}`;
+    const r2 = await fetch(url2, { headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' } });
+    const text2 = await r2.text();
+    logs.push({ provider: 'mymemory', status: r2.status, body: text2.slice(0, 200) });
+  } catch (e2) {
+    logs.push({ provider: 'mymemory', error: e2.message });
+  }
+
+  res.json({ logs });
+});
+
 // POST /api/translate/document (Translate document into target language with paragraph synchronization)
 app.post('/api/translate/document', async (req, res) => {
   try {
