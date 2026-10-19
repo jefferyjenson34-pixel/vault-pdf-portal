@@ -401,6 +401,16 @@
             <span>Ask AI</span>
           </button>
 
+          <button class="btn-doc-sign" title="Cryptographic Digital Signature &amp; Certificate" aria-label="Sign ${escapeHtml(file.originalName)}" style="background:rgba(245,158,11,0.12); border:1px solid rgba(245,158,11,0.35); color:#f59e0b; font-weight:700; padding:6px 10px; border-radius:8px; cursor:pointer; font-size:0.76rem; display:inline-flex; align-items:center; gap:5px; transition:all 0.2s;">
+            <span>🖋️</span>
+            <span>Sign</span>
+          </button>
+
+          <button class="btn-doc-translate" title="Instant Multi-Lingual Translation &amp; Dual-Column Sync" aria-label="Translate ${escapeHtml(file.originalName)}" style="background:rgba(99,102,241,0.12); border:1px solid rgba(99,102,241,0.35); color:#818cf8; font-weight:700; padding:6px 10px; border-radius:8px; cursor:pointer; font-size:0.76rem; display:inline-flex; align-items:center; gap:5px; transition:all 0.2s;">
+            <span>🌐</span>
+            <span>Translate</span>
+          </button>
+
           <button class="doc-share-btn" title="Create self-destructing share link" aria-label="Share ${escapeHtml(file.originalName)}" data-filename="${escapeHtml(file.filename)}" data-title="${escapeHtml(file.originalName)}">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path>
@@ -456,6 +466,28 @@
         e.stopPropagation();
         if (window.VaultForensicScanner) {
           window.VaultForensicScanner.scanFile(`/api/preview/${encodeURIComponent(file.filename)}`, file.originalName);
+        }
+      });
+    }
+
+    // Digital Signature button
+    const cardSignBtn = card.querySelector('.btn-doc-sign');
+    if (cardSignBtn) {
+      cardSignBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (window.VaultDigitalSignature) {
+          window.VaultDigitalSignature.open(file);
+        }
+      });
+    }
+
+    // Instant Translation button
+    const cardTransBtn = card.querySelector('.btn-doc-translate');
+    if (cardTransBtn) {
+      cardTransBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (window.VaultTranslator) {
+          window.VaultTranslator.open(file);
         }
       });
     }
@@ -561,6 +593,14 @@
             <span>💬</span>
             <span>Ask AI</span>
           </button>
+          <button class="btn-table-sign" title="Cryptographic Digital Signature &amp; Certificate" aria-label="Sign ${escapeHtml(file.originalName)}" style="background:rgba(245,158,11,0.12); border:1px solid rgba(245,158,11,0.35); color:#f59e0b; font-weight:700; padding:5px 9px; border-radius:6px; cursor:pointer; font-size:0.75rem; display:inline-flex; align-items:center; gap:4px;">
+            <span>🖋️</span>
+            <span>Sign</span>
+          </button>
+          <button class="btn-table-translate" title="Instant Multi-Lingual Translation &amp; Dual-Column Sync" aria-label="Translate ${escapeHtml(file.originalName)}" style="background:rgba(99,102,241,0.12); border:1px solid rgba(99,102,241,0.35); color:#818cf8; font-weight:700; padding:5px 9px; border-radius:6px; cursor:pointer; font-size:0.75rem; display:inline-flex; align-items:center; gap:4px;">
+            <span>🌐</span>
+            <span>Translate</span>
+          </button>
           <button class="doc-share-btn btn-table-share" title="Create self-destructing share link" aria-label="Share ${escapeHtml(file.originalName)}" data-filename="${escapeHtml(file.filename)}" data-title="${escapeHtml(file.originalName)}">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path>
@@ -608,6 +648,26 @@
       e.stopPropagation();
       copyDocumentLink(file);
     });
+
+    const tableSignBtn = tr.querySelector('.btn-table-sign');
+    if (tableSignBtn) {
+      tableSignBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (window.VaultDigitalSignature) {
+          window.VaultDigitalSignature.open(file);
+        }
+      });
+    }
+
+    const tableTransBtn = tr.querySelector('.btn-table-translate');
+    if (tableTransBtn) {
+      tableTransBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (window.VaultTranslator) {
+          window.VaultTranslator.open(file);
+        }
+      });
+    }
 
     const tableListenBtn = tr.querySelector('.btn-table-listen');
     if (tableListenBtn) {

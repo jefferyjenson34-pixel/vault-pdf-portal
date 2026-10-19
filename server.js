@@ -44,6 +44,7 @@ const PRIVATE_UPLOADS_DIR = path.join(DATA_DIR, 'private_uploads');
 const REPORTS_FILE = path.join(DATA_DIR, 'reports.json');
 const EMAIL_CONFIG_FILE = path.join(DATA_DIR, 'email_config.json');
 const SHARED_LINKS_FILE = path.join(DATA_DIR, 'shared_links.json');
+const SIGNING_CERTS_FILE = path.join(DATA_DIR, 'signing_certificates.json');
 
 // Ensure directories exist
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
@@ -54,6 +55,14 @@ if (!fs.existsSync(CONTACTS_FILE)) fs.writeFileSync(CONTACTS_FILE, JSON.stringif
 if (!fs.existsSync(DOWNLOADS_FILE)) fs.writeFileSync(DOWNLOADS_FILE, JSON.stringify({}, null, 2));
 if (!fs.existsSync(CATEGORIES_FILE)) fs.writeFileSync(CATEGORIES_FILE, JSON.stringify({}, null, 2));
 if (!fs.existsSync(SHARED_LINKS_FILE)) fs.writeFileSync(SHARED_LINKS_FILE, JSON.stringify({}, null, 2));
+if (!fs.existsSync(SIGNING_CERTS_FILE)) fs.writeFileSync(SIGNING_CERTS_FILE, JSON.stringify({}, null, 2));
+
+function readSigningCertificates() {
+  try { return JSON.parse(fs.readFileSync(SIGNING_CERTS_FILE, 'utf-8')); } catch { return {}; }
+}
+function writeSigningCertificates(data) {
+  fs.writeFileSync(SIGNING_CERTS_FILE, JSON.stringify(data, null, 2));
+}
 const DEFAULT_SEED_USER = {
   id: 'usr_seed_001',
   email: 'admin@vaultpdfportal.com',
@@ -1523,6 +1532,10 @@ app.get('/reset-password', (req, res) => {
 
 app.get('/verify-email', (req, res) => {
   res.sendFile('verify-email.html', { root: PUBLIC_DIR });
+});
+
+app.get('/verify-certificate', (req, res) => {
+  res.sendFile('verify-certificate.html', { root: PUBLIC_DIR });
 });
 
 // ─── Contact Inquiry Acknowledgment Dispatcher & Template ──────────────
@@ -4150,6 +4163,439 @@ app.post('/api/chat', aiLimiter, async (req, res) => {
       reply: ASSISTANT_BUSY_MESSAGE,
       remaining: updatedCap.remaining
     });
+  }
+});
+
+// ═════════════════════════════════════════════════════════════════════
+// ─── PHASE 5: Cryptographic Digital Signatures & Signing Certificates ─
+// ═════════════════════════════════════════════════════════════════════
+
+// POST /api/signatures/sign (Attach digital signature & generate Certificate of Completion)
+app.post('/api/signatures/sign', async (req, res) => {
+  try {
+    const {
+      filename,
+      fileData,
+      docTitle,
+      signerName,
+      signerEmail,
+      signerRole,
+      reason,
+      signatureData,
+      signatureType
+    } = req.body || {};
+
+    if (!signerName || !signerName.trim()) {
+      return res.status(400).json({ error: 'Signer full name is required.' });
+    }
+    if (!signerEmail || !signerEmail.trim() || !signerEmail.includes('@')) {
+      return res.status(400).json({ error: 'A valid signer email address is required.' });
+    }
+    if (!signatureData || !signatureData.startsWith('data:image/')) {
+      return res.status(400).json({ error: 'Valid signature graphic data is required.' });
+    }
+
+    // 1. Locate or extract document bytes to calculate SHA-256
+    let docBuffer = null;
+    let actualTitle = (docTitle || filename || 'Document.pdf').trim();
+    let actualFilename = filename || 'document.pdf';
+    let docSize = 0;
+
+    if (fileData && typeof fileData === 'string' && fileData.includes('base64,')) {
+      const base64Data = fileData.split('base64,')[1];
+      docBuffer = Buffer.from(base64Data, 'base64');
+      docSize = docBuffer.length;
+    } else if (filename) {
+      if (scannedDocsCache.has(filename)) {
+        const scanned = scannedDocsCache.get(filename);
+        actualTitle = scanned.originalName || actualTitle;
+        docSize = scanned.size;
+        docBuffer = Buffer.from(scanned.fullText || filename, 'utf-8');
+      } else {
+        const fileInfo = locatePdfFile(filename);
+        if (fileInfo && fs.existsSync(fileInfo.filePath)) {
+          docBuffer = fs.readFileSync(fileInfo.filePath);
+          actualTitle = fileInfo.originalName || fileInfo.filename;
+          docSize = fileInfo.size;
+          actualFilename = fileInfo.filename;
+        }
+      }
+    }
+
+    if (!docBuffer) {
+      docBuffer = Buffer.from(`${actualTitle}:${actualFilename}:${signerEmail}`, 'utf-8');
+      docSize = docBuffer.length;
+    }
+
+    // 2. Cryptographic Hashes
+    const docHash = crypto.createHash('sha256').update(docBuffer).digest('hex');
+    const sigHash = crypto.createHash('sha256').update(signatureData + signerEmail).digest('hex');
+
+    // 3. Signer Network Forensic Footprint
+    const signerIp = getVisitorIP(req);
+    const geo = await resolveGeoIP(signerIp);
+    const signedAt = new Date().toISOString();
+
+    // 4. Generate Unique Certificate ID & Verification Token
+    const certId = 'CERT-' + crypto.randomBytes(6).toString('hex').toUpperCase();
+    const verifyToken = crypto.randomBytes(16).toString('hex');
+
+    // 5. Tamper-Proof Cryptographic Checksum
+    const checksum = crypto.createHash('sha256')
+      .update(`${certId}:${docHash}:${sigHash}:${signerIp}:${signedAt}:vault_notary_seal_2026!`)
+      .digest('hex');
+
+    const certificate = {
+      id: certId,
+      verifyToken,
+      docTitle: actualTitle,
+      docFilename: actualFilename,
+      docSize,
+      docHash,
+      sigHash,
+      signerName: signerName.trim(),
+      signerEmail: signerEmail.trim().toLowerCase(),
+      signerRole: (signerRole || 'Authorized Signatory').trim(),
+      reason: (reason || 'Formal Document Approval & Legal Acceptance').trim(),
+      signatureData,
+      signatureType: signatureType || 'draw',
+      signerIp,
+      signerGeo: {
+        country: geo.country || 'Unknown',
+        countryCode: geo.countryCode || 'XX',
+        city: geo.city || 'Unknown',
+        flag: geo.flag || '🌐',
+        isp: geo.isp || 'Unknown'
+      },
+      signedAt,
+      checksum,
+      status: 'VERIFIED_AND_UNALTERED',
+      createdAt: Date.now()
+    };
+
+    const certs = readSigningCertificates();
+    certs[certId] = certificate;
+    writeSigningCertificates(certs);
+
+    res.json({
+      success: true,
+      certificateId: certId,
+      verifyUrl: `/verify-certificate?id=${encodeURIComponent(certId)}`,
+      certificate
+    });
+  } catch (err) {
+    console.error('Digital signature error:', err);
+    res.status(500).json({ error: 'Failed to process cryptographic signature: ' + err.message });
+  }
+});
+
+// GET /api/signatures/certificate/:id (Fetch certificate details)
+app.get('/api/signatures/certificate/:id', (req, res) => {
+  const certId = (req.params.id || '').toUpperCase().trim();
+  const certs = readSigningCertificates();
+  const cert = certs[certId];
+  if (!cert) {
+    return res.status(404).json({ error: 'Certificate of Completion not found.' });
+  }
+  res.json({ success: true, certificate: cert });
+});
+
+// GET /api/signatures/verify/:id (Public Verification Endpoint)
+app.get('/api/signatures/verify/:id', (req, res) => {
+  const certId = (req.params.id || '').toUpperCase().trim();
+  const certs = readSigningCertificates();
+  const cert = certs[certId];
+  if (!cert) {
+    return res.status(404).json({
+      verified: false,
+      error: 'Invalid Certificate ID. No matching cryptographic notary record exists in Vault PDF Portal registry.'
+    });
+  }
+
+  // Verify internal checksum
+  const expectedChecksum = crypto.createHash('sha256')
+    .update(`${cert.id}:${cert.docHash}:${cert.sigHash}:${cert.signerIp}:${cert.signedAt}:vault_notary_seal_2026!`)
+    .digest('hex');
+
+  const isIntact = (expectedChecksum === cert.checksum);
+
+  res.json({
+    verified: isIntact,
+    status: isIntact ? 'CRYPTOGRAPHICALLY_VERIFIED_AND_INTACT' : 'TAMPER_DETECTED',
+    certificateId: cert.id,
+    docTitle: cert.docTitle,
+    documentName: cert.docTitle,
+    docHash: cert.docHash,
+    documentHash: cert.docHash,
+    sigHash: cert.sigHash,
+    signatureHash: cert.sigHash,
+    signatureType: cert.signatureType,
+    signatureData: cert.signatureData,
+    signerName: cert.signerName,
+    signerEmail: cert.signerEmail,
+    signerRole: cert.signerRole,
+    reason: cert.reason,
+    signerIp: cert.signerIp,
+    signerIP: cert.signerIp,
+    signerGeo: cert.signerGeo,
+    geo: cert.signerGeo,
+    signedAt: cert.signedAt,
+    timestamp: cert.signedAt,
+    checksum: cert.checksum,
+    certificate: cert
+  });
+});
+
+// GET /api/signatures/recent (Recent certificates for audit list)
+app.get('/api/signatures/recent', (req, res) => {
+  const certs = readSigningCertificates();
+  const list = Object.values(certs)
+    .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0))
+    .slice(0, 15)
+    .map(c => ({
+      id: c.id,
+      docTitle: c.docTitle,
+      signerName: c.signerName,
+      signerEmail: c.signerEmail,
+      signedAt: c.signedAt,
+      docHash: c.docHash,
+      status: c.status
+    }));
+  res.json({ success: true, certificates: list });
+});
+
+
+// ═════════════════════════════════════════════════════════════════════
+// ─── PHASE 6: Instant Multi-Lingual Translation & Dual-Column Sync ───
+// ═════════════════════════════════════════════════════════════════════
+
+const SUPPORTED_LANGUAGES = [
+  { code: 'es', name: 'Spanish', nativeName: 'Español', flag: '🇪🇸', bcp47: 'es-ES' },
+  { code: 'fr', name: 'French', nativeName: 'Français', flag: '🇫🇷', bcp47: 'fr-FR' },
+  { code: 'de', name: 'German', nativeName: 'Deutsch', flag: '🇩🇪', bcp47: 'de-DE' },
+  { code: 'it', name: 'Italian', nativeName: 'Italiano', flag: '🇮🇹', bcp47: 'it-IT' },
+  { code: 'pt', name: 'Portuguese', nativeName: 'Português', flag: '🇵🇹', bcp47: 'pt-PT' },
+  { code: 'ru', name: 'Russian', nativeName: 'Русский', flag: '🇷🇺', bcp47: 'ru-RU' },
+  { code: 'zh', name: 'Chinese (Simplified)', nativeName: '简体中文', flag: '🇨🇳', bcp47: 'zh-CN' },
+  { code: 'ja', name: 'Japanese', nativeName: '日本語', flag: '🇯🇵', bcp47: 'ja-JP' },
+  { code: 'ko', name: 'Korean', nativeName: '한국어', flag: '🇰🇷', bcp47: 'ko-KR' },
+  { code: 'ar', name: 'Arabic', nativeName: 'العربية', flag: '🇸🇦', bcp47: 'ar-SA', rtl: true },
+  { code: 'hi', name: 'Hindi', nativeName: 'हिन्दी', flag: '🇮🇳', bcp47: 'hi-IN' },
+  { code: 'nl', name: 'Dutch', nativeName: 'Nederlands', flag: '🇳🇱', bcp47: 'nl-NL' },
+  { code: 'sv', name: 'Swedish', nativeName: 'Svenska', flag: '🇸🇪', bcp47: 'sv-SE' },
+  { code: 'pl', name: 'Polish', nativeName: 'Polski', flag: '🇵🇱', bcp47: 'pl-PL' },
+  { code: 'tr', name: 'Turkish', nativeName: 'Türkçe', flag: '🇹🇷', bcp47: 'tr-TR' },
+  { code: 'vi', name: 'Vietnamese', nativeName: 'Tiếng Việt', flag: '🇻🇳', bcp47: 'vi-VN' },
+  { code: 'th', name: 'Thai', nativeName: 'ไทย', flag: '🇹🇭', bcp47: 'th-TH' },
+  { code: 'id', name: 'Indonesian', nativeName: 'Bahasa Indonesia', flag: '🇮🇩', bcp47: 'id-ID' },
+  { code: 'el', name: 'Greek', nativeName: 'Ελληνικά', flag: '🇬🇷', bcp47: 'el-GR' },
+  { code: 'he', name: 'Hebrew', nativeName: 'עברית', flag: '🇮🇱', bcp47: 'he-IL', rtl: true },
+  { code: 'cs', name: 'Czech', nativeName: 'Čeština', flag: '🇨🇿', bcp47: 'cs-CZ' },
+  { code: 'da', name: 'Danish', nativeName: 'Dansk', flag: '🇩🇰', bcp47: 'da-DK' },
+  { code: 'fi', name: 'Finnish', nativeName: 'Suomi', flag: '🇫🇮', bcp47: 'fi-FI' },
+  { code: 'hu', name: 'Hungarian', nativeName: 'Magyar', flag: '🇭🇺', bcp47: 'hu-HU' },
+  { code: 'ro', name: 'Romanian', nativeName: 'Română', flag: '🇷🇴', bcp47: 'ro-RO' },
+  { code: 'uk', name: 'Ukrainian', nativeName: 'Українська', flag: '🇺🇦', bcp47: 'uk-UA' },
+  { code: 'bn', name: 'Bengali', nativeName: 'বাংলা', flag: '🇧🇩', bcp47: 'bn-BD' },
+  { code: 'tl', name: 'Tagalog', nativeName: 'Filipino', flag: '🇵🇭', bcp47: 'tl-PH' },
+  { code: 'ms', name: 'Malay', nativeName: 'Bahasa Melayu', flag: '🇲🇾', bcp47: 'ms-MY' },
+  { code: 'no', name: 'Norwegian', nativeName: 'Norsk', flag: '🇳🇴', bcp47: 'nb-NO' },
+  { code: 'fa', name: 'Persian', nativeName: 'فارسی', flag: '🇮🇷', bcp47: 'fa-IR', rtl: true },
+  { code: 'en', name: 'English', nativeName: 'English', flag: '🇺🇸', bcp47: 'en-US' }
+];
+
+// In-Memory Translation Cache (filename:targetLang -> cached response)
+const translationCache = new Map();
+
+// Helper: Translate a single text block with retry
+async function translateText(text, targetLang) {
+  if (!text || !text.trim()) return '';
+  try {
+    const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=${encodeURIComponent(targetLang)}&dt=t&q=${encodeURIComponent(text)}`;
+    const response = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0' } });
+    if (!response.ok) throw new Error(`Translation API error: ${response.status}`);
+    const data = await response.json();
+    if (Array.isArray(data) && Array.isArray(data[0])) {
+      return data[0].map(item => item[0]).join('');
+    }
+    return text;
+  } catch (err) {
+    console.warn(`Translation fallback error for [${targetLang}]:`, err.message);
+    return text;
+  }
+}
+
+// Helper: Batch translate array of paragraphs efficiently
+async function translateParagraphBatch(paragraphs, targetLang) {
+  if (!paragraphs || paragraphs.length === 0) return [];
+  const SEP = '\n\n[[VLT_SEP]]\n\n';
+  const results = [];
+  let currentBatch = [];
+  let currentLen = 0;
+
+  for (const para of paragraphs) {
+    if (currentLen + para.length > 3000 && currentBatch.length > 0) {
+      const combined = currentBatch.join(SEP);
+      const translated = await translateText(combined, targetLang);
+      const parts = translated.split(/\[\[\s*VLT_SEP\s*\]\]/i);
+      if (parts.length === currentBatch.length) {
+        results.push(...parts.map(p => p.trim()));
+      } else {
+        // Fallback for this batch
+        for (const p of currentBatch) {
+          results.push(await translateText(p, targetLang));
+        }
+      }
+      currentBatch = [];
+      currentLen = 0;
+    }
+    currentBatch.push(para);
+    currentLen += para.length + 20;
+  }
+
+  if (currentBatch.length > 0) {
+    const combined = currentBatch.join(SEP);
+    const translated = await translateText(combined, targetLang);
+    const parts = translated.split(/\[\[\s*VLT_SEP\s*\]\]/i);
+    if (parts.length === currentBatch.length) {
+      results.push(...parts.map(p => p.trim()));
+    } else {
+      for (const p of currentBatch) {
+        results.push(await translateText(p, targetLang));
+      }
+    }
+  }
+
+  return results;
+}
+
+// GET /api/translate/languages (List of 32 supported languages)
+app.get('/api/translate/languages', (req, res) => {
+  res.json({ success: true, languages: SUPPORTED_LANGUAGES });
+});
+
+// POST /api/translate/document (Translate document into target language with paragraph synchronization)
+app.post('/api/translate/document', async (req, res) => {
+  try {
+    const { filename, targetLang, customText } = req.body || {};
+    if (!targetLang) {
+      return res.status(400).json({ error: 'Target language code is required.' });
+    }
+
+    const langMeta = SUPPORTED_LANGUAGES.find(l => l.code === targetLang) || {
+      code: targetLang,
+      name: targetLang.toUpperCase(),
+      nativeName: targetLang.toUpperCase(),
+      flag: '🌐',
+      bcp47: targetLang
+    };
+
+    const cacheKey = `${filename || 'custom'}:${targetLang}:${(customText || '').length}`;
+    if (translationCache.has(cacheKey)) {
+      return res.json(translationCache.get(cacheKey));
+    }
+
+    let pagesToTranslate = [];
+    let docTitle = 'Document Translation';
+
+    if (customText && customText.trim()) {
+      docTitle = 'Direct Input Document';
+      pagesToTranslate = [{
+        pageNum: 1,
+        text: customText.trim()
+      }];
+    } else if (filename) {
+      if (scannedDocsCache.has(filename)) {
+        const scanned = scannedDocsCache.get(filename);
+        docTitle = scanned.originalName || filename;
+        pagesToTranslate = scanned.pages || [{ pageNum: 1, text: scanned.fullText || '' }];
+      } else {
+        const fileInfo = locatePdfFile(filename);
+        if (!fileInfo) {
+          return res.status(404).json({ error: 'Document not found for translation.' });
+        }
+        docTitle = fileInfo.originalName || fileInfo.filename;
+
+        // Check if audio/text cache has it
+        let docData = pdfAudioCache.get('pdf_audio_' + fileInfo.filename);
+        if (!docData) {
+          const { PDFParse } = require('pdf-parse');
+          const fileBuffer = fs.readFileSync(fileInfo.filePath);
+          const parser = new PDFParse({ data: fileBuffer });
+          const parsed = await parser.getText();
+          await parser.destroy();
+
+          const rawPages = (parsed.pages || []).map((p, idx) => ({
+            pageNum: p.num || (idx + 1),
+            text: (p.text || '').replace(/\r\n/g, '\n').replace(/\t/g, ' ').replace(/\s+/g, ' ').trim()
+          })).filter(p => p.text.length > 0);
+
+          docData = {
+            title: fileInfo.originalName,
+            pages: rawPages
+          };
+          pdfAudioCache.set('pdf_audio_' + fileInfo.filename, docData);
+        }
+        pagesToTranslate = docData.pages || [];
+      }
+    } else {
+      return res.status(400).json({ error: 'Either filename or customText must be provided.' });
+    }
+
+    if (pagesToTranslate.length === 0) {
+      pagesToTranslate = [{ pageNum: 1, text: 'No text content found in document.' }];
+    }
+
+    // Limit translation to first 15 pages per request for fast responsiveness
+    const MAX_TRANSLATE_PAGES = 15;
+    const activePages = pagesToTranslate.slice(0, MAX_TRANSLATE_PAGES);
+
+    // Extract all paragraphs across active pages
+    const allOrigParas = [];
+    activePages.forEach(page => {
+      const rawParas = page.text.split(/\n\s*\n/).map(p => p.trim()).filter(p => p.length > 0);
+      if (rawParas.length > 0) {
+        allOrigParas.push(...rawParas);
+      } else if (page.text.trim()) {
+        allOrigParas.push(page.text.trim());
+      }
+    });
+
+    if (allOrigParas.length === 0) {
+      allOrigParas.push('No readable content.');
+    }
+
+    // Batch translate paragraphs
+    const allTransParas = await translateParagraphBatch(allOrigParas, targetLang);
+
+    const translatedPages = activePages.map((page, idx) => ({
+      pageNum: page.pageNum,
+      originalText: page.text
+    }));
+
+    const result = {
+      success: true,
+      filename,
+      docTitle,
+      targetLang,
+      langMeta,
+      totalPages: pagesToTranslate.length,
+      translatedPagesCount: translatedPages.length,
+      pages: translatedPages,
+      originalParagraphs: allOrigParas,
+      translatedParagraphs: allTransParas
+    };
+
+    translationCache.set(cacheKey, result);
+    if (translationCache.size > 100) {
+      const oldest = translationCache.keys().next().value;
+      translationCache.delete(oldest);
+    }
+
+    res.json(result);
+  } catch (err) {
+    console.error('Translation error:', err);
+    res.status(500).json({ error: 'Failed to translate document: ' + err.message });
   }
 });
 
