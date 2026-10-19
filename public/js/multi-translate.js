@@ -25,6 +25,7 @@
     { code: 'ko', name: 'Korean (한국어)', bcp47: 'ko-KR', flag: '🇰🇷' },
     { code: 'ar', name: 'Arabic (العربية)', bcp47: 'ar-SA', flag: '🇸🇦' },
     { code: 'hi', name: 'Hindi (हिन्दी)', bcp47: 'hi-IN', flag: '🇮🇳' },
+    { code: 'ml', name: 'Malayalam (മലയാളം)', bcp47: 'ml-IN', flag: '🇮🇳' },
     { code: 'nl', name: 'Dutch (Nederlands)', bcp47: 'nl-NL', flag: '🇳🇱' },
     { code: 'sv', name: 'Swedish (Svenska)', bcp47: 'sv-SE', flag: '🇸🇪' },
     { code: 'no', name: 'Norwegian (Norsk)', bcp47: 'nb-NO', flag: '🇳🇴' },

@@ -4381,6 +4381,7 @@ const SUPPORTED_LANGUAGES = [
   { code: 'ko', name: 'Korean', nativeName: '한국어', flag: '🇰🇷', bcp47: 'ko-KR' },
   { code: 'ar', name: 'Arabic', nativeName: 'العربية', flag: '🇸🇦', bcp47: 'ar-SA', rtl: true },
   { code: 'hi', name: 'Hindi', nativeName: 'हिन्दी', flag: '🇮🇳', bcp47: 'hi-IN' },
+  { code: 'ml', name: 'Malayalam', nativeName: 'മലയാളം', flag: '🇮🇳', bcp47: 'ml-IN' },
   { code: 'nl', name: 'Dutch', nativeName: 'Nederlands', flag: '🇳🇱', bcp47: 'nl-NL' },
   { code: 'sv', name: 'Swedish', nativeName: 'Svenska', flag: '🇸🇪', bcp47: 'sv-SE' },
   { code: 'pl', name: 'Polish', nativeName: 'Polski', flag: '🇵🇱', bcp47: 'pl-PL' },
@@ -4407,22 +4408,40 @@ const SUPPORTED_LANGUAGES = [
 // In-Memory Translation Cache (filename:targetLang -> cached response)
 const translationCache = new Map();
 
-// Helper: Translate a single text block with retry
+// Helper: Translate a single text block with multi-engine fallback
 async function translateText(text, targetLang) {
   if (!text || !text.trim()) return '';
+
+  // 1. Try Google Translate gtx
   try {
     const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=${encodeURIComponent(targetLang)}&dt=t&q=${encodeURIComponent(text)}`;
     const response = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0' } });
-    if (!response.ok) throw new Error(`Translation API error: ${response.status}`);
-    const data = await response.json();
-    if (Array.isArray(data) && Array.isArray(data[0])) {
-      return data[0].map(item => item[0]).join('');
+    if (response.ok) {
+      const data = await response.json();
+      if (Array.isArray(data) && Array.isArray(data[0])) {
+        const res = data[0].map(item => item[0]).join('');
+        if (res && res.trim()) return res;
+      }
     }
-    return text;
+  } catch (_) {
+    // Continue to fallback
+  }
+
+  // 2. Fallback to MyMemory Neural Translate API
+  try {
+    const mmUrl = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(text.slice(0, 500))}&langpair=auto|${encodeURIComponent(targetLang)}`;
+    const mmRes = await fetch(mmUrl);
+    if (mmRes.ok) {
+      const mmData = await mmRes.json();
+      if (mmData && mmData.responseData && mmData.responseData.translatedText) {
+        return mmData.responseData.translatedText;
+      }
+    }
   } catch (err) {
     console.warn(`Translation fallback error for [${targetLang}]:`, err.message);
-    return text;
   }
+
+  return text;
 }
 
 // Helper: Batch translate array of paragraphs efficiently
