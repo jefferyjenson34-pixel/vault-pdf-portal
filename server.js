@@ -147,6 +147,24 @@ const uploadPrivate = multer({
   limits: { fileSize: 50 * 1024 * 1024 } // 50MB
 });
 
+// Multer config for Quantum Neural Scanner (strictly in-memory, 10MB limit, never writes to disk)
+const scanMemoryUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 10 * 1024 * 1024 } // 10MB limit
+});
+
+function handleScanUpload(req, res, next) {
+  scanMemoryUpload.single('pdf')(req, res, (err) => {
+    if (err) {
+      if (err.code === 'LIMIT_FILE_SIZE') {
+        return res.status(400).json({ error: 'File size exceeds maximum allowed limit of 10 MB.' });
+      }
+      return res.status(400).json({ error: err.message || 'File upload error.' });
+    }
+    next();
+  });
+}
+
 // ─── Disable technology fingerprinting (Express / X-Powered-By) ─────
 app.disable('x-powered-by');
 
@@ -177,8 +195,60 @@ app.use((req, res, next) => {
   next();
 });
 
-// Trust proxy for real IP behind reverse proxy (Render, Cloudflare, etc.)
-app.set('trust proxy', true);
+// Trust proxy configured via environment variable (defaults to 1)
+app.set('trust proxy', Number(process.env.TRUST_PROXY_HOPS ?? 1));
+
+// Temporary diagnostics marked TEMP-IP-DIAG: for the first 15 requests after boot
+let tempIpDiagCount = 0;
+app.use((req, res, next) => {
+  if (tempIpDiagCount < 15) {
+    tempIpDiagCount++;
+    console.log('[TEMP-IP-DIAG]', JSON.stringify({
+      count: tempIpDiagCount,
+      ip: req.ip,
+      ips: req.ips,
+      remoteAddress: req.socket?.remoteAddress,
+      'x-forwarded-for': req.headers['x-forwarded-for'] || null,
+      'cf-connecting-ip': req.headers['cf-connecting-ip'] || null
+    }));
+  }
+  next();
+});
+
+// ─── Rate Limiting (express-rate-limit) ──────────────────────────────
+const { rateLimit } = require('express-rate-limit');
+
+if (process.env.RATE_LIMIT_DISABLED === '1') {
+  console.warn('⚠️  WARNING: RATE_LIMIT_DISABLED=1 is set. All rate limiters are bypassed!');
+}
+
+const createJsonLimiter = (windowMs, max, message) => {
+  const limiter = rateLimit({
+    windowMs,
+    max,
+    standardHeaders: 'draft-7',
+    legacyHeaders: false,
+    validate: { trustProxy: false, keyGeneratorIpFallback: false },
+    keyGenerator: (req) => req.ip,
+    handler: (req, res, next, options) => {
+      res.status(429).json({ error: options.message || 'Too many requests, please try again later.' });
+    },
+    message
+  });
+  return (req, res, next) => {
+    if (process.env.RATE_LIMIT_DISABLED === '1') {
+      return next();
+    }
+    return limiter(req, res, next);
+  };
+};
+
+const unlockVerifyLimiter = createJsonLimiter(15 * 60 * 1000, 10, 'Too many unlock verification attempts. Please try again after 15 minutes.');
+const authLoginLimiter = createJsonLimiter(15 * 60 * 1000, 10, 'Too many login attempts. Please try again after 15 minutes.');
+const authRegisterLimiter = createJsonLimiter(60 * 60 * 1000, 5, 'Too many registration requests. Please try again after an hour.');
+const authForgotLimiter = createJsonLimiter(60 * 60 * 1000, 5, 'Too many password reset requests. Please try again after an hour.');
+const aiLimiter = createJsonLimiter(10 * 60 * 1000, 20, 'Too many AI requests. Please wait 10 minutes before asking more questions.');
+const scannerLimiter = createJsonLimiter(60 * 60 * 1000, 5, 'Too many document scan requests. Maximum 5 scans allowed per hour.');
 
 // ─── Dedicated Clean Routes for Crawlers & SEO (Robots.txt & Sitemap.xml) ─
 app.get('/robots.txt', (req, res) => {
@@ -1924,11 +1994,44 @@ app.get('/api/preview/:filename', (req, res) => {
   fs.createReadStream(fileInfo.filePath).pipe(res);
 });
 
+// Scanned in-memory document cache (30-minute TTL, max 50 entries, zero disk writes)
+const SCAN_CACHE_TTL_MS = 30 * 60 * 1000; // 30 minutes
+const SCAN_CACHE_MAX_ENTRIES = 50;
+const scannedDocsCache = new Map();
+
+function cleanScannedDocsCache() {
+  const now = Date.now();
+  for (const [key, val] of scannedDocsCache.entries()) {
+    if (val.expiresAt < now) {
+      scannedDocsCache.delete(key);
+    }
+  }
+  while (scannedDocsCache.size > SCAN_CACHE_MAX_ENTRIES) {
+    const oldestKey = scannedDocsCache.keys().next().value;
+    scannedDocsCache.delete(oldestKey);
+  }
+}
+
 // ─── API: Extract Text & Chapters for Neural Voice Reader ───────────
 const pdfAudioCache = new Map();
 
 app.get('/api/pdf/audio-content/:filename', async (req, res) => {
   try {
+    const filename = req.params.filename;
+    if (scannedDocsCache.has(filename)) {
+      const scanned = scannedDocsCache.get(filename);
+      return res.json({
+        success: true,
+        filename: scanned.scanId,
+        title: scanned.originalName,
+        totalPages: scanned.totalPages,
+        totalWords: scanned.totalWords,
+        estimatedMinutes: scanned.estimatedMinutes,
+        pages: scanned.pages,
+        fullText: scanned.fullText
+      });
+    }
+
     const fileInfo = locatePdfFile(req.params.filename);
     if (!fileInfo) {
       return res.status(404).json({ error: 'Document not found' });
@@ -1996,17 +2099,19 @@ if (!fs.existsSync(AUDIO_CACHE_DIR)) {
   fs.mkdirSync(AUDIO_CACHE_DIR, { recursive: true });
 }
 
-// POST /api/pdf/client-upload-and-scan (Client uploads any PDF to scan, read, and listen)
-app.post('/api/pdf/client-upload-and-scan', (req, res, next) => {
-  return res.status(503).json({ error: 'Scanner temporarily unavailable' });
-}, upload.single('pdf'), async (req, res) => {
+// POST /api/pdf/client-upload-and-scan (Client uploads any PDF to scan, read, and listen - memory only)
+app.post('/api/pdf/client-upload-and-scan', scannerLimiter, handleScanUpload, async (req, res) => {
   try {
-    if (!req.file) {
+    if (!req.file || !req.file.buffer) {
       return res.status(400).json({ error: 'No PDF file was provided for scanning.' });
     }
 
-    const filePath = req.file.path;
-    const fileBuffer = fs.readFileSync(filePath);
+    const fileBuffer = req.file.buffer;
+
+    // Validate magic bytes: must start with %PDF-
+    if (fileBuffer.length < 5 || fileBuffer.subarray(0, 5).toString('ascii') !== '%PDF-') {
+      return res.status(400).json({ error: 'Invalid file format. File must be a valid PDF document starting with %PDF-.' });
+    }
 
     // 1. Cryptographic SHA-256 and SHA-512 hashes
     const crypto = require('crypto');
@@ -2049,25 +2154,37 @@ app.post('/api/pdf/client-upload-and-scan', (req, res, next) => {
     const totalWords = pages.reduce((sum, p) => sum + p.wordCount, 0);
     const estimatedMinutes = Math.max(1, Math.round(totalWords / 150));
 
-    // Cache in pdfAudioCache so player loads instantly
-    const cacheKey = `${filePath}:${req.file.size}`;
-    const audioData = {
-      success: true,
-      filename: req.file.filename,
-      title: req.file.originalname,
+    // Store strictly in-memory with random id and TTL (never writes to disk or public/uploads)
+    const scanId = 'scan-' + crypto.randomBytes(16).toString('hex') + '.pdf';
+    cleanScannedDocsCache();
+
+    const docData = {
+      scanId,
+      originalName: req.file.originalname,
+      size: fileBuffer.length,
       totalPages: pages.length,
       totalWords,
       estimatedMinutes,
       pages,
-      fullText
+      fullText,
+      expiresAt: Date.now() + SCAN_CACHE_TTL_MS
     };
-    pdfAudioCache.set(cacheKey, audioData);
+    scannedDocsCache.set(scanId, docData);
+
+    // Also populate pdfAudioCache for audio reader and Ask AI
+    pdfAudioCache.set('pdf_audio_' + scanId, {
+      title: req.file.originalname,
+      totalPages: pages.length,
+      totalWords,
+      pages,
+      fullText
+    });
 
     res.json({
       success: true,
-      filename: req.file.filename,
+      filename: scanId,
       originalName: req.file.originalname,
-      size: req.file.size,
+      size: fileBuffer.length,
       sha256,
       sha512,
       entropy: entropyScore,
@@ -2077,8 +2194,8 @@ app.post('/api/pdf/client-upload-and-scan', (req, res, next) => {
       estimatedMinutes,
       pages,
       fullText,
-      textDownloadUrl: `/api/pdf/download-text/${encodeURIComponent(req.file.filename)}`,
-      audioDownloadUrl: `/api/pdf/download-audio/${encodeURIComponent(req.file.filename)}`
+      textDownloadUrl: `/api/pdf/download-text/${encodeURIComponent(scanId)}`,
+      audioDownloadUrl: `/api/pdf/download-audio/${encodeURIComponent(scanId)}`
     });
   } catch (err) {
     console.error('Client upload and scan error:', err);
@@ -2089,6 +2206,22 @@ app.post('/api/pdf/client-upload-and-scan', (req, res, next) => {
 // GET /api/pdf/download-text/:filename (Download extracted text file)
 app.get('/api/pdf/download-text/:filename', async (req, res) => {
   try {
+    const filename = req.params.filename;
+    if (scannedDocsCache.has(filename)) {
+      const scanned = scannedDocsCache.get(filename);
+      const docBaseName = scanned.originalName.replace(/\.pdf$/i, '');
+      const header = `========================================================================\n` +
+                     `VAULT PDF PORTAL — NEURAL EXTRACTED TEXT DOCUMENT\n` +
+                     `Document: ${scanned.originalName}\n` +
+                     `Extracted At: ${new Date().toUTCString()}\n` +
+                     `Total Pages: ${scanned.totalPages}\n` +
+                     `========================================================================\n\n`;
+      const fullContent = header + scanned.fullText;
+      res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+      res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(docBaseName)}.txt"`);
+      return res.send(fullContent);
+    }
+
     const fileInfo = locatePdfFile(req.params.filename);
     if (!fileInfo) {
       return res.status(404).send('Document not found');
@@ -2480,7 +2613,7 @@ app.get('/api/share/:token/file', (req, res) => {
 // ═════════════════════════════════════════════════════════════════════
 
 // POST /api/pdf/chat (Ask any question about any PDF document)
-app.post('/api/pdf/chat', async (req, res) => {
+app.post('/api/pdf/chat', aiLimiter, async (req, res) => {
   try {
     const { filename, question, history } = req.body || {};
     if (!filename || !question) {
@@ -2498,12 +2631,23 @@ app.post('/api/pdf/chat', async (req, res) => {
       targetPath = privatePath;
     }
 
-    if (!targetPath) {
+    if (!targetPath && !scannedDocsCache.has(cleanName)) {
       return res.status(404).json({ error: 'Document not found in storage vault.' });
     }
 
     // Check or extract text from document
     let docData = pdfAudioCache.get('pdf_audio_' + cleanName);
+    if (!docData && scannedDocsCache.has(cleanName)) {
+      const scanned = scannedDocsCache.get(cleanName);
+      docData = {
+        title: scanned.originalName,
+        totalPages: scanned.totalPages,
+        totalWords: scanned.totalWords,
+        pages: scanned.pages,
+        fullText: scanned.pages.map(p => `[Page ${p.pageNum}]\n${p.text}`).join('\n\n')
+      };
+      pdfAudioCache.set('pdf_audio_' + cleanName, docData);
+    }
     if (!docData) {
       const { PDFParse } = require('pdf-parse');
       const fileBuffer = fs.readFileSync(targetPath);
@@ -2624,7 +2768,7 @@ INSTRUCTIONS:
 });
 
 // POST /api/pdf/summarize (One-click 30-second forensic executive summary)
-app.post('/api/pdf/summarize', async (req, res) => {
+app.post('/api/pdf/summarize', aiLimiter, async (req, res) => {
   try {
     const { filename } = req.body || {};
     if (!filename) {
@@ -2636,11 +2780,22 @@ app.post('/api/pdf/summarize', async (req, res) => {
     const privatePath = path.join(PRIVATE_UPLOADS_DIR, cleanName);
     const targetPath = fs.existsSync(publicPath) ? publicPath : (fs.existsSync(privatePath) ? privatePath : null);
 
-    if (!targetPath) {
+    if (!targetPath && !scannedDocsCache.has(cleanName)) {
       return res.status(404).json({ error: 'Document not found.' });
     }
 
     let docData = pdfAudioCache.get('pdf_audio_' + cleanName);
+    if (!docData && scannedDocsCache.has(cleanName)) {
+      const scanned = scannedDocsCache.get(cleanName);
+      docData = {
+        title: scanned.originalName,
+        totalPages: scanned.totalPages,
+        totalWords: scanned.totalWords,
+        pages: scanned.pages,
+        fullText: scanned.pages.map(p => `[Page ${p.pageNum}]\n${p.text}`).join('\n\n')
+      };
+      pdfAudioCache.set('pdf_audio_' + cleanName, docData);
+    }
     if (!docData) {
       const { PDFParse } = require('pdf-parse');
       const fileBuffer = fs.readFileSync(targetPath);
@@ -2735,7 +2890,7 @@ ${contextSample}`;
 // ═════════════════════════════════════════════════════════════════════
 
 // POST /api/auth/register
-app.post('/api/auth/register', (req, res) => {
+app.post('/api/auth/register', authRegisterLimiter, (req, res) => {
   const { email, password } = req.body || {};
   if (!email || !password) {
     return res.status(400).json({ error: 'Email and password are required.' });
@@ -2967,7 +3122,7 @@ app.get('/api/auth/verify-email', (req, res) => {
 });
 
 // POST /api/auth/login (Hardened rate-limiting & HttpOnly/Secure/SameSite cookie)
-app.post('/api/auth/login', async (req, res) => {
+app.post('/api/auth/login', authLoginLimiter, async (req, res) => {
   const ip = getVisitorIP(req);
   const rateLimit = checkUserLoginRateLimit(ip);
   if (!rateLimit.allowed) {
@@ -3052,7 +3207,7 @@ app.get('/api/auth/me', (req, res) => {
 });
 
 // POST /api/auth/forgot-password
-app.post('/api/auth/forgot-password', async (req, res) => {
+app.post('/api/auth/forgot-password', authForgotLimiter, async (req, res) => {
   const { email } = req.body || {};
   if (!email || typeof email !== 'string' || !email.trim()) {
     return res.status(400).json({ error: 'Email address is required.' });
@@ -3345,15 +3500,8 @@ app.delete('/api/user/documents/:id', requireUser, (req, res) => {
 // ═════════════════════════════════════════════════════════════════════
 
 // POST /api/unlock/verify (Rate-limited, code validation, creates download token)
-app.post('/api/unlock/verify', async (req, res) => {
+app.post('/api/unlock/verify', unlockVerifyLimiter, async (req, res) => {
   const ip = getVisitorIP(req);
-  const rateLimit = checkUnlockRateLimit(ip);
-  if (!rateLimit.allowed) {
-    return res.status(429).json({
-      error: `Too many failed code attempts. Unlocking locked for ${rateLimit.remainingMins} minute(s).`
-    });
-  }
-
   const { code } = req.body || {};
   if (!code || typeof code !== 'string' || normalizeCode(code).length < 12) {
     return res.status(400).json({ error: 'Invalid secret code. Codes are at least 12 characters long.' });
@@ -3364,7 +3512,6 @@ app.post('/api/unlock/verify', async (req, res) => {
   const doc = docs.find(d => d.codeHash === submittedHash);
 
   if (!doc || doc.revoked) {
-    recordUnlockFailed(ip);
     await new Promise(r => setTimeout(r, 400));
     return res.status(401).json({ error: 'Invalid or revoked secret unlock code.' });
   }
@@ -3825,7 +3972,7 @@ async function queryOpenRouterModel({ model, messages, apiKey, isStreaming, onTo
 }
 
 // ─── Main POST /api/chat Route ────────────────────────────────────────
-app.post('/api/chat', async (req, res) => {
+app.post('/api/chat', aiLimiter, async (req, res) => {
   const ip = getVisitorIP(req);
 
   // 1. Per-IP Rate Limiting
@@ -4010,4 +4157,5 @@ app.post('/api/chat', async (req, res) => {
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`\n  🚀 PDF Portal running at http://localhost:${PORT}`);
   console.log(`  📋 Admin panel at http://localhost:${PORT}/admin\n`);
+  console.log(`  🛡️  Security: Trust Proxy set to ${app.get('trust proxy')} hops. express-rate-limit active.`);
 });
