@@ -324,6 +324,92 @@
     document.body.style.overflow = '';
   }
 
+  function showTranslatorNotice(message, type = 'info') {
+    let noticeEl = document.getElementById('translator-notice');
+    if (!noticeEl) {
+      const modal = document.querySelector('.vault-translator-modal');
+      if (!modal) return alert(message);
+      noticeEl = document.createElement('div');
+      noticeEl.id = 'translator-notice';
+      noticeEl.className = 'translator-notice-banner';
+      const toolbar = modal.querySelector('.translator-toolbar');
+      if (toolbar) {
+        modal.insertBefore(noticeEl, toolbar);
+      } else {
+        modal.appendChild(noticeEl);
+      }
+    }
+    const icon = type === 'warning' ? '⚠️' : type === 'error' ? '❌' : 'ℹ️';
+    noticeEl.innerHTML = `
+      <div style="display:flex; align-items:center; gap:10px; justify-content:space-between; width:100%;">
+        <div style="display:flex; align-items:center; gap:10px;">
+          <span>${icon}</span>
+          <span>${escapeHtml(message)}</span>
+        </div>
+        <button type="button" style="background:none; border:none; color:inherit; cursor:pointer; font-size:1.2rem; line-height:1; padding:0 4px;" onclick="this.closest('.translator-notice-banner').style.display='none'">×</button>
+      </div>
+    `;
+    noticeEl.className = `translator-notice-banner notice-${type}`;
+    noticeEl.style.display = 'block';
+    clearTimeout(noticeEl._timeout);
+    noticeEl._timeout = setTimeout(() => {
+      noticeEl.style.display = 'none';
+    }, 6000);
+  }
+
+  function showTranslationUnavailable(title, message, file, targetLang) {
+    const origCol = document.getElementById('col-original');
+    const transCol = document.getElementById('col-translated');
+    const origCount = document.getElementById('orig-badge-count');
+    const transCount = document.getElementById('trans-badge-count');
+
+    // Ensure left column displays original document text
+    if (file && (file.fullText || file.customText)) {
+      originalParagraphs = (file.fullText || file.customText).split(/\n\s*\n/).map(p => p.trim()).filter(Boolean);
+    }
+    translatedParagraphs = [];
+
+    if (origCount) origCount.textContent = `${originalParagraphs.length} paragraphs`;
+    if (transCount) transCount.textContent = `0 paragraphs`;
+
+    if (originalParagraphs.length > 0 && origCol) {
+      origCol.innerHTML = originalParagraphs
+        .map((p, i) => `
+          <div class="sync-paragraph" data-idx="${i}" data-side="original">
+            <span class="para-number">#${i + 1}</span>
+            ${escapeHtml(p)}
+          </div>
+        `)
+        .join('');
+    }
+
+    if (transCol) {
+      transCol.innerHTML = `
+        <div class="translator-empty-state" style="color:#ef4444; padding:36px 20px;">
+          <div class="translator-empty-icon" style="opacity:0.9;">⚠️</div>
+          <div style="font-weight:700; font-size:1.05rem; margin-bottom:8px; color:#f87171;">${escapeHtml(title)}</div>
+          <div style="font-size:0.85rem; color:#94a3b8; max-width:340px; line-height:1.5; margin-bottom:18px;">
+            ${escapeHtml(message)}
+          </div>
+          <button class="btn-trigger-translate" id="btn-retry-trans" style="margin:0 auto;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+              <path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.8 1.04 6.44 2.73L21 8"></path>
+              <polyline points="21 3 21 8 16 8"></polyline>
+            </svg>
+            <span>Retry Translation</span>
+          </button>
+        </div>
+      `;
+
+      const retryBtn = transCol.querySelector('#btn-retry-trans');
+      if (retryBtn) {
+        retryBtn.addEventListener('click', () => {
+          executeTranslation(file, targetLang);
+        });
+      }
+    }
+  }
+
   async function executeTranslation(file, targetLang) {
     if (!file) return;
 
@@ -334,6 +420,9 @@
 
     const targetLangMeta = SUPPORTED_LANGUAGES.find((l) => l.code === targetLang) || { name: targetLang, flag: '🌐' };
     if (transLangLabel) transLangLabel.textContent = `${targetLangMeta.flag} ${targetLangMeta.name}`;
+
+    // Reset active speech
+    stopSpeech();
 
     // Show loading state in translated column
     if (translateBtn) {
@@ -363,77 +452,50 @@
         })
       });
 
-      let data = {};
-      if (res.ok) {
-        data = await res.json();
-        originalParagraphs = data.originalParagraphs || [];
-        translatedParagraphs = data.translatedParagraphs || [];
-      } else if (file.fullText || file.customText) {
-        // Fallback for extracted/custom document text
-        const rawText = file.fullText || file.customText || '';
-        originalParagraphs = rawText.split(/\n\s*\n/).map(p => p.trim()).filter(p => p.length > 0);
-        translatedParagraphs = [];
-      } else {
-        throw new Error(`Server returned ${res.status}`);
+      const data = await res.json().catch(() => ({}));
+
+      if (res.status === 429) {
+        showTranslationUnavailable(
+          'Rate Limit Reached',
+          data.error || 'Too many translation requests from this IP. Please wait a minute before translating again.',
+          file,
+          targetLang
+        );
+        return;
       }
 
-      // Check if translation is needed (server returned untranslated text or empty translation)
-      const needsTranslation = originalParagraphs.length > 0 &&
-        (!translatedParagraphs.length || translatedParagraphs.every((p, idx) => p === originalParagraphs[idx]));
-
-      if (needsTranslation) {
-        translatedParagraphs = await Promise.all(
-          originalParagraphs.map(async (para) => {
-            if (!para || !para.trim()) return '';
-            try {
-              const url = `https://clients5.google.com/translate_a/t?client=dict-chrome-ex&sl=auto&tl=${encodeURIComponent(targetLang)}&q=${encodeURIComponent(para.trim())}`;
-              const r = await fetch(url);
-              if (r.ok) {
-                const j = await r.json();
-                if (Array.isArray(j) && Array.isArray(j[0]) && j[0][0]) {
-                  return j[0][0];
-                }
-              }
-            } catch (_) {}
-            return para;
-          })
+      if (!res.ok || !data.success) {
+        showTranslationUnavailable(
+          'Translation Unavailable',
+          data.error || `Could not translate document into ${targetLangMeta.name}. All translation engines are currently busy.`,
+          file,
+          targetLang
         );
+        return;
+      }
+
+      originalParagraphs = data.originalParagraphs || [];
+      translatedParagraphs = data.translatedParagraphs || [];
+
+      if (!translatedParagraphs.length) {
+        showTranslationUnavailable(
+          'Translation Unavailable',
+          `No translated paragraphs were produced for ${targetLangMeta.name}.`,
+          file,
+          targetLang
+        );
+        return;
       }
 
       renderDualColumns();
     } catch (err) {
-      console.warn('[Translator] Server error, attempting client translation:', err);
-      if (file.fullText || file.customText) {
-        const rawText = file.fullText || file.customText || '';
-        originalParagraphs = rawText.split(/\n\s*\n/).map(p => p.trim()).filter(p => p.length > 0);
-        try {
-          translatedParagraphs = await Promise.all(
-            originalParagraphs.map(async (para) => {
-              if (!para || !para.trim()) return '';
-              const url = `https://clients5.google.com/translate_a/t?client=dict-chrome-ex&sl=auto&tl=${encodeURIComponent(targetLang)}&q=${encodeURIComponent(para.trim())}`;
-              const r = await fetch(url);
-              if (r.ok) {
-                const j = await r.json();
-                if (Array.isArray(j) && Array.isArray(j[0]) && j[0][0]) {
-                  return j[0][0];
-                }
-              }
-              return para;
-            })
-          );
-          renderDualColumns();
-          return;
-        } catch (_) {}
-      }
-
-      transCol.innerHTML = `
-        <div class="translator-empty-state" style="color:#ef4444;">
-          <div class="translator-empty-icon">⚠️</div>
-          <div style="font-weight:600; margin-bottom:6px;">Translation Failed</div>
-          <div style="font-size:0.82rem; color:#94a3b8; max-width:320px;">${escapeHtml(err.message)}</div>
-          <button class="btn-trigger-translate" style="margin-top:14px;" onclick="window.VaultTranslator.retry()">Retry</button>
-        </div>
-      `;
+      console.warn('[Translator] Network/Request error:', err);
+      showTranslationUnavailable(
+        'Network Error',
+        err.message || 'Failed to connect to the translation server. Please check your connection and retry.',
+        file,
+        targetLang
+      );
     } finally {
       if (translateBtn) {
         translateBtn.disabled = false;
@@ -537,17 +599,18 @@
   function getBestVoiceForLang(bcp47Code) {
     if (!synth) return null;
     const voices = synth.getVoices() || [];
+    if (!voices.length) return null;
     const prefix = bcp47Code.split('-')[0].toLowerCase();
 
-    // 1. Exact match (e.g. es-ES)
+    // 1. Exact match (e.g. es-ES, ml-IN)
     let matched = voices.find((v) => v.lang.toLowerCase() === bcp47Code.toLowerCase());
     if (matched) return matched;
 
-    // 2. Prefix match (e.g. es_MX or es)
-    matched = voices.find((v) => v.lang.toLowerCase().startsWith(prefix));
+    // 2. Prefix match (e.g. es_MX or ml)
+    matched = voices.find((v) => v.lang.toLowerCase().replace('_', '-').startsWith(prefix));
     if (matched) return matched;
 
-    return voices[0] || null;
+    return null; // Return null so we never silently use an English voice for foreign languages
   }
 
   function toggleSpeech(side) {
@@ -564,13 +627,19 @@
       return;
     }
 
+    const paragraphs = side === 'original' ? originalParagraphs : translatedParagraphs;
+    if (!paragraphs || paragraphs.length === 0) {
+      showTranslatorNotice(`No ${side === 'original' ? 'original document' : 'translated'} text available to play.`, 'warning');
+      return;
+    }
+
     stopSpeech();
     speakParagraph(side, 0);
   }
 
   function speakParagraph(side, index) {
     if (!('speechSynthesis' in window)) {
-      alert('Speech synthesis is not supported on this browser.');
+      showTranslatorNotice('Speech synthesis is not supported on this browser.', 'warning');
       return;
     }
 
@@ -579,21 +648,35 @@
     const paragraphs = side === 'original' ? originalParagraphs : translatedParagraphs;
     if (!paragraphs || index >= paragraphs.length || index < 0) return;
 
+    const targetLangMeta = SUPPORTED_LANGUAGES.find((l) => l.code === currentTargetLang) || { name: 'Target Language', bcp47: 'en-US' };
+    const bcp47 = side === 'original' ? 'en-US' : (targetLangMeta ? targetLangMeta.bcp47 : 'en-US');
+
+    // Regional voice guard: never fall back to an English voice for foreign translations!
+    const voice = getBestVoiceForLang(bcp47);
+    if (side === 'translated') {
+      const prefix = bcp47.split('-')[0].toLowerCase();
+      const hasVoice = voice && voice.lang.toLowerCase().replace('_', '-').startsWith(prefix);
+      if (!hasVoice) {
+        showTranslatorNotice(`No ${targetLangMeta.name} voice installed on this device or browser. Audio preview requires a system ${targetLangMeta.name} voice pack.`, 'warning');
+        return;
+      }
+    }
+
     activeAudioSide = side;
     activeParagraphIndex = index;
     isSpeaking = true;
     isPaused = false;
 
-    const targetLangMeta = SUPPORTED_LANGUAGES.find((l) => l.code === currentTargetLang);
-    const bcp47 = side === 'original' ? 'en-US' : (targetLangMeta ? targetLangMeta.bcp47 : 'en-US');
-
     const textToSpeak = paragraphs[index];
     const utterance = new SpeechSynthesisUtterance(textToSpeak);
     utterance.rate = speechRate;
     utterance.lang = bcp47;
-
-    const voice = getBestVoiceForLang(bcp47);
-    if (voice) utterance.voice = voice;
+    if (voice) {
+      utterance.voice = voice;
+    } else if (side === 'original') {
+      const defaultVoice = (synth.getVoices() || []).find(v => v.lang.toLowerCase().startsWith('en')) || (synth.getVoices() || [])[0];
+      if (defaultVoice) utterance.voice = defaultVoice;
+    }
 
     // Visual glowing highlight on currently speaking paragraph
     highlightSpeakingParagraph(side, index);

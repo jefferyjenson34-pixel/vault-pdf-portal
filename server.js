@@ -4408,81 +4408,184 @@ const SUPPORTED_LANGUAGES = [
 // In-Memory Translation Cache (filename:targetLang -> cached response)
 const translationCache = new Map();
 
+// Translation Rate Limiter: 10 requests / minute per IP to protect shared free tier
+const translateLimiter = createJsonLimiter(
+  60 * 1000,
+  10,
+  'Too many translation requests from this IP. Please wait a minute before translating again.'
+);
+
+// Explicit OpenRouter free model failover list (tested & verified)
+const TRANSLATE_FREE_MODELS = [
+  'minimax/minimax-m3.1-flash:free',
+  'nvidia/nemotron-3.5-super-vl:free'
+];
+
 // Helper: Translate a single text block with multi-engine fallback
-async function translateText(text, targetLang, sourceLang = 'auto') {
-  if (!text || !text.trim()) return '';
+// Returns: { text: string, success: boolean, engine: string }
+async function translateText(text, targetLang, targetLangName = '') {
+  if (!text || !text.trim()) {
+    return { text: '', success: true, engine: 'none' };
+  }
   const trimmed = text.trim();
+  const apiKey = process.env.OPENROUTER_API_KEY;
+  const langDisplay = targetLangName || targetLang;
 
-  // 1. Try Google Chrome Extension Client API (clients5 - fast & reliable)
-  try {
-    const url = `https://clients5.google.com/translate_a/t?client=dict-chrome-ex&sl=auto&tl=${encodeURIComponent(targetLang)}&q=${encodeURIComponent(trimmed)}`;
-    const response = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0' } });
-    if (response.ok) {
-      const data = await response.json();
-      if (Array.isArray(data) && Array.isArray(data[0]) && data[0][0]) {
-        return data[0][0];
+  // 1. Try OpenRouter free models with explicit failover
+  if (apiKey) {
+    for (const model of TRANSLATE_FREE_MODELS) {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 12000);
+      try {
+        const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+          method: 'POST',
+          signal: controller.signal,
+          headers: {
+            'Authorization': `Bearer ${apiKey}`,
+            'Content-Type': 'application/json',
+            'HTTP-Referer': 'https://vault-pdf-portal.onrender.com',
+            'X-Title': 'Vault PDF Portal'
+          },
+          body: JSON.stringify({
+            model,
+            max_tokens: 1200,
+            temperature: 0.1,
+            reasoning: { exclude: true },
+            messages: [
+              {
+                role: 'system',
+                content: `You are a professional neural translator. Translate the given text accurately into ${langDisplay} (${targetLang}). Return ONLY the direct translation. Do not include quotes, markdown formatting, explanations, or notes.`
+              },
+              { role: 'user', content: trimmed }
+            ]
+          })
+        });
+        clearTimeout(timeoutId);
+
+        if (res.ok) {
+          const data = await res.json();
+          const choice = data?.choices?.[0];
+          const translated = choice?.message?.content?.trim();
+          if (translated && choice?.finish_reason !== 'length') {
+            const sanitized = sanitizeAiContent(translated);
+            return {
+              text: sanitized,
+              success: true,
+              engine: `openrouter:${model}`
+            };
+          } else {
+            console.warn(`[Translate Engine Failure] engine=openrouter:${model} targetLang=${targetLang} status=${res.status} error=Content truncated or empty (finish_reason=${choice?.finish_reason})`);
+          }
+        } else {
+          const errBody = await res.text().catch(() => '');
+          console.warn(`[Translate Engine Failure] engine=openrouter:${model} targetLang=${targetLang} status=${res.status} error=${errBody.slice(0, 150)}`);
+        }
+      } catch (err) {
+        clearTimeout(timeoutId);
+        console.warn(`[Translate Engine Failure] engine=openrouter:${model} targetLang=${targetLang} error=${err.message}`);
       }
     }
-  } catch (_) {
-    // Continue to fallback
   }
 
-  // 2. Try Google Translate gtx
+  // 2. Fallback: MyMemory Neural Translate API with registered email param (&de= raises limit to 50,000 chars/day)
   try {
-    const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=${encodeURIComponent(targetLang)}&dt=t&q=${encodeURIComponent(trimmed)}`;
-    const response = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0' } });
-    if (response.ok) {
-      const data = await response.json();
-      if (Array.isArray(data) && Array.isArray(data[0])) {
-        const res = data[0].map(item => item[0]).join('');
-        if (res && res.trim()) return res;
-      }
-    }
-  } catch (_) {
-    // Continue to fallback
-  }
+    const myMemoryEmail = process.env.MYMEMORY_EMAIL || 'jefferyjenson34@gmail.com';
+    const mmUrl = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(trimmed.slice(0, 500))}&langpair=en|${encodeURIComponent(targetLang)}&de=${encodeURIComponent(myMemoryEmail)}`;
+    const mmRes = await fetch(mmUrl, {
+      headers: { 'User-Agent': 'Mozilla/5.0 (Vault PDF Portal Translation Bot)' }
+    });
 
-  // 3. Fallback to MyMemory Neural Translate API
-  try {
-    const mmUrl = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(trimmed.slice(0, 500))}&langpair=en|${encodeURIComponent(targetLang)}`;
-    const mmRes = await fetch(mmUrl, { headers: { 'User-Agent': 'Mozilla/5.0' } });
     if (mmRes.ok) {
       const mmData = await mmRes.json();
       if (mmData && mmData.responseData && mmData.responseData.translatedText) {
         const trans = mmData.responseData.translatedText;
-        if (trans && !trans.includes('INVALID SOURCE LANGUAGE')) {
-          return trans;
+        if (trans && !trans.includes('INVALID SOURCE LANGUAGE') && !trans.includes('MYMEMORY WARNING')) {
+          return {
+            text: trans,
+            success: true,
+            engine: 'mymemory'
+          };
         }
       }
+      console.warn(`[Translate Engine Failure] engine=mymemory targetLang=${targetLang} status=${mmRes.status} details=${JSON.stringify(mmData?.responseData || {})}`);
+    } else {
+      console.warn(`[Translate Engine Failure] engine=mymemory targetLang=${targetLang} status=${mmRes.status}`);
     }
   } catch (err) {
-    console.warn(`Translation fallback error for [${targetLang}]:`, err.message);
+    console.warn(`[Translate Engine Failure] engine=mymemory targetLang=${targetLang} error=${err.message}`);
   }
 
-  return trimmed;
+  // 3. Exhausted all engines - Return structured failure (no silent original text fallback)
+  console.error(`[Translate All Engines Exhausted] targetLang=${targetLang} textLength=${trimmed.length} - all engines failed`);
+  return {
+    text: '',
+    success: false,
+    engine: 'none'
+  };
 }
 
-// Helper: Batch translate array of paragraphs efficiently
-async function translateParagraphBatch(paragraphs, targetLang) {
-  if (!paragraphs || paragraphs.length === 0) return [];
-  const CHUNK_SIZE = 4;
-  const results = [];
+// Helper: Batch translate array of paragraphs with all-or-nothing atomic semantics
+async function translateParagraphBatch(paragraphs, targetLang, targetLangName) {
+  if (!paragraphs || paragraphs.length === 0) {
+    return { success: true, translatedParagraphs: [], engines: [] };
+  }
+
+  const CHUNK_SIZE = 3;
+  const translatedParagraphs = [];
+  const enginesUsed = new Set();
+  let anyFailed = false;
 
   for (let i = 0; i < paragraphs.length; i += CHUNK_SIZE) {
     const chunk = paragraphs.slice(i, i + CHUNK_SIZE);
     const chunkResults = await Promise.all(chunk.map(async (para) => {
-      if (!para || !para.trim()) return '';
+      if (!para || !para.trim()) {
+        return { text: '', success: true, engine: 'none' };
+      }
       if (para.length > 450) {
         const sentences = para.match(/[^.!?\n]+[.!?\n]+(\s|$)/g) || [para];
-        const transSentences = await Promise.all(sentences.map(s => translateText(s.trim(), targetLang)));
-        return transSentences.join(' ');
+        const transSentences = await Promise.all(sentences.map(s => translateText(s.trim(), targetLang, targetLangName)));
+        const sentFailed = transSentences.some(st => !st.success);
+        if (sentFailed) {
+          return { text: '', success: false, engine: 'none' };
+        }
+        transSentences.forEach(st => { if (st.engine !== 'none') enginesUsed.add(st.engine); });
+        return {
+          text: transSentences.map(st => st.text).join(' '),
+          success: true,
+          engine: transSentences[0]?.engine || 'openrouter'
+        };
       }
-      return translateText(para, targetLang);
+      return translateText(para, targetLang, targetLangName);
     }));
-    results.push(...chunkResults);
+
+    for (const res of chunkResults) {
+      if (!res.success) {
+        anyFailed = true;
+      }
+      translatedParagraphs.push(res.text);
+      if (res.engine !== 'none') enginesUsed.add(res.engine);
+    }
+
+    if (anyFailed) {
+      // Short-circuit: fail fast to avoid unnecessary API requests
+      break;
+    }
   }
 
-  return results;
+  // All-or-nothing: if any paragraph failed, document translation fails completely
+  if (anyFailed) {
+    return {
+      success: false,
+      translatedParagraphs: [],
+      engines: Array.from(enginesUsed)
+    };
+  }
+
+  return {
+    success: true,
+    translatedParagraphs,
+    engines: Array.from(enginesUsed)
+  };
 }
 
 // GET /api/translate/languages (List of 33 supported languages)
@@ -4491,7 +4594,7 @@ app.get('/api/translate/languages', (req, res) => {
 });
 
 // POST /api/translate/document (Translate document into target language with paragraph synchronization)
-app.post('/api/translate/document', async (req, res) => {
+app.post('/api/translate/document', translateLimiter, async (req, res) => {
   try {
     const { filename, targetLang, customText } = req.body || {};
     if (!targetLang) {
@@ -4583,8 +4686,18 @@ app.post('/api/translate/document', async (req, res) => {
       allOrigParas.push('No readable content.');
     }
 
-    // Batch translate paragraphs
-    const allTransParas = await translateParagraphBatch(allOrigParas, targetLang);
+    // Batch translate paragraphs with all-or-nothing guarantee
+    const batchResult = await translateParagraphBatch(allOrigParas, targetLang, langMeta.name);
+
+    if (!batchResult.success) {
+      return res.status(503).json({
+        success: false,
+        error: `Neural translation service is temporarily unavailable for ${langMeta.name}. Please retry in a moment.`,
+        engine: 'none',
+        targetLang,
+        langMeta
+      });
+    }
 
     const translatedPages = activePages.map((page, idx) => ({
       pageNum: page.pageNum,
@@ -4597,21 +4710,19 @@ app.post('/api/translate/document', async (req, res) => {
       docTitle,
       targetLang,
       langMeta,
+      engines: batchResult.engines,
       totalPages: pagesToTranslate.length,
       translatedPagesCount: translatedPages.length,
       pages: translatedPages,
       originalParagraphs: allOrigParas,
-      translatedParagraphs: allTransParas
+      translatedParagraphs: batchResult.translatedParagraphs
     };
 
-    // Only cache if translation produced valid non-identical output
-    const hasTranslation = allTransParas.some((p, i) => p && p !== allOrigParas[i]);
-    if (hasTranslation) {
-      translationCache.set(cacheKey, result);
-      if (translationCache.size > 100) {
-        const oldest = translationCache.keys().next().value;
-        translationCache.delete(oldest);
-      }
+    // Cache ONLY when batch succeeded completely
+    translationCache.set(cacheKey, result);
+    if (translationCache.size > 100) {
+      const oldest = translationCache.keys().next().value;
+      translationCache.delete(oldest);
     }
 
     res.json(result);
