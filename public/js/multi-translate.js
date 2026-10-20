@@ -363,18 +363,69 @@
         })
       });
 
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.error || `Server returned ${res.status}`);
+      let data = {};
+      if (res.ok) {
+        data = await res.json();
+        originalParagraphs = data.originalParagraphs || [];
+        translatedParagraphs = data.translatedParagraphs || [];
+      } else if (file.fullText || file.customText) {
+        // Fallback for extracted/custom document text
+        const rawText = file.fullText || file.customText || '';
+        originalParagraphs = rawText.split(/\n\s*\n/).map(p => p.trim()).filter(p => p.length > 0);
+        translatedParagraphs = [];
+      } else {
+        throw new Error(`Server returned ${res.status}`);
       }
 
-      const data = await res.json();
-      originalParagraphs = data.originalParagraphs || [];
-      translatedParagraphs = data.translatedParagraphs || [];
+      // Check if translation is needed (server returned untranslated text or empty translation)
+      const needsTranslation = originalParagraphs.length > 0 &&
+        (!translatedParagraphs.length || translatedParagraphs.every((p, idx) => p === originalParagraphs[idx]));
+
+      if (needsTranslation) {
+        translatedParagraphs = await Promise.all(
+          originalParagraphs.map(async (para) => {
+            if (!para || !para.trim()) return '';
+            try {
+              const url = `https://clients5.google.com/translate_a/t?client=dict-chrome-ex&sl=auto&tl=${encodeURIComponent(targetLang)}&q=${encodeURIComponent(para.trim())}`;
+              const r = await fetch(url);
+              if (r.ok) {
+                const j = await r.json();
+                if (Array.isArray(j) && Array.isArray(j[0]) && j[0][0]) {
+                  return j[0][0];
+                }
+              }
+            } catch (_) {}
+            return para;
+          })
+        );
+      }
 
       renderDualColumns();
     } catch (err) {
-      console.error('[Translator] Error:', err);
+      console.warn('[Translator] Server error, attempting client translation:', err);
+      if (file.fullText || file.customText) {
+        const rawText = file.fullText || file.customText || '';
+        originalParagraphs = rawText.split(/\n\s*\n/).map(p => p.trim()).filter(p => p.length > 0);
+        try {
+          translatedParagraphs = await Promise.all(
+            originalParagraphs.map(async (para) => {
+              if (!para || !para.trim()) return '';
+              const url = `https://clients5.google.com/translate_a/t?client=dict-chrome-ex&sl=auto&tl=${encodeURIComponent(targetLang)}&q=${encodeURIComponent(para.trim())}`;
+              const r = await fetch(url);
+              if (r.ok) {
+                const j = await r.json();
+                if (Array.isArray(j) && Array.isArray(j[0]) && j[0][0]) {
+                  return j[0][0];
+                }
+              }
+              return para;
+            })
+          );
+          renderDualColumns();
+          return;
+        } catch (_) {}
+      }
+
       transCol.innerHTML = `
         <div class="translator-empty-state" style="color:#ef4444;">
           <div class="translator-empty-icon">⚠️</div>
