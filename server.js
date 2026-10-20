@@ -4421,6 +4421,35 @@ const TRANSLATE_FREE_MODELS = [
   'nvidia/nemotron-3.5-super-vl:free'
 ];
 
+// Circuit breaker: If OpenRouter free limit or errors occur, bypass to prevent gateway timeouts
+let openRouterQuotaExceededUntil = 0;
+let openRouterConsecutiveErrors = 0;
+
+// Helper: Split long paragraph safely around word boundaries (MyMemory limit: 500 chars)
+function splitParaIntoChunks(text, maxLen = 500) {
+  if (!text || text.length <= maxLen) return [text];
+  const chunks = [];
+  let remaining = text.trim();
+  while (remaining.length > 0) {
+    if (remaining.length <= maxLen) {
+      chunks.push(remaining);
+      break;
+    }
+    let splitIdx = remaining.lastIndexOf('. ', maxLen);
+    if (splitIdx === -1 || splitIdx < 150) {
+      splitIdx = remaining.lastIndexOf(' ', maxLen);
+    }
+    if (splitIdx === -1 || splitIdx < 100) {
+      splitIdx = maxLen;
+    } else {
+      splitIdx += 1;
+    }
+    chunks.push(remaining.slice(0, splitIdx).trim());
+    remaining = remaining.slice(splitIdx).trim();
+  }
+  return chunks.filter(c => c.length > 0);
+}
+
 // Helper: Translate a single text block with multi-engine fallback
 // Returns: { text: string, success: boolean, engine: string }
 async function translateText(text, targetLang, targetLangName = '') {
@@ -4431,11 +4460,13 @@ async function translateText(text, targetLang, targetLangName = '') {
   const apiKey = process.env.OPENROUTER_API_KEY;
   const langDisplay = targetLangName || targetLang;
 
-  // 1. Try OpenRouter free models with explicit failover
-  if (apiKey) {
+  // 1. Try OpenRouter free models if quota is not tripped
+  const isCircuitOpen = Date.now() < openRouterQuotaExceededUntil;
+  if (apiKey && !isCircuitOpen) {
     for (const model of TRANSLATE_FREE_MODELS) {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 12000);
+      // Fast 3.5s timeout: don't stall Render's 30s gateway on reasoning loops
+      const timeoutId = setTimeout(() => controller.abort(), 3500);
       try {
         const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
           method: 'POST',
@@ -4448,7 +4479,7 @@ async function translateText(text, targetLang, targetLangName = '') {
           },
           body: JSON.stringify({
             model,
-            max_tokens: 1200,
+            max_tokens: 800,
             temperature: 0.1,
             reasoning: { exclude: true },
             messages: [
@@ -4466,7 +4497,8 @@ async function translateText(text, targetLang, targetLangName = '') {
           const data = await res.json();
           const choice = data?.choices?.[0];
           const translated = choice?.message?.content?.trim();
-          if (translated && choice?.finish_reason !== 'length') {
+          if (translated) {
+            openRouterConsecutiveErrors = 0;
             const sanitized = sanitizeAiContent(translated);
             return {
               text: sanitized,
@@ -4474,15 +4506,30 @@ async function translateText(text, targetLang, targetLangName = '') {
               engine: `openrouter:${model}`
             };
           } else {
-            console.warn(`[Translate Engine Failure] engine=openrouter:${model} targetLang=${targetLang} status=${res.status} error=Content truncated or empty (finish_reason=${choice?.finish_reason})`);
+            openRouterConsecutiveErrors++;
+            console.warn(`[Translate Engine Failure] engine=openrouter:${model} targetLang=${targetLang} status=${res.status} error=Empty content`);
           }
         } else {
+          openRouterConsecutiveErrors++;
           const errBody = await res.text().catch(() => '');
+          if (res.status === 429) {
+            // Any 429 from OpenRouter trips the circuit breaker for 30 minutes
+            openRouterQuotaExceededUntil = Date.now() + 30 * 60 * 1000;
+            console.warn(`[Translate Circuit Breaker] OpenRouter rate limit (429) hit. Bypassing OpenRouter for 30m.`);
+            break;
+          }
           console.warn(`[Translate Engine Failure] engine=openrouter:${model} targetLang=${targetLang} status=${res.status} error=${errBody.slice(0, 150)}`);
         }
       } catch (err) {
         clearTimeout(timeoutId);
+        openRouterConsecutiveErrors++;
         console.warn(`[Translate Engine Failure] engine=openrouter:${model} targetLang=${targetLang} error=${err.message}`);
+      }
+
+      if (openRouterConsecutiveErrors >= 2) {
+        openRouterQuotaExceededUntil = Date.now() + 15 * 60 * 1000;
+        console.warn(`[Translate Circuit Breaker] Multiple OpenRouter errors detected. Bypassing OpenRouter for 15m.`);
+        break;
       }
     }
   }
@@ -4530,7 +4577,7 @@ async function translateParagraphBatch(paragraphs, targetLang, targetLangName) {
     return { success: true, translatedParagraphs: [], engines: [] };
   }
 
-  const CHUNK_SIZE = 3;
+  const CHUNK_SIZE = 4;
   const translatedParagraphs = [];
   const enginesUsed = new Set();
   let anyFailed = false;
@@ -4541,18 +4588,19 @@ async function translateParagraphBatch(paragraphs, targetLang, targetLangName) {
       if (!para || !para.trim()) {
         return { text: '', success: true, engine: 'none' };
       }
-      if (para.length > 450) {
-        const sentences = para.match(/[^.!?\n]+[.!?\n]+(\s|$)/g) || [para];
-        const transSentences = await Promise.all(sentences.map(s => translateText(s.trim(), targetLang, targetLangName)));
-        const sentFailed = transSentences.some(st => !st.success);
-        if (sentFailed) {
+      // If single paragraph exceeds MyMemory 500-char limit, split into safe sub-chunks
+      if (para.length > 500) {
+        const subChunks = splitParaIntoChunks(para, 480);
+        const subResults = await Promise.all(subChunks.map(sc => translateText(sc, targetLang, targetLangName)));
+        const failed = subResults.some(r => !r.success);
+        if (failed) {
           return { text: '', success: false, engine: 'none' };
         }
-        transSentences.forEach(st => { if (st.engine !== 'none') enginesUsed.add(st.engine); });
+        subResults.forEach(r => { if (r.engine !== 'none') enginesUsed.add(r.engine); });
         return {
-          text: transSentences.map(st => st.text).join(' '),
+          text: subResults.map(r => r.text).join(' '),
           success: true,
-          engine: transSentences[0]?.engine || 'openrouter'
+          engine: subResults[0]?.engine || 'mymemory'
         };
       }
       return translateText(para, targetLang, targetLangName);
