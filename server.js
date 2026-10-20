@@ -4641,6 +4641,57 @@ app.get('/api/translate/languages', (req, res) => {
   res.json({ success: true, languages: SUPPORTED_LANGUAGES });
 });
 
+// GET /api/translate/tts -> Stream Neural Speech Synthesis for any language (e.g. ml, es, fr)
+const ttsAudioCache = new Map();
+app.get('/api/translate/tts', async (req, res) => {
+  try {
+    const text = (req.query.text || '').trim();
+    const lang = (req.query.lang || 'en').trim().toLowerCase().split('-')[0];
+
+    if (!text) {
+      return res.status(400).send('Text is required for TTS synthesis.');
+    }
+
+    const cleanText = text
+      .replace(/\r\n/g, ' ')
+      .replace(/\n+/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+
+    const cacheKey = `${lang}:${cleanText.slice(0, 300)}`;
+    if (ttsAudioCache.has(cacheKey)) {
+      res.setHeader('Content-Type', 'audio/mpeg');
+      res.setHeader('Cache-Control', 'public, max-age=86400');
+      return res.send(ttsAudioCache.get(cacheKey));
+    }
+
+    const textToSynthesize = cleanText.length > 500 ? cleanText.slice(0, 500) : cleanText;
+
+    const googleTTS = require('google-tts-api');
+    const chunks = await googleTTS.getAllAudioBase64(textToSynthesize, {
+      lang: lang || 'en',
+      slow: false,
+      timeout: 8000,
+      splitPunct: ',.?!'
+    });
+
+    const mp3Buffer = Buffer.concat(chunks.map(c => Buffer.from(c.base64, 'base64')));
+
+    if (ttsAudioCache.size > 200) {
+      const oldest = ttsAudioCache.keys().next().value;
+      ttsAudioCache.delete(oldest);
+    }
+    ttsAudioCache.set(cacheKey, mp3Buffer);
+
+    res.setHeader('Content-Type', 'audio/mpeg');
+    res.setHeader('Cache-Control', 'public, max-age=86400');
+    res.send(mp3Buffer);
+  } catch (err) {
+    console.error('[TTS Synthesis Error]', err.message);
+    res.status(500).send('Failed to synthesize speech: ' + err.message);
+  }
+});
+
 // POST /api/translate/document (Translate document into target language with paragraph synchronization)
 app.post('/api/translate/document', translateLimiter, async (req, res) => {
   try {

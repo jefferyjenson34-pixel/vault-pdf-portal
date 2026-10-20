@@ -60,6 +60,7 @@
   // Speech state
   let synth = window.speechSynthesis;
   let currentUtterance = null;
+  let currentAudioElement = null;
   let isSpeaking = false;
   let isPaused = false;
   let activeAudioSide = null; // 'original' or 'translated'
@@ -846,16 +847,28 @@
 
   function toggleSpeech(side) {
     if (isSpeaking && activeAudioSide === side) {
-      if (isPaused) {
-        synth.resume();
-        isPaused = false;
+      if (currentAudioElement) {
+        if (isPaused) {
+          currentAudioElement.play().catch(() => {});
+          isPaused = false;
+        } else {
+          currentAudioElement.pause();
+          isPaused = true;
+        }
         updateAudioUIState();
-      } else {
-        synth.pause();
-        isPaused = true;
-        updateAudioUIState();
+        return;
       }
-      return;
+      if (synth) {
+        if (isPaused) {
+          synth.resume();
+          isPaused = false;
+        } else {
+          synth.pause();
+          isPaused = true;
+        }
+        updateAudioUIState();
+        return;
+      }
     }
 
     const paragraphs = side === 'original' ? originalParagraphs : translatedParagraphs;
@@ -869,36 +882,70 @@
   }
 
   function speakParagraph(side, index) {
-    if (!('speechSynthesis' in window)) {
-      showTranslatorNotice('Speech synthesis is not supported on this browser.', 'warning');
-      return;
-    }
-
     stopSpeech();
 
     const paragraphs = side === 'original' ? originalParagraphs : translatedParagraphs;
     if (!paragraphs || index >= paragraphs.length || index < 0) return;
 
-    const targetLangMeta = SUPPORTED_LANGUAGES.find((l) => l.code === currentTargetLang) || { name: 'Target Language', bcp47: 'en-US' };
+    const targetLangMeta = SUPPORTED_LANGUAGES.find((l) => l.code === currentTargetLang) || { name: 'Target Language', bcp47: 'en-US', code: currentTargetLang };
     const bcp47 = side === 'original' ? 'en-US' : (targetLangMeta ? targetLangMeta.bcp47 : 'en-US');
-
-    // Regional voice guard: never fall back to an English voice for foreign translations!
-    const voice = getBestVoiceForLang(bcp47);
-    if (side === 'translated') {
-      const prefix = bcp47.split('-')[0].toLowerCase();
-      const hasVoice = voice && voice.lang.toLowerCase().replace('_', '-').startsWith(prefix);
-      if (!hasVoice) {
-        showTranslatorNotice(`No ${targetLangMeta.name} voice installed on this device or browser. Audio preview requires a system ${targetLangMeta.name} voice pack.`, 'warning');
-        return;
-      }
-    }
+    const textToSpeak = paragraphs[index];
 
     activeAudioSide = side;
     activeParagraphIndex = index;
     isSpeaking = true;
     isPaused = false;
 
-    const textToSpeak = paragraphs[index];
+    // Visual glowing highlight on currently speaking paragraph
+    highlightSpeakingParagraph(side, index);
+
+    // 1. Check if browser/OS has a native voice installed for this language
+    const voice = getBestVoiceForLang(bcp47);
+    const prefix = bcp47.split('-')[0].toLowerCase();
+    const hasLocalVoice = voice && voice.lang.toLowerCase().replace('_', '-').startsWith(prefix);
+
+    // 2. If no local voice (e.g. Malayalam on macOS/Windows), seamlessly stream Neural Cloud Audio
+    if (side === 'translated' && !hasLocalVoice) {
+      const langCode = targetLangMeta.code || prefix || 'ml';
+      const audioUrl = `/api/translate/tts?lang=${encodeURIComponent(langCode)}&text=${encodeURIComponent(textToSpeak)}`;
+      const audio = new Audio(audioUrl);
+      audio.playbackRate = speechRate;
+      currentAudioElement = audio;
+
+      audio.onplay = () => {
+        updateAudioUIState();
+      };
+
+      audio.onended = () => {
+        if (index + 1 < paragraphs.length) {
+          speakParagraph(side, index + 1);
+        } else {
+          stopSpeech();
+        }
+      };
+
+      audio.onerror = (e) => {
+        console.warn('[Neural Audio Error]', e);
+        stopSpeech();
+        showTranslatorNotice(`Could not stream audio for ${targetLangMeta.name}.`, 'warning');
+      };
+
+      audio.play().catch(err => {
+        console.warn('[Audio Play Failed]', err.message);
+        stopSpeech();
+      });
+
+      updateAudioUIState();
+      return;
+    }
+
+    // 3. Otherwise use Web Speech API with the verified regional voice
+    if (!('speechSynthesis' in window)) {
+      showTranslatorNotice('Speech synthesis is not supported on this browser.', 'warning');
+      stopSpeech();
+      return;
+    }
+
     const utterance = new SpeechSynthesisUtterance(textToSpeak);
     utterance.rate = speechRate;
     utterance.lang = bcp47;
@@ -908,9 +955,6 @@
       const defaultVoice = (synth.getVoices() || []).find(v => v.lang.toLowerCase().startsWith('en')) || (synth.getVoices() || [])[0];
       if (defaultVoice) utterance.voice = defaultVoice;
     }
-
-    // Visual glowing highlight on currently speaking paragraph
-    highlightSpeakingParagraph(side, index);
 
     utterance.onend = () => {
       // Continue to next paragraph
@@ -933,6 +977,11 @@
 
   function stopSpeech() {
     if (synth) synth.cancel();
+    if (currentAudioElement) {
+      currentAudioElement.pause();
+      currentAudioElement.currentTime = 0;
+      currentAudioElement = null;
+    }
     isSpeaking = false;
     isPaused = false;
     activeAudioSide = null;
