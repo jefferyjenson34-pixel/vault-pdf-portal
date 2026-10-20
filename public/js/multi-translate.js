@@ -410,6 +410,122 @@
     }
   }
 
+  // Helper: Client-side neural translation engine (CORS enabled, 0 cost, residential IP trust)
+  async function translateParagraphClientSide(text, targetLang) {
+    if (!text || !text.trim()) {
+      return { text: '', success: true, engine: 'none' };
+    }
+    const trimmed = text.trim();
+
+    // 1. Google Translate Neural API (via Chrome Extension endpoint)
+    try {
+      const googleUrl = `https://clients5.google.com/translate_a/t?client=dict-chrome-ex&sl=auto&tl=${encodeURIComponent(targetLang)}&q=${encodeURIComponent(trimmed)}`;
+      const gRes = await fetch(googleUrl);
+      if (gRes.ok) {
+        const gData = await gRes.json();
+        let translatedText = '';
+        if (typeof gData === 'string') {
+          translatedText = gData.trim();
+        } else if (Array.isArray(gData)) {
+          translatedText = gData.map(item => {
+            if (Array.isArray(item)) return item[0];
+            if (typeof item === 'string') return item;
+            return '';
+          }).filter(Boolean).join(' ').trim();
+        }
+        if (translatedText) {
+          return { text: translatedText, success: true, engine: 'google-client' };
+        }
+      }
+    } catch (err) {
+      console.warn('[Client Translate] Google Neural failed:', err.message);
+    }
+
+    // 2. Fallback: MyMemory Neural Translate API from client browser
+    try {
+      const myMemoryEmail = 'jefferyjenson34@gmail.com';
+      const mmUrl = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(trimmed.slice(0, 500))}&langpair=en|${encodeURIComponent(targetLang)}&de=${encodeURIComponent(myMemoryEmail)}`;
+      const mmRes = await fetch(mmUrl);
+      if (mmRes.ok) {
+        const mmData = await mmRes.json();
+        const trans = mmData?.responseData?.translatedText;
+        if (trans && !trans.includes('INVALID SOURCE LANGUAGE') && !trans.includes('MYMEMORY WARNING')) {
+          return { text: trans, success: true, engine: 'mymemory-client' };
+        }
+      }
+    } catch (err) {
+      console.warn('[Client Translate] MyMemory fallback failed:', err.message);
+    }
+
+    return { text: '', success: false, engine: 'none' };
+  }
+
+  async function translateParagraphClientSideWithChunking(text, targetLang) {
+    if (!text || !text.trim()) {
+      return { text: '', success: true, engine: 'none' };
+    }
+    const trimmed = text.trim();
+    if (trimmed.length > 900) {
+      const sentences = trimmed.match(/[^.!?]+[.!?]+|[^.!?]+$/g) || [trimmed];
+      const chunks = [];
+      let cur = '';
+      for (const s of sentences) {
+        if ((cur + ' ' + s).length > 800) {
+          if (cur) chunks.push(cur.trim());
+          cur = s;
+        } else {
+          cur = cur ? (cur + ' ' + s) : s;
+        }
+      }
+      if (cur) chunks.push(cur.trim());
+
+      const subResults = await Promise.all(chunks.map(c => translateParagraphClientSide(c, targetLang)));
+      if (subResults.some(r => !r.success)) {
+        return { text: '', success: false, engine: 'none' };
+      }
+      return {
+        text: subResults.map(r => r.text).join(' '),
+        success: true,
+        engine: subResults[0]?.engine || 'google-client'
+      };
+    }
+    return translateParagraphClientSide(trimmed, targetLang);
+  }
+
+  async function translateParagraphBatchClientSide(paragraphs, targetLang, progressCallback) {
+    if (!paragraphs || paragraphs.length === 0) {
+      return { success: true, translatedParagraphs: [] };
+    }
+
+    const translatedParagraphs = [];
+    const BATCH_SIZE = 3;
+    let anyFailed = false;
+
+    for (let i = 0; i < paragraphs.length; i += BATCH_SIZE) {
+      const batch = paragraphs.slice(i, i + BATCH_SIZE);
+      if (typeof progressCallback === 'function') {
+        progressCallback(i, paragraphs.length);
+      }
+      const results = await Promise.all(batch.map(p => translateParagraphClientSideWithChunking(p, targetLang)));
+      for (const res of results) {
+        if (!res.success) {
+          anyFailed = true;
+          break;
+        }
+        translatedParagraphs.push(res.text);
+      }
+      if (anyFailed) {
+        break;
+      }
+    }
+
+    if (anyFailed || translatedParagraphs.length !== paragraphs.length) {
+      return { success: false, translatedParagraphs: [] };
+    }
+
+    return { success: true, translatedParagraphs };
+  }
+
   async function executeTranslation(file, targetLang) {
     if (!file) return;
 
@@ -436,7 +552,7 @@
     transCol.innerHTML = `
       <div class="translator-loading-overlay">
         <div class="spinner-quantum"></div>
-        <div style="font-weight:600; color:#38bdf8; font-size:0.95rem;">Translating via Neural Engine...</div>
+        <div style="font-weight:600; color:#38bdf8; font-size:0.95rem;" id="trans-loading-status">Translating via Neural Engine...</div>
         <div style="color:#94a3b8; font-size:0.8rem;">Target: ${targetLangMeta.name} (${targetLang.toUpperCase()})</div>
       </div>
     `;
@@ -464,32 +580,68 @@
         return;
       }
 
-      if (!res.ok || !data.success) {
-        showTranslationUnavailable(
-          'Translation Unavailable',
-          data.error || `Could not translate document into ${targetLangMeta.name}. All translation engines are currently busy.`,
-          file,
-          targetLang
-        );
+      // 1. If backend translation succeeded directly
+      if (res.ok && data.success && Array.isArray(data.translatedParagraphs) && data.translatedParagraphs.length > 0) {
+        originalParagraphs = data.originalParagraphs || [];
+        translatedParagraphs = data.translatedParagraphs || [];
+        renderDualColumns();
         return;
       }
 
-      originalParagraphs = data.originalParagraphs || [];
-      translatedParagraphs = data.translatedParagraphs || [];
+      // 2. If backend was exhausted on datacenter IP or signaled fallbackToClient, execute client-side neural translation
+      const candidateParagraphs = (data.originalParagraphs && data.originalParagraphs.length > 0)
+        ? data.originalParagraphs
+        : ((file.fullText || file.customText) ? (file.fullText || file.customText).split(/\n\s*\n/).map(p => p.trim()).filter(Boolean) : []);
 
-      if (!translatedParagraphs.length) {
-        showTranslationUnavailable(
-          'Translation Unavailable',
-          `No translated paragraphs were produced for ${targetLangMeta.name}.`,
-          file,
-          targetLang
+      if (candidateParagraphs.length > 0) {
+        const statusEl = document.getElementById('trans-loading-status');
+        if (statusEl) statusEl.textContent = 'Translating via Neural Client Engine...';
+
+        const clientBatch = await translateParagraphBatchClientSide(
+          candidateParagraphs,
+          targetLang,
+          (done, total) => {
+            if (statusEl) {
+              statusEl.textContent = `Translating via Neural Engine (${Math.round((done / total) * 100)}%)...`;
+            }
+          }
         );
-        return;
+
+        if (clientBatch.success && clientBatch.translatedParagraphs.length === candidateParagraphs.length) {
+          originalParagraphs = candidateParagraphs;
+          translatedParagraphs = clientBatch.translatedParagraphs;
+          renderDualColumns();
+          return;
+        }
       }
 
-      renderDualColumns();
+      // 3. Both server and client engines exhausted - display explicit error card
+      if (data.originalParagraphs && data.originalParagraphs.length > 0) {
+        originalParagraphs = data.originalParagraphs;
+      }
+      showTranslationUnavailable(
+        'Translation Unavailable',
+        data.error || `Could not translate document into ${targetLangMeta.name}. Neural translation service is temporarily unavailable. Please retry in a moment.`,
+        file,
+        targetLang
+      );
     } catch (err) {
       console.warn('[Translator] Network/Request error:', err);
+      // Attempt client translation if file text is present in browser memory
+      const candidateParagraphs = (file.fullText || file.customText)
+        ? (file.fullText || file.customText).split(/\n\s*\n/).map(p => p.trim()).filter(Boolean)
+        : [];
+      if (candidateParagraphs.length > 0) {
+        try {
+          const clientBatch = await translateParagraphBatchClientSide(candidateParagraphs, targetLang);
+          if (clientBatch.success && clientBatch.translatedParagraphs.length === candidateParagraphs.length) {
+            originalParagraphs = candidateParagraphs;
+            translatedParagraphs = clientBatch.translatedParagraphs;
+            renderDualColumns();
+            return;
+          }
+        } catch (_) {}
+      }
       showTranslationUnavailable(
         'Network Error',
         err.message || 'Failed to connect to the translation server. Please check your connection and retry.',

@@ -195,7 +195,7 @@ app.use((req, res, next) => {
     "img-src 'self' data: https: blob:; " +
     "media-src 'self' data: blob:; " +
     "frame-src 'self' blob: data:; " +
-    "connect-src 'self'; " +
+    "connect-src 'self' https://clients5.google.com https://api.mymemory.translated.net; " +
     "object-src 'self' blob:; " +
     "base-uri 'self'; " +
     "form-action 'self'; " +
@@ -4738,12 +4738,17 @@ app.post('/api/translate/document', translateLimiter, async (req, res) => {
     const batchResult = await translateParagraphBatch(allOrigParas, targetLang, langMeta.name);
 
     if (!batchResult.success) {
-      return res.status(503).json({
+      console.warn(`[Translate Server Exhausted] Server datacenter engines could not translate for ${langMeta.name}. Returning original paragraphs for client-side neural translation.`);
+      return res.status(200).json({
         success: false,
-        error: `Neural translation service is temporarily unavailable for ${langMeta.name}. Please retry in a moment.`,
+        fallbackToClient: true,
+        error: `Neural translation service is temporarily unavailable for ${langMeta.name}. Initiating client-side neural translation...`,
         engine: 'none',
         targetLang,
-        langMeta
+        langMeta,
+        filename,
+        docTitle,
+        originalParagraphs: allOrigParas
       });
     }
 
