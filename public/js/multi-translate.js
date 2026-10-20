@@ -298,6 +298,9 @@
     });
   }
 
+  let activeTranslationSequence = 0;
+  let activeAbortController = null;
+
   function openTranslator(file) {
     initModal();
     currentFile = file;
@@ -310,11 +313,57 @@
       titleEl.textContent = `${file.originalName || file.filename} • ${formatBytes(file.size)}`;
     }
 
-    // Default to Spanish or currently selected
     const langSelect = document.getElementById('translator-target-lang');
-    if (langSelect) currentTargetLang = langSelect.value || 'es';
+    if (langSelect && currentTargetLang) {
+      langSelect.value = currentTargetLang;
+    } else if (langSelect) {
+      currentTargetLang = langSelect.value;
+    }
 
-    executeTranslation(file, currentTargetLang);
+    // Load original text into left column immediately if available in memory
+    if (file && (file.fullText || file.customText)) {
+      originalParagraphs = (file.fullText || file.customText).split(/\n\s*\n/).map(p => p.trim()).filter(Boolean);
+      const origCol = document.getElementById('col-original');
+      const origCount = document.getElementById('orig-badge-count');
+      if (origCount) origCount.textContent = `${originalParagraphs.length} paragraphs`;
+      if (origCol && originalParagraphs.length > 0) {
+        origCol.innerHTML = originalParagraphs
+          .map((p, i) => `
+            <div class="sync-paragraph" data-idx="${i}" data-side="original" tabindex="0">
+              <span class="para-number">#${i + 1}</span>
+              ${escapeHtml(p)}
+            </div>
+          `)
+          .join('');
+      }
+    }
+
+    const targetLangMeta = SUPPORTED_LANGUAGES.find((l) => l.code === currentTargetLang) || { name: currentTargetLang, flag: '🌐' };
+    const transLangLabel = document.getElementById('trans-lang-label');
+    if (transLangLabel) transLangLabel.textContent = `${targetLangMeta.flag} ${targetLangMeta.name}`;
+
+    // Clean ready state in right column until user translates
+    const transCol = document.getElementById('col-translated');
+    if (transCol) {
+      transCol.innerHTML = `
+        <div class="translator-empty-state">
+          <div class="translator-empty-icon">${targetLangMeta.flag}</div>
+          <div style="font-weight:600; color:#e2e8f0; margin-bottom:6px;">Ready to Translate</div>
+          <div style="font-size:0.85rem; color:#94a3b8; max-width:280px; margin-bottom:16px;">
+            Target Language: <strong>${targetLangMeta.name}</strong>
+          </div>
+          <button class="btn-trigger-translate" id="btn-modal-start-translate" style="margin:0 auto;">
+            <span>Translate Now</span>
+          </button>
+        </div>
+      `;
+      const startBtn = transCol.querySelector('#btn-modal-start-translate');
+      if (startBtn) {
+        startBtn.addEventListener('click', () => {
+          executeTranslation(currentFile, currentTargetLang);
+        });
+      }
+    }
   }
 
   function closeTranslator() {
@@ -529,6 +578,13 @@
   async function executeTranslation(file, targetLang) {
     if (!file) return;
 
+    if (activeAbortController) {
+      activeAbortController.abort();
+    }
+    activeAbortController = new AbortController();
+    const thisSequence = ++activeTranslationSequence;
+    currentTargetLang = targetLang;
+
     const origCol = document.getElementById('col-original');
     const transCol = document.getElementById('col-translated');
     const transLangLabel = document.getElementById('trans-lang-label');
@@ -560,6 +616,7 @@
     try {
       const res = await fetch('/api/translate/document', {
         method: 'POST',
+        signal: activeAbortController.signal,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           filename: file.filename,
@@ -567,6 +624,11 @@
           targetLang
         })
       });
+
+      if (thisSequence !== activeTranslationSequence || targetLang !== currentTargetLang) {
+        console.log('[Translator] Discarding response from obsolete request sequence');
+        return;
+      }
 
       const data = await res.json().catch(() => ({}));
 
@@ -582,9 +644,10 @@
 
       // 1. If backend translation succeeded directly
       if (res.ok && data.success && Array.isArray(data.translatedParagraphs) && data.translatedParagraphs.length > 0) {
+        if (thisSequence !== activeTranslationSequence || targetLang !== currentTargetLang) return;
         originalParagraphs = data.originalParagraphs || [];
         translatedParagraphs = data.translatedParagraphs || [];
-        renderDualColumns();
+        renderDualColumns(targetLang);
         return;
       }
 
@@ -601,21 +664,27 @@
           candidateParagraphs,
           targetLang,
           (done, total) => {
-            if (statusEl) {
+            if (statusEl && thisSequence === activeTranslationSequence) {
               statusEl.textContent = `Translating via Neural Engine (${Math.round((done / total) * 100)}%)...`;
             }
           }
         );
 
+        if (thisSequence !== activeTranslationSequence || targetLang !== currentTargetLang) {
+          console.log('[Translator] Discarding client batch results from obsolete sequence');
+          return;
+        }
+
         if (clientBatch.success && clientBatch.translatedParagraphs.length === candidateParagraphs.length) {
           originalParagraphs = candidateParagraphs;
           translatedParagraphs = clientBatch.translatedParagraphs;
-          renderDualColumns();
+          renderDualColumns(targetLang);
           return;
         }
       }
 
       // 3. Both server and client engines exhausted - display explicit error card
+      if (thisSequence !== activeTranslationSequence || targetLang !== currentTargetLang) return;
       if (data.originalParagraphs && data.originalParagraphs.length > 0) {
         originalParagraphs = data.originalParagraphs;
       }
@@ -626,6 +695,10 @@
         targetLang
       );
     } catch (err) {
+      if (err.name === 'AbortError' || thisSequence !== activeTranslationSequence) {
+        console.log('[Translator] Request aborted for targetLang:', targetLang);
+        return;
+      }
       console.warn('[Translator] Network/Request error:', err);
       // Attempt client translation if file text is present in browser memory
       const candidateParagraphs = (file.fullText || file.customText)
@@ -634,22 +707,24 @@
       if (candidateParagraphs.length > 0) {
         try {
           const clientBatch = await translateParagraphBatchClientSide(candidateParagraphs, targetLang);
-          if (clientBatch.success && clientBatch.translatedParagraphs.length === candidateParagraphs.length) {
+          if (thisSequence === activeTranslationSequence && clientBatch.success && clientBatch.translatedParagraphs.length === candidateParagraphs.length) {
             originalParagraphs = candidateParagraphs;
             translatedParagraphs = clientBatch.translatedParagraphs;
-            renderDualColumns();
+            renderDualColumns(targetLang);
             return;
           }
         } catch (_) {}
       }
-      showTranslationUnavailable(
-        'Network Error',
-        err.message || 'Failed to connect to the translation server. Please check your connection and retry.',
-        file,
-        targetLang
-      );
+      if (thisSequence === activeTranslationSequence) {
+        showTranslationUnavailable(
+          'Network Error',
+          err.message || 'Failed to connect to the translation server. Please check your connection and retry.',
+          file,
+          targetLang
+        );
+      }
     } finally {
-      if (translateBtn) {
+      if (translateBtn && thisSequence === activeTranslationSequence) {
         translateBtn.disabled = false;
         translateBtn.innerHTML = `
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
@@ -662,7 +737,11 @@
     }
   }
 
-  function renderDualColumns() {
+  function renderDualColumns(forLang) {
+    if (forLang && forLang !== currentTargetLang) {
+      console.log('[Translator] Suppressing render for non-current language:', forLang);
+      return;
+    }
     const origCol = document.getElementById('col-original');
     const transCol = document.getElementById('col-translated');
     const origCount = document.getElementById('orig-badge-count');
