@@ -483,7 +483,13 @@
 
   <script>
     (function() {
-      const token = window.location.pathname.split('/').pop();
+      const urlParams = new URLSearchParams(window.location.search);
+      const queryToken = urlParams.get('token');
+      const pathSegments = window.location.pathname.split('/').filter(Boolean);
+      const lastSegment = pathSegments.length > 0 ? pathSegments[pathSegments.length - 1] : '';
+      const pathToken = (lastSegment && lastSegment !== 'share' && lastSegment !== 'share.html') ? lastSegment : '';
+      const token = queryToken || pathToken;
+
       let linkMeta = null;
       let countdownTimer = null;
 
@@ -581,8 +587,9 @@
           startCountdown(meta.expiresAt);
         }
 
-        // Setup PDF file stream URL
-        const fileUrl = `/api/share/${encodeURIComponent(token)}/file`;
+        // Setup PDF file stream URL with viewer session token if issued
+        const vtParam = meta.viewerToken ? `?vt=${encodeURIComponent(meta.viewerToken)}` : '';
+        const fileUrl = `/api/share/${encodeURIComponent(token)}/file${vtParam}`;
         pdfEmbedFrame.src = fileUrl;
 
         // Download button
@@ -602,8 +609,11 @@
         // Burn now button
         btnBurnNow.onclick = () => {
           if (confirm('Are you sure you want to permanently self-destruct this link right now? No one will ever be able to open it again.')) {
-            fetch(`/api/share/${encodeURIComponent(token)}/burn-view`, { method: 'POST' })
-              .then(() => showBurned('USER_MANUAL_BURN', Date.now()));
+            fetch(`/api/share/${encodeURIComponent(token)}/burn-view`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ manual: true })
+            }).then(() => showBurned('USER_MANUAL_BURN', Date.now()));
           }
         };
 
@@ -614,6 +624,11 @@
 
       // Initial Fetch Link Status
       async function init() {
+        if (!token) {
+          showBurned('INVALID_LINK', Date.now());
+          return;
+        }
+
         try {
           const res = await fetch(`/api/share/${encodeURIComponent(token)}/meta`);
           const data = await res.json();
@@ -656,6 +671,9 @@
           });
           const data = await res.json();
           if (res.ok && data.authorized) {
+            if (data.viewerToken) {
+              linkMeta.viewerToken = data.viewerToken;
+            }
             renderActiveDocument(linkMeta);
           } else {
             unlockError.textContent = data.error || 'Incorrect decryption cipher.';

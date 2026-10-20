@@ -395,6 +395,7 @@
             </div>
           </div>
 
+          ${cert.signatureData ? `
           <!-- Signature Render -->
           <div class="audit-card" style="text-align: center;">
             <div class="audit-label" style="justify-content:center;">Recorded Digital Signature</div>
@@ -402,6 +403,7 @@
               <img src="${cert.signatureData}" alt="Signer Digital Signature">
             </div>
           </div>
+          ` : ''}
 
           <div style="margin-top:24px; text-align:center;">
             <button class="btn-nav-back" style="display:inline-flex; cursor:pointer;" onclick="window.print()">

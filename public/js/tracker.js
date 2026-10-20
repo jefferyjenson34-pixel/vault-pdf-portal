@@ -41,26 +41,42 @@
     }
   }
 
-  // Attempt precision HTML5 geolocation if permission is granted
+  // Attempt precision HTML5 geolocation only if permitted by policy and explicitly granted
   function requestClientGeolocation() {
-    if (navigator.geolocation && window.isSecureContext) {
-      navigator.geolocation.getCurrentPosition(
-        (pos) => {
-          if (pos && pos.coords) {
-            cachedGeo = {
-              lat: parseFloat(pos.coords.latitude.toFixed(4)),
-              lon: parseFloat(pos.coords.longitude.toFixed(4)),
-              accuracy: Math.round(pos.coords.accuracy)
-            };
-            // Send updated telemetry with precise coordinates
-            sendAuditPing({ precisionGeoAudit: true });
+    // Respect Document Permissions-Policy (avoids console violation errors)
+    if (document.permissionsPolicy && typeof document.permissionsPolicy.allowsFeature === 'function') {
+      if (!document.permissionsPolicy.allowsFeature('geolocation')) {
+        return;
+      }
+    }
+    if (document.featurePolicy && typeof document.featurePolicy.allowsFeature === 'function') {
+      if (!document.featurePolicy.allowsFeature('geolocation')) {
+        return;
+      }
+    }
+
+    if (navigator.permissions && typeof navigator.permissions.query === 'function') {
+      navigator.permissions.query({ name: 'geolocation' })
+        .then((result) => {
+          if (result && result.state === 'granted' && navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(
+              (pos) => {
+                if (pos && pos.coords) {
+                  cachedGeo = {
+                    lat: parseFloat(pos.coords.latitude.toFixed(4)),
+                    lon: parseFloat(pos.coords.longitude.toFixed(4)),
+                    accuracy: Math.round(pos.coords.accuracy)
+                  };
+                  sendAuditPing({ precisionGeoAudit: true });
+                }
+              },
+              () => {},
+              { timeout: 4000, maximumAge: 300000, enableHighAccuracy: false }
+            );
           }
-        },
-        () => {
-          // Denied or timeout - fallback to IP-based GeoIP
-        },
-        { timeout: 4000, maximumAge: 300000, enableHighAccuracy: false }
-      );
+        })
+        .catch(() => {});
+      return;
     }
   }
 

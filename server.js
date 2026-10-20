@@ -1106,28 +1106,33 @@ function timingSafeMatch(provided, expected) {
 
 // ─── API: Admin Login (Hardened with rate-limiting & timing protection) ──
 app.post('/api/admin/login', async (req, res) => {
-  const ip = getVisitorIP(req);
-  const rateLimit = checkLoginRateLimit(ip);
-  if (!rateLimit.allowed) {
-    return res.status(429).json({
-      error: `Too many failed attempts. Login locked for ${rateLimit.remainingMins} minute(s).`
-    });
-  }
+  try {
+    const ip = getVisitorIP(req);
+    const rateLimit = checkLoginRateLimit(ip);
+    if (!rateLimit.allowed) {
+      return res.status(429).json({
+        error: `Too many failed attempts. Login locked for ${rateLimit.remainingMins} minute(s).`
+      });
+    }
 
-  const { username, password } = req.body || {};
-  const userOk = timingSafeMatch(username, ADMIN_USERNAME);
-  const passOk = timingSafeMatch(password, ADMIN_PASSWORD);
+    const { username, password } = req.body || {};
+    const userOk = timingSafeMatch(username, ADMIN_USERNAME);
+    const passOk = timingSafeMatch(password, ADMIN_PASSWORD);
 
-  if (userOk && passOk) {
-    clearLoginAttempts(ip);
-    const token = generateToken();
-    activeSessions.set(token, { createdAt: Date.now() });
-    res.json({ success: true, token });
-  } else {
-    recordFailedLogin(ip);
-    // Artificial delay to prevent automated high-frequency brute-forcing
-    await new Promise(resolve => setTimeout(resolve, 500));
-    res.status(401).json({ error: 'Invalid username or password' });
+    if (userOk && passOk) {
+      clearLoginAttempts(ip);
+      const token = generateToken();
+      activeSessions.set(token, { createdAt: Date.now() });
+      res.json({ success: true, token });
+    } else {
+      recordFailedLogin(ip);
+      // Artificial delay to prevent automated high-frequency brute-forcing
+      await new Promise(resolve => setTimeout(resolve, 500));
+      res.status(401).json({ error: 'Invalid username or password' });
+    }
+  } catch (err) {
+    console.error('Admin login error:', err);
+    res.status(500).json({ error: 'Internal authentication error: ' + err.message });
   }
 });
 
@@ -1536,6 +1541,10 @@ app.get('/verify-email', (req, res) => {
 
 app.get('/verify-certificate', (req, res) => {
   res.sendFile('verify-certificate.html', { root: PUBLIC_DIR });
+});
+
+app.get(['/share', '/share/:token'], (req, res) => {
+  res.sendFile('share.html', { root: PUBLIC_DIR });
 });
 
 // ─── Contact Inquiry Acknowledgment Dispatcher & Template ──────────────
@@ -2453,172 +2462,227 @@ app.get('/share/:token', (req, res) => {
 
 // GET /api/share/:token/meta -> Check link status & metadata
 app.get('/api/share/:token/meta', (req, res) => {
-  const { token } = req.params;
-  const links = readSharedLinks();
-  const link = links[token];
+  try {
+    const { token } = req.params;
+    const links = readSharedLinks();
+    const link = links[token];
 
-  if (!link) {
-    return res.status(404).json({ error: 'Share link not found or invalid cipher token.', notFound: true });
-  }
+    if (!link) {
+      return res.status(404).json({ error: 'Share link not found or invalid cipher token.', notFound: true });
+    }
 
-  const now = Date.now();
+    const now = Date.now();
 
-  // Check if expired by time
-  if (!link.burned && link.expiresAt && now > link.expiresAt) {
-    link.burned = true;
-    link.burnReason = 'EXPIRED_TIME';
-    link.burnedAt = now;
-    writeSharedLinks(links);
-  }
+    // Check if expired by time
+    if (!link.burned && link.expiresAt && now > link.expiresAt) {
+      link.burned = true;
+      link.burnReason = 'EXPIRED_TIME';
+      link.burnedAt = now;
+      writeSharedLinks(links);
+    }
 
-  // Check if burned by max views
-  if (!link.burned && link.maxViews && link.viewCount >= link.maxViews) {
-    link.burned = true;
-    link.burnReason = 'MAX_VIEWS_REACHED';
-    link.burnedAt = now;
-    writeSharedLinks(links);
-  }
+    // Check if burned by max views
+    if (!link.burned && link.maxViews && link.viewCount >= link.maxViews) {
+      link.burned = true;
+      link.burnReason = 'MAX_VIEWS_REACHED';
+      link.burnedAt = now;
+      writeSharedLinks(links);
+    }
 
-  if (link.burned) {
-    return res.json({
-      success: false,
-      burned: true,
-      burnReason: link.burnReason,
-      burnedAt: link.burnedAt,
-      originalName: link.originalName
+    if (link.burned) {
+      return res.json({
+        success: false,
+        burned: true,
+        burnReason: link.burnReason,
+        burnedAt: link.burnedAt,
+        originalName: link.originalName
+      });
+    }
+
+    // If no password required, issue an active viewer session token (15 min window)
+    let viewerToken = null;
+    if (!link.hasPassword) {
+      viewerToken = crypto.randomBytes(24).toString('hex');
+      link.activeViewerToken = viewerToken;
+      link.activeViewerTokenExpires = now + 15 * 60 * 1000;
+      writeSharedLinks(links);
+    }
+
+    res.json({
+      success: true,
+      burned: false,
+      token: link.token,
+      viewerToken,
+      filename: link.filename,
+      originalName: link.originalName,
+      fileSize: link.fileSize,
+      createdAt: link.createdAt,
+      expiresAt: link.expiresAt,
+      maxViews: link.maxViews,
+      viewCount: link.viewCount,
+      requiresPassword: link.hasPassword,
+      allowDownload: link.allowDownload
     });
+  } catch (err) {
+    console.error('Error fetching share link meta:', err);
+    res.status(500).json({ error: 'Failed to retrieve share link metadata: ' + err.message });
   }
-
-  res.json({
-    success: true,
-    burned: false,
-    token: link.token,
-    filename: link.filename,
-    originalName: link.originalName,
-    fileSize: link.fileSize,
-    createdAt: link.createdAt,
-    expiresAt: link.expiresAt,
-    maxViews: link.maxViews,
-    viewCount: link.viewCount,
-    requiresPassword: link.hasPassword,
-    allowDownload: link.allowDownload
-  });
 });
 
 // POST /api/share/:token/unlock -> Validate password if required
 app.post('/api/share/:token/unlock', async (req, res) => {
-  const { token } = req.params;
-  const { password } = req.body || {};
-  const links = readSharedLinks();
-  const link = links[token];
+  try {
+    const { token } = req.params;
+    const { password } = req.body || {};
+    const links = readSharedLinks();
+    const link = links[token];
 
-  if (!link || link.burned) {
-    return res.status(410).json({ error: 'This secure document link is no longer accessible.' });
+    if (!link || link.burned) {
+      return res.status(410).json({ error: 'This secure document link is no longer accessible.' });
+    }
+
+    const viewerToken = crypto.randomBytes(24).toString('hex');
+    const now = Date.now();
+
+    if (!link.hasPassword || !link.passwordHash) {
+      link.activeViewerToken = viewerToken;
+      link.activeViewerTokenExpires = now + 15 * 60 * 1000;
+      writeSharedLinks(links);
+      return res.json({ success: true, authorized: true, viewerToken });
+    }
+
+    const match = await bcrypt.compare(String(password || ''), link.passwordHash);
+    if (!match) {
+      return res.status(401).json({ error: 'Incorrect access cipher password.' });
+    }
+
+    link.activeViewerToken = viewerToken;
+    link.activeViewerTokenExpires = now + 15 * 60 * 1000;
+    writeSharedLinks(links);
+
+    res.json({ success: true, authorized: true, viewerToken });
+  } catch (err) {
+    console.error('Share link password verification error:', err);
+    res.status(500).json({ error: 'Failed to verify cipher password: ' + err.message });
   }
-
-  if (!link.hasPassword || !link.passwordHash) {
-    return res.json({ success: true, authorized: true });
-  }
-
-  const bcrypt = require('bcryptjs');
-  const match = await bcrypt.compare(String(password || ''), link.passwordHash);
-  if (!match) {
-    return res.status(401).json({ error: 'Incorrect access cipher password.' });
-  }
-
-  res.json({ success: true, authorized: true });
 });
 
 // POST /api/share/:token/burn-view -> Record a view and burn if view limit reached
 app.post('/api/share/:token/burn-view', (req, res) => {
-  const { token } = req.params;
-  const links = readSharedLinks();
-  const link = links[token];
+  try {
+    const { token } = req.params;
+    const isManual = Boolean(req.body && req.body.manual);
+    const links = readSharedLinks();
+    const link = links[token];
 
-  if (!link) {
-    return res.status(404).json({ error: 'Document not found.' });
+    if (!link) {
+      return res.status(404).json({ error: 'Document not found.' });
+    }
+
+    if (isManual) {
+      link.burned = true;
+      link.burnReason = 'USER_MANUAL_BURN';
+      link.burnedAt = Date.now();
+      link.activeViewerToken = null;
+      writeSharedLinks(links);
+      return res.json({ success: true, burned: true, burnReason: link.burnReason });
+    }
+
+    if (link.burned) {
+      return res.json({ success: false, burned: true, burnReason: link.burnReason });
+    }
+
+    link.viewCount = (link.viewCount || 0) + 1;
+
+    if (link.maxViews && link.viewCount >= link.maxViews) {
+      link.burned = true;
+      link.burnReason = 'MAX_VIEWS_REACHED';
+      link.burnedAt = Date.now();
+    }
+
+    writeSharedLinks(links);
+
+    res.json({
+      success: true,
+      viewCount: link.viewCount,
+      maxViews: link.maxViews,
+      burned: link.burned,
+      remainingViews: link.maxViews ? Math.max(0, link.maxViews - link.viewCount) : null
+    });
+  } catch (err) {
+    console.error('Error recording burn view:', err);
+    res.status(500).json({ error: 'Failed to update view status: ' + err.message });
   }
-
-  if (link.burned) {
-    return res.json({ success: false, burned: true, burnReason: link.burnReason });
-  }
-
-  link.viewCount = (link.viewCount || 0) + 1;
-
-  if (link.maxViews && link.viewCount >= link.maxViews) {
-    link.burned = true;
-    link.burnReason = 'MAX_VIEWS_REACHED';
-    link.burnedAt = Date.now();
-  }
-
-  writeSharedLinks(links);
-
-  res.json({
-    success: true,
-    viewCount: link.viewCount,
-    maxViews: link.maxViews,
-    burned: link.burned,
-    remainingViews: link.maxViews ? Math.max(0, link.maxViews - link.viewCount) : null
-  });
 });
 
 // GET /api/share/:token/file -> Stream raw PDF if link is valid
 app.get('/api/share/:token/file', (req, res) => {
-  const { token } = req.params;
-  const links = readSharedLinks();
-  const link = links[token];
+  try {
+    const { token } = req.params;
+    const vt = req.query.vt;
+    const links = readSharedLinks();
+    const link = links[token];
 
-  if (!link) {
-    return res.status(404).send('Secure link not found.');
+    if (!link) {
+      return res.status(404).send('Secure link not found.');
+    }
+
+    const now = Date.now();
+    if (link.expiresAt && now > link.expiresAt) {
+      link.burned = true;
+      link.burnReason = 'EXPIRED_TIME';
+      link.burnedAt = now;
+      writeSharedLinks(links);
+    }
+
+    // Check if burned, but permit active viewing session within 15-minute window if viewer token matches
+    const isAuthorizedActiveViewer = Boolean(vt && link.activeViewerToken && link.activeViewerToken === vt && (!link.activeViewerTokenExpires || now <= link.activeViewerTokenExpires));
+
+    if (link.burned && !isAuthorizedActiveViewer) {
+      return res.status(410).send('This document link has self-destructed and is no longer accessible.');
+    }
+
+    const targetDir = link.isPrivate ? PRIVATE_UPLOADS_DIR : UPLOADS_DIR;
+    const filePath = path.join(targetDir, link.filename);
+
+    if (!fs.existsSync(filePath)) {
+      return res.status(404).send('Underlying document file not found.');
+    }
+
+    // Record visitor telemetry specifically for this shared document access!
+    const ip = getVisitorIP(req);
+    resolveGeoIP(ip).then(geo => {
+      const visitors = readVisitors();
+      visitors.push({
+        id: 'vis_share_' + Date.now(),
+        ip,
+        userAgent: req.headers['user-agent'] || 'Unknown',
+        page: `Secure Share View: ${link.originalName} (${token})`,
+        country: geo.country,
+        countryCode: geo.countryCode,
+        flag: geo.flag,
+        region: geo.region,
+        city: geo.city,
+        zip: geo.zip || '',
+        lat: geo.lat,
+        lon: geo.lon,
+        isp: geo.isp,
+        org: geo.org,
+        isDatacenter: Boolean(geo.isDatacenter),
+        timestamp: new Date().toISOString()
+      });
+      writeVisitors(visitors);
+    }).catch(() => {});
+
+    const stat = fs.statSync(filePath);
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Length', stat.size);
+    res.setHeader('Content-Disposition', `inline; filename="${encodeURIComponent(link.originalName)}"`);
+    fs.createReadStream(filePath).pipe(res);
+  } catch (err) {
+    console.error('Error streaming shared file:', err);
+    res.status(500).send('Failed to stream shared document.');
   }
-
-  const now = Date.now();
-  if (link.expiresAt && now > link.expiresAt) {
-    link.burned = true;
-    link.burnReason = 'EXPIRED_TIME';
-    link.burnedAt = now;
-    writeSharedLinks(links);
-  }
-
-  if (link.burned) {
-    return res.status(410).send('This document link has self-destructed and is no longer accessible.');
-  }
-
-  const targetDir = link.isPrivate ? PRIVATE_UPLOADS_DIR : UPLOADS_DIR;
-  const filePath = path.join(targetDir, link.filename);
-
-  if (!fs.existsSync(filePath)) {
-    return res.status(404).send('Underlying document file not found.');
-  }
-
-  // Record visitor telemetry specifically for this shared document access!
-  const ip = getVisitorIP(req);
-  resolveGeoIP(ip).then(geo => {
-    const visitors = readVisitors();
-    visitors.push({
-      id: 'vis_share_' + Date.now(),
-      ip,
-      userAgent: req.headers['user-agent'] || 'Unknown',
-      page: `Secure Share View: ${link.originalName} (${token})`,
-      country: geo.country,
-      countryCode: geo.countryCode,
-      flag: geo.flag,
-      region: geo.region,
-      city: geo.city,
-      zip: geo.zip || '',
-      lat: geo.lat,
-      lon: geo.lon,
-      isp: geo.isp,
-      org: geo.org,
-      isDatacenter: Boolean(geo.isDatacenter),
-      timestamp: new Date().toISOString()
-    });
-    writeVisitors(visitors);
-  }).catch(() => {});
-
-  res.setHeader('Content-Type', 'application/pdf');
-  res.setHeader('Content-Disposition', `inline; filename="${encodeURIComponent(link.originalName)}"`);
-  res.sendFile(filePath);
 });
 
 // ═════════════════════════════════════════════════════════════════════
@@ -2904,146 +2968,156 @@ ${contextSample}`;
 
 // POST /api/auth/register
 app.post('/api/auth/register', authRegisterLimiter, (req, res) => {
-  const { email, password } = req.body || {};
-  if (!email || !password) {
-    return res.status(400).json({ error: 'Email and password are required.' });
-  }
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  if (!emailRegex.test(email.trim())) {
-    return res.status(400).json({ error: 'Invalid email address format.' });
-  }
-  if (password.length < 8) {
-    return res.status(400).json({ error: 'Password must be at least 8 characters long.' });
-  }
+  try {
+    const { email, password } = req.body || {};
+    if (!email || !password) {
+      return res.status(400).json({ error: 'Email and password are required.' });
+    }
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email.trim())) {
+      return res.status(400).json({ error: 'Invalid email address format.' });
+    }
+    if (password.length < 8) {
+      return res.status(400).json({ error: 'Password must be at least 8 characters long.' });
+    }
 
-  const users = readUsers();
-  const normalizedEmail = email.trim().toLowerCase();
-  if (users.some(u => u.email.toLowerCase() === normalizedEmail)) {
-    return res.status(400).json({ error: 'An account with this email already exists.' });
-  }
+    const users = readUsers();
+    const normalizedEmail = email.trim().toLowerCase();
+    if (users.some(u => u.email.toLowerCase() === normalizedEmail)) {
+      return res.status(400).json({ error: 'An account with this email already exists.' });
+    }
 
-  const salt = bcrypt.genSaltSync(10);
-  const passwordHash = bcrypt.hashSync(password, salt);
-  const verificationToken = crypto.randomBytes(32).toString('hex');
-  const otpCode = Math.floor(100000 + Math.random() * 900000).toString(); // Cryptographic 6-digit OTP
+    const salt = bcrypt.genSaltSync(10);
+    const passwordHash = bcrypt.hashSync(password, salt);
+    const verificationToken = crypto.randomBytes(32).toString('hex');
+    const otpCode = Math.floor(100000 + Math.random() * 900000).toString(); // Cryptographic 6-digit OTP
 
-  const newUser = {
-    id: 'usr_' + crypto.randomBytes(12).toString('hex'),
-    email: normalizedEmail,
-    passwordHash,
-    verified: false,
-    verificationToken,
-    verificationTokenExpires: Date.now() + 24 * 60 * 60 * 1000,
-    otpCode,
-    otpExpires: Date.now() + 15 * 60 * 1000, // 15 minutes
-    otpAttempts: 0,
-    createdAt: new Date().toISOString()
-  };
+    const newUser = {
+      id: 'usr_' + crypto.randomBytes(12).toString('hex'),
+      email: normalizedEmail,
+      passwordHash,
+      verified: false,
+      verificationToken,
+      verificationTokenExpires: Date.now() + 24 * 60 * 60 * 1000,
+      otpCode,
+      otpExpires: Date.now() + 15 * 60 * 1000, // 15 minutes
+      otpAttempts: 0,
+      createdAt: new Date().toISOString()
+    };
 
-  users.push(newUser);
-  writeUsers(users);
+    users.push(newUser);
+    writeUsers(users);
 
-  // If live SMTP is configured, dispatch OTP directly to recipient email
-  if (getActiveEmailConfig().isConfigured) {
-    sendLiveEmail({
-      to: normalizedEmail,
-      subject: 'Your 6-Digit Verification Code: Vault PDF Portal',
-      text: `Hello,\n\nYour 6-digit email verification code for Vault PDF Portal is:\n\n${otpCode}\n\nThis code will expire in 15 minutes.\n\nBest regards,\nVault Team\nhttps://vault-pdf-portal.onrender.com/`,
-      html: `
-        <div style="font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif; max-width:500px; margin:auto; background:#131a2a; color:#f8fafc; padding:30px; border-radius:14px; border:1px solid #7c3aed;">
-          <h2 style="color:#a78bfa; margin-top:0;">Verify Your Email Address</h2>
-          <p style="color:#cbd5e1; font-size:14px;">Thank you for registering at Vault PDF Portal. Please enter this 6-digit OTP code to activate your account:</p>
-          <div style="background:#0b0f19; padding:18px; border-radius:10px; font-size:32px; font-weight:800; letter-spacing:8px; text-align:center; color:#38bdf8; margin:20px 0; font-family:monospace; border:1px solid #1e293b;">
-            ${otpCode}
+    // If live SMTP is configured, dispatch OTP directly to recipient email
+    if (getActiveEmailConfig().isConfigured) {
+      sendLiveEmail({
+        to: normalizedEmail,
+        subject: 'Your 6-Digit Verification Code: Vault PDF Portal',
+        text: `Hello,\n\nYour 6-digit email verification code for Vault PDF Portal is:\n\n${otpCode}\n\nThis code will expire in 15 minutes.\n\nBest regards,\nVault Team\nhttps://vault-pdf-portal.onrender.com/`,
+        html: `
+          <div style="font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif; max-width:500px; margin:auto; background:#131a2a; color:#f8fafc; padding:30px; border-radius:14px; border:1px solid #7c3aed;">
+            <h2 style="color:#a78bfa; margin-top:0;">Verify Your Email Address</h2>
+            <p style="color:#cbd5e1; font-size:14px;">Thank you for registering at Vault PDF Portal. Please enter this 6-digit OTP code to activate your account:</p>
+            <div style="background:#0b0f19; padding:18px; border-radius:10px; font-size:32px; font-weight:800; letter-spacing:8px; text-align:center; color:#38bdf8; margin:20px 0; font-family:monospace; border:1px solid #1e293b;">
+              ${otpCode}
+            </div>
+            <p style="color:#94a3b8; font-size:12px; margin-bottom:0;">This code will expire in 15 minutes. If you did not initiate this request, you can safely ignore this message.</p>
           </div>
-          <p style="color:#94a3b8; font-size:12px; margin-bottom:0;">This code will expire in 15 minutes. If you did not initiate this request, you can safely ignore this message.</p>
-        </div>
-      `
-    }).catch(err => console.warn('Could not dispatch OTP email:', err.message));
-  }
+        `
+      }).catch(err => console.warn('Could not dispatch OTP email:', err.message));
+    }
 
-  res.json({
-    success: true,
-    message: 'Account registered successfully. Please check your email for the 6-digit OTP code.',
-    email: normalizedEmail,
-    verifyLink: `/verify-email?email=${encodeURIComponent(normalizedEmail)}`
-  });
+    res.json({
+      success: true,
+      message: 'Account registered successfully. Please check your email for the 6-digit OTP code.',
+      email: normalizedEmail,
+      verifyLink: `/verify-email?email=${encodeURIComponent(normalizedEmail)}`
+    });
+  } catch (err) {
+    console.error('Registration error:', err);
+    res.status(500).json({ error: 'Failed to complete registration: ' + err.message });
+  }
 });
 
 // POST /api/auth/verify-otp (Verify 6-digit OTP and activate account)
 app.post('/api/auth/verify-otp', async (req, res) => {
-  const { email, otp } = req.body || {};
-  if (!email || !otp) {
-    return res.status(400).json({ error: 'Email and 6-digit OTP code are required.' });
-  }
+  try {
+    const { email, otp } = req.body || {};
+    if (!email || !otp) {
+      return res.status(400).json({ error: 'Email and 6-digit OTP code are required.' });
+    }
 
-  const cleanOtp = String(otp).trim().replace(/\s+/g, '');
-  if (!/^\d{6}$/.test(cleanOtp)) {
-    return res.status(400).json({ error: 'Please enter a valid 6-digit numeric OTP code.' });
-  }
+    const cleanOtp = String(otp).trim().replace(/\s+/g, '');
+    if (!/^\d{6}$/.test(cleanOtp)) {
+      return res.status(400).json({ error: 'Please enter a valid 6-digit numeric OTP code.' });
+    }
 
-  const users = readUsers();
-  const normalizedEmail = email.trim().toLowerCase();
-  const user = users.find(u => u.email.toLowerCase() === normalizedEmail);
+    const users = readUsers();
+    const normalizedEmail = email.trim().toLowerCase();
+    const user = users.find(u => u.email.toLowerCase() === normalizedEmail);
 
-  if (!user) {
-    return res.status(404).json({ error: 'No account found with this email address.' });
-  }
+    if (!user) {
+      return res.status(404).json({ error: 'No account found with this email address.' });
+    }
 
-  if (user.verified) {
-    return res.json({ success: true, alreadyVerified: true, message: 'Account is already verified! You may log in directly.' });
-  }
+    if (user.verified) {
+      return res.json({ success: true, alreadyVerified: true, message: 'Account is already verified! You may log in directly.' });
+    }
 
-  user.otpAttempts = (user.otpAttempts || 0) + 1;
-  if (user.otpAttempts > 5) {
+    user.otpAttempts = (user.otpAttempts || 0) + 1;
+    if (user.otpAttempts > 5) {
+      writeUsers(users);
+      return res.status(429).json({ error: 'Too many incorrect attempts. Please click "Resend OTP" to request a fresh code.' });
+    }
+
+    if (user.otpExpires && Date.now() > user.otpExpires) {
+      writeUsers(users);
+      return res.status(400).json({ error: 'OTP code has expired. Please request a new code.' });
+    }
+
+    if (user.otpCode !== cleanOtp) {
+      writeUsers(users);
+      const remaining = Math.max(0, 5 - user.otpAttempts);
+      return res.status(400).json({ error: `Incorrect OTP code. (${remaining} attempt(s) remaining)` });
+    }
+
+    // OTP is correct! Mark verified
+    user.verified = true;
+    user.otpCode = null;
+    user.otpExpires = null;
+    user.otpAttempts = 0;
+    user.verificationToken = null;
+    user.verificationTokenExpires = null;
     writeUsers(users);
-    return res.status(429).json({ error: 'Too many incorrect attempts. Please click "Resend OTP" to request a fresh code.' });
+
+    // Automatically sign the user in with session cookie
+    const sessionToken = crypto.randomBytes(32).toString('hex');
+    const sessions = readUserSessions();
+    sessions[sessionToken] = {
+      userId: user.id,
+      email: user.email,
+      createdAt: Date.now()
+    };
+    writeUserSessions(sessions);
+
+    const isHttps = Boolean(req.secure || req.headers['x-forwarded-proto'] === 'https');
+    res.cookie('vault_user_session', sessionToken, {
+      path: '/',
+      httpOnly: true,
+      secure: isHttps,
+      sameSite: 'lax',
+      maxAge: 7 * 24 * 60 * 60 * 1000
+    });
+
+    res.json({
+      success: true,
+      message: 'OTP verified successfully! Account is activated.',
+      user: { id: user.id, email: user.email }
+    });
+  } catch (err) {
+    console.error('OTP verification error:', err);
+    res.status(500).json({ error: 'Failed to verify OTP code: ' + err.message });
   }
-
-  if (user.otpExpires && Date.now() > user.otpExpires) {
-    writeUsers(users);
-    return res.status(400).json({ error: 'OTP code has expired. Please request a new code.' });
-  }
-
-  if (user.otpCode !== cleanOtp) {
-    writeUsers(users);
-    const remaining = Math.max(0, 5 - user.otpAttempts);
-    return res.status(400).json({ error: `Incorrect OTP code. (${remaining} attempt(s) remaining)` });
-  }
-
-  // OTP is correct! Mark verified
-  user.verified = true;
-  user.otpCode = null;
-  user.otpExpires = null;
-  user.otpAttempts = 0;
-  user.verificationToken = null;
-  user.verificationTokenExpires = null;
-  writeUsers(users);
-
-  // Automatically sign the user in with session cookie
-  const sessionToken = crypto.randomBytes(32).toString('hex');
-  const sessions = readUserSessions();
-  sessions[sessionToken] = {
-    userId: user.id,
-    email: user.email,
-    createdAt: Date.now()
-  };
-  writeUserSessions(sessions);
-
-  const isHttps = Boolean(req.secure || req.headers['x-forwarded-proto'] === 'https');
-  res.cookie('vault_user_session', sessionToken, {
-    path: '/',
-    httpOnly: true,
-    secure: isHttps,
-    sameSite: 'lax',
-    maxAge: 7 * 24 * 60 * 60 * 1000
-  });
-
-  res.json({
-    success: true,
-    message: 'OTP verified successfully! Account is activated.',
-    user: { id: user.id, email: user.email }
-  });
 });
 
 // POST /api/auth/resend-otp (Generate fresh 6-digit OTP)
@@ -3136,63 +3210,68 @@ app.get('/api/auth/verify-email', (req, res) => {
 
 // POST /api/auth/login (Hardened rate-limiting & HttpOnly/Secure/SameSite cookie)
 app.post('/api/auth/login', authLoginLimiter, async (req, res) => {
-  const ip = getVisitorIP(req);
-  const rateLimit = checkUserLoginRateLimit(ip);
-  if (!rateLimit.allowed) {
-    return res.status(429).json({
-      error: `Too many failed login attempts. Account access locked for ${rateLimit.remainingMins} minute(s).`
+  try {
+    const ip = getVisitorIP(req);
+    const rateLimit = checkUserLoginRateLimit(ip);
+    if (!rateLimit.allowed) {
+      return res.status(429).json({
+        error: `Too many failed login attempts. Account access locked for ${rateLimit.remainingMins} minute(s).`
+      });
+    }
+
+    const { email, password } = req.body || {};
+    if (!email || !password) {
+      return res.status(400).json({ error: 'Email and password are required.' });
+    }
+
+    const users = readUsers();
+    const normalizedEmail = email.trim().toLowerCase();
+    const user = users.find(u => u.email.toLowerCase() === normalizedEmail);
+
+    if (!user || !bcrypt.compareSync(password, user.passwordHash)) {
+      recordUserFailedLogin(ip);
+      await new Promise(r => setTimeout(r, 400));
+      return res.status(401).json({ error: 'Invalid email or password.' });
+    }
+
+    if (!user.verified) {
+      return res.status(403).json({
+        error: 'Your email address has not been verified yet. Please check your inbox for the verification OTP.',
+        unverified: true,
+        verifyLink: `/verify-email?email=${encodeURIComponent(user.email)}`
+      });
+    }
+
+    clearUserLoginAttempts(ip);
+
+    // Issue session token
+    const sessionToken = crypto.randomBytes(32).toString('hex');
+    const sessions = readUserSessions();
+    sessions[sessionToken] = {
+      userId: user.id,
+      email: user.email,
+      createdAt: Date.now()
+    };
+    writeUserSessions(sessions);
+
+    // Set HttpOnly, Secure, SameSite session cookie
+    const isSecure = req.secure || req.headers['x-forwarded-proto'] === 'https';
+    res.cookie('vault_user_session', sessionToken, {
+      path: '/',
+      httpOnly: true,
+      secure: isSecure,
+      sameSite: 'lax',
+      maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
     });
-  }
 
-  const { email, password } = req.body || {};
-  if (!email || !password) {
-    return res.status(400).json({ error: 'Email and password are required.' });
-  }
-
-  const users = readUsers();
-  const normalizedEmail = email.trim().toLowerCase();
-  const user = users.find(u => u.email.toLowerCase() === normalizedEmail);
-
-  if (!user || !bcrypt.compareSync(password, user.passwordHash)) {
-    recordUserFailedLogin(ip);
-    await new Promise(r => setTimeout(r, 400));
-    return res.status(401).json({ error: 'Invalid email or password.' });
-  }
-
-  if (!user.verified) {
-    return res.status(403).json({
-      error: 'Your email address has not been verified yet. Please check your inbox for the verification OTP.',
-      unverified: true,
-      verifyLink: `/verify-email?email=${encodeURIComponent(user.email)}`
+    res.json({
+      success: true,
+      user: { id: user.id, email: user.email }
     });
+  } catch (err) {
+    console.error('User login error:', err);
+    res.status(500).json({ error: 'Failed to process login: ' + err.message });
   }
-
-  clearUserLoginAttempts(ip);
-
-  // Issue session token
-  const sessionToken = crypto.randomBytes(32).toString('hex');
-  const sessions = readUserSessions();
-  sessions[sessionToken] = {
-    userId: user.id,
-    email: user.email,
-    createdAt: Date.now()
-  };
-  writeUserSessions(sessions);
-
-  // Set HttpOnly, Secure, SameSite session cookie
-  const isSecure = req.secure || req.headers['x-forwarded-proto'] === 'https';
-  res.cookie('vault_user_session', sessionToken, {
-    path: '/',
-    httpOnly: true,
-    secure: isSecure,
-    sameSite: 'lax',
-    maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
-  });
-
-  res.json({
-    success: true,
-    user: { id: user.id, email: user.email }
-  });
 });
 
 // POST /api/auth/logout
@@ -3221,140 +3300,150 @@ app.get('/api/auth/me', (req, res) => {
 
 // POST /api/auth/forgot-password
 app.post('/api/auth/forgot-password', authForgotLimiter, async (req, res) => {
-  const { email } = req.body || {};
-  if (!email || typeof email !== 'string' || !email.trim()) {
-    return res.status(400).json({ error: 'Email address is required.' });
-  }
-
-  const normalizedEmail = email.trim().toLowerCase();
-  const users = readUsers();
-  let user = users.find(u => u.email && u.email.toLowerCase() === normalizedEmail);
-
-  // If user does not exist in users.json (e.g. fresh ephemeral deployment), auto-provision them
-  if (!user) {
-    user = {
-      id: 'usr_' + Date.now() + '_' + crypto.randomBytes(4).toString('hex'),
-      email: normalizedEmail,
-      passwordHash: bcrypt.hashSync(crypto.randomBytes(16).toString('hex'), 10),
-      verified: true,
-      createdAt: new Date().toISOString()
-    };
-    users.push(user);
-  }
-
-  const resetToken = crypto.randomBytes(32).toString('hex');
-  user.resetToken = resetToken;
-  user.resetTokenExpires = Date.now() + 60 * 60 * 1000; // 1 hour expiration
-  writeUsers(users);
-
-  let origin = (process.env.APP_URL || '').replace(/\/+$/, '');
-  if (!origin) {
-    const rawHost = req.get('host') || '';
-    if (rawHost && !rawHost.includes('localhost') && !rawHost.includes('127.0.0.1')) {
-      const protocol = req.get('x-forwarded-proto') || req.protocol || 'https';
-      origin = `${protocol}://${rawHost}`.replace(/\/+$/, '');
-    } else {
-      origin = 'https://vault-pdf-portal.onrender.com';
+  try {
+    const { email } = req.body || {};
+    if (!email || typeof email !== 'string' || !email.trim()) {
+      return res.status(400).json({ error: 'Email address is required.' });
     }
-  }
-  const resetUrl = `${origin}/reset-password?token=${resetToken}`;
 
-  const config = getActiveEmailConfig();
-  let emailDispatched = false;
-  let emailMessageId = null;
+    const normalizedEmail = email.trim().toLowerCase();
+    const users = readUsers();
+    let user = users.find(u => u.email && u.email.toLowerCase() === normalizedEmail);
 
-  if (config.isConfigured) {
-    try {
-      const delivery = await sendLiveEmail({
-        to: user.email,
-        subject: 'Vault PDF Portal: Reset your password',
-        text: `Hello,\n\nA request was received to reset your password for Vault PDF Portal (${user.email}).\n\nClick the link below to choose a new password:\n${resetUrl}\n\nThis recovery link will expire in 60 minutes.\n\nIf you did not request a password reset, you can safely ignore this message—your account remains protected.\n\nBest regards,\nVault PDF Security Team\n${origin}`,
-        html: `
-          <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif; max-width:540px; margin:0 auto; background:#0b0f19; color:#f8fafc; padding:36px 30px; border-radius:18px; border:1px solid rgba(124,58,237,0.4); box-shadow:0 24px 50px rgba(0,0,0,0.6);">
-            <div style="text-align:center; margin-bottom:28px;">
-              <div style="display:inline-block; width:54px; height:54px; border-radius:14px; background:linear-gradient(135deg,#7c3aed,#06b6d4); line-height:54px; color:#ffffff; font-size:26px; box-shadow:0 8px 24px rgba(124,58,237,0.4);">
-                🛡️
+    // If user does not exist in users.json (e.g. fresh ephemeral deployment), auto-provision them
+    if (!user) {
+      user = {
+        id: 'usr_' + Date.now() + '_' + crypto.randomBytes(4).toString('hex'),
+        email: normalizedEmail,
+        passwordHash: bcrypt.hashSync(crypto.randomBytes(16).toString('hex'), 10),
+        verified: true,
+        createdAt: new Date().toISOString()
+      };
+      users.push(user);
+    }
+
+    const resetToken = crypto.randomBytes(32).toString('hex');
+    user.resetToken = resetToken;
+    user.resetTokenExpires = Date.now() + 60 * 60 * 1000; // 1 hour expiration
+    writeUsers(users);
+
+    let origin = (process.env.APP_URL || '').replace(/\/+$/, '');
+    if (!origin) {
+      const rawHost = req.get('host') || '';
+      if (rawHost && !rawHost.includes('localhost') && !rawHost.includes('127.0.0.1')) {
+        const protocol = req.get('x-forwarded-proto') || req.protocol || 'https';
+        origin = `${protocol}://${rawHost}`.replace(/\/+$/, '');
+      } else {
+        origin = 'https://vault-pdf-portal.onrender.com';
+      }
+    }
+    const resetUrl = `${origin}/reset-password?token=${resetToken}`;
+
+    const config = getActiveEmailConfig();
+    let emailDispatched = false;
+    let emailMessageId = null;
+
+    if (config.isConfigured) {
+      try {
+        const delivery = await sendLiveEmail({
+          to: user.email,
+          subject: 'Vault PDF Portal: Reset your password',
+          text: `Hello,\n\nA request was received to reset your password for Vault PDF Portal (${user.email}).\n\nClick the link below to choose a new password:\n${resetUrl}\n\nThis recovery link will expire in 60 minutes.\n\nIf you did not request a password reset, you can safely ignore this message—your account remains protected.\n\nBest regards,\nVault PDF Security Team\n${origin}`,
+          html: `
+            <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif; max-width:540px; margin:0 auto; background:#0b0f19; color:#f8fafc; padding:36px 30px; border-radius:18px; border:1px solid rgba(124,58,237,0.4); box-shadow:0 24px 50px rgba(0,0,0,0.6);">
+              <div style="text-align:center; margin-bottom:28px;">
+                <div style="display:inline-block; width:54px; height:54px; border-radius:14px; background:linear-gradient(135deg,#7c3aed,#06b6d4); line-height:54px; color:#ffffff; font-size:26px; box-shadow:0 8px 24px rgba(124,58,237,0.4);">
+                  🛡️
+                </div>
+                <h2 style="color:#ffffff; margin:16px 0 6px; font-size:23px; font-weight:700; letter-spacing:-0.02em;">Password Recovery</h2>
+                <p style="color:#94a3b8; font-size:14px; margin:0;">Vault PDF Portal &bull; Enterprise Document Security</p>
               </div>
-              <h2 style="color:#ffffff; margin:16px 0 6px; font-size:23px; font-weight:700; letter-spacing:-0.02em;">Password Recovery</h2>
-              <p style="color:#94a3b8; font-size:14px; margin:0;">Vault PDF Portal &bull; Enterprise Document Security</p>
-            </div>
 
-            <p style="color:#cbd5e1; font-size:15px; line-height:1.6; margin-bottom:22px;">
-              Hello,<br><br>
-              We received a password reset request for your account (<strong style="color:#f8fafc;">${user.email}</strong>). Click the button below to choose a new password:
-            </p>
-
-            <div style="text-align:center; margin:30px 0;">
-              <a href="${resetUrl}" target="_blank" rel="noopener" style="display:inline-block; background:linear-gradient(135deg,#7c3aed 0%,#4f46e5 100%); color:#ffffff; font-size:15px; font-weight:700; text-decoration:none; padding:14px 34px; border-radius:12px; box-shadow:0 8px 26px rgba(124,58,237,0.5); letter-spacing:0.01em;">
-                Reset Password &rarr;
-              </a>
-            </div>
-
-            <p style="color:#94a3b8; font-size:13px; line-height:1.5; margin-bottom:8px;">
-              If the button above does not open, copy and paste this recovery URL directly into your browser:
-            </p>
-            <div style="background:#020617; border:1px solid rgba(255,255,255,0.12); border-radius:8px; padding:12px; font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace; font-size:12px; color:#38bdf8; word-break:break-all; line-height:1.5; margin-bottom:22px;">
-              ${resetUrl}
-            </div>
-
-            <div style="background:rgba(255,255,255,0.04); border-left:3px solid #7c3aed; padding:14px 16px; border-radius:6px; margin-top:26px;">
-              <p style="color:#94a3b8; font-size:12px; margin:0; line-height:1.6;">
-                ⏳ <strong>Security Notice:</strong> This password recovery link will expire in <strong>60 minutes</strong>.<br>
-                If you did not request this change, you can safely ignore this email. Your current password will remain unchanged.
+              <p style="color:#cbd5e1; font-size:15px; line-height:1.6; margin-bottom:22px;">
+                Hello,<br><br>
+                We received a password reset request for your account (<strong style="color:#f8fafc;">${user.email}</strong>). Click the button below to choose a new password:
               </p>
-            </div>
 
-            <div style="margin-top:32px; padding-top:22px; border-top:1px solid rgba(255,255,255,0.08); text-align:center; color:#64748b; font-size:12px; line-height:1.6;">
-              Vault PDF Portal &bull; Zero-Knowledge Forensic Document Repository<br>
-              <a href="${origin}" style="color:#818cf8; text-decoration:none;">Visit Vault PDF Portal &rarr;</a>
+              <div style="text-align:center; margin:30px 0;">
+                <a href="${resetUrl}" target="_blank" rel="noopener" style="display:inline-block; background:linear-gradient(135deg,#7c3aed 0%,#4f46e5 100%); color:#ffffff; font-size:15px; font-weight:700; text-decoration:none; padding:14px 34px; border-radius:12px; box-shadow:0 8px 26px rgba(124,58,237,0.5); letter-spacing:0.01em;">
+                  Reset Password &rarr;
+                </a>
+              </div>
+
+              <p style="color:#94a3b8; font-size:13px; line-height:1.5; margin-bottom:8px;">
+                If the button above does not open, copy and paste this recovery URL directly into your browser:
+              </p>
+              <div style="background:#020617; border:1px solid rgba(255,255,255,0.12); border-radius:8px; padding:12px; font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace; font-size:12px; color:#38bdf8; word-break:break-all; line-height:1.5; margin-bottom:22px;">
+                ${resetUrl}
+              </div>
+
+              <div style="background:rgba(255,255,255,0.04); border-left:3px solid #7c3aed; padding:14px 16px; border-radius:6px; margin-top:26px;">
+                <p style="color:#94a3b8; font-size:12px; margin:0; line-height:1.6;">
+                  ⏳ <strong>Security Notice:</strong> This password recovery link will expire in <strong>60 minutes</strong>.<br>
+                  If you did not request this change, you can safely ignore this email. Your current password will remain unchanged.
+                </p>
+              </div>
+
+              <div style="margin-top:32px; padding-top:22px; border-top:1px solid rgba(255,255,255,0.08); text-align:center; color:#64748b; font-size:12px; line-height:1.6;">
+                Vault PDF Portal &bull; Zero-Knowledge Forensic Document Repository<br>
+                <a href="${origin}" style="color:#818cf8; text-decoration:none;">Visit Vault PDF Portal &rarr;</a>
+              </div>
             </div>
-          </div>
-        `
-      });
-      emailDispatched = !!delivery.delivered;
-      emailMessageId = delivery.messageId || delivery.response || 'sent';
-      console.log(`[AUTH] Password recovery email dispatched to ${user.email} (${emailMessageId})`);
-    } catch (err) {
-      console.error(`[AUTH] Password recovery email dispatch error for ${user.email}:`, err.message);
+          `
+        });
+        emailDispatched = !!delivery.delivered;
+        emailMessageId = delivery.messageId || delivery.response || 'sent';
+        console.log(`[AUTH] Password recovery email dispatched to ${user.email} (${emailMessageId})`);
+      } catch (err) {
+        console.error(`[AUTH] Password recovery email dispatch error for ${user.email}:`, err.message);
+      }
+    } else {
+      console.warn(`[AUTH] Password reset requested for ${user.email}, but no Email API credentials configured in environment variables.`);
     }
-  } else {
-    console.warn(`[AUTH] Password reset requested for ${user.email}, but no Email API credentials configured in environment variables.`);
-  }
 
-  res.json({
-    success: true,
-    emailDispatched,
-    emailMessageId,
-    email: user.email,
-    recoveryLink: resetUrl,
-    message: emailDispatched
-      ? `Password recovery email has been sent to ${user.email}. Please check your inbox and spam/junk folder.`
-      : `Password recovery link generated. You can reset your password using the link below.`
-  });
+    res.json({
+      success: true,
+      emailDispatched,
+      emailMessageId,
+      email: user.email,
+      recoveryLink: resetUrl,
+      message: emailDispatched
+        ? `Password recovery email has been sent to ${user.email}. Please check your inbox and spam/junk folder.`
+        : `Password recovery link generated. You can reset your password using the link below.`
+    });
+  } catch (err) {
+    console.error('Forgot password error:', err);
+    res.status(500).json({ error: 'Failed to process password recovery request: ' + err.message });
+  }
 });
 
 // POST /api/auth/reset-password
 app.post('/api/auth/reset-password', (req, res) => {
-  const { token, newPassword } = req.body || {};
-  if (!token || !newPassword) {
-    return res.status(400).json({ error: 'Token and new password are required.' });
-  }
-  if (newPassword.length < 8) {
-    return res.status(400).json({ error: 'Password must be at least 8 characters long.' });
-  }
+  try {
+    const { token, newPassword } = req.body || {};
+    if (!token || !newPassword) {
+      return res.status(400).json({ error: 'Token and new password are required.' });
+    }
+    if (newPassword.length < 8) {
+      return res.status(400).json({ error: 'Password must be at least 8 characters long.' });
+    }
 
-  const users = readUsers();
-  const user = users.find(u => u.resetToken === token);
-  if (!user || !user.resetTokenExpires || Date.now() > user.resetTokenExpires) {
-    return res.status(400).json({ error: 'Invalid or expired password reset token.' });
+    const users = readUsers();
+    const user = users.find(u => u.resetToken === token);
+    if (!user || !user.resetTokenExpires || Date.now() > user.resetTokenExpires) {
+      return res.status(400).json({ error: 'Invalid or expired password reset token.' });
+    }
+
+    user.passwordHash = bcrypt.hashSync(newPassword, 10);
+    user.resetToken = null;
+    user.resetTokenExpires = null;
+    writeUsers(users);
+
+    res.json({ success: true, message: 'Password has been updated successfully. You can now log in.' });
+  } catch (err) {
+    console.error('Reset password error:', err);
+    res.status(500).json({ error: 'Failed to update password: ' + err.message });
   }
-
-  user.passwordHash = bcrypt.hashSync(newPassword, 10);
-  user.resetToken = null;
-  user.resetTokenExpires = null;
-  writeUsers(users);
-
-  res.json({ success: true, message: 'Password has been updated successfully. You can now log in.' });
 });
 
 // ═════════════════════════════════════════════════════════════════════
@@ -3514,103 +3603,113 @@ app.delete('/api/user/documents/:id', requireUser, (req, res) => {
 
 // POST /api/unlock/verify (Rate-limited, code validation, creates download token)
 app.post('/api/unlock/verify', unlockVerifyLimiter, async (req, res) => {
-  const ip = getVisitorIP(req);
-  const { code } = req.body || {};
-  if (!code || typeof code !== 'string' || normalizeCode(code).length < 12) {
-    return res.status(400).json({ error: 'Invalid secret code. Codes are at least 12 characters long.' });
-  }
-
-  const submittedHash = hashCode(code);
-  const docs = readUserDocuments();
-  const doc = docs.find(d => d.codeHash === submittedHash);
-
-  if (!doc || doc.revoked) {
-    await new Promise(r => setTimeout(r, 400));
-    return res.status(401).json({ error: 'Invalid or revoked secret unlock code.' });
-  }
-
-  // Expiry check
-  if (doc.expiryDate) {
-    const exp = new Date(doc.expiryDate);
-    exp.setHours(23, 59, 59, 999);
-    if (new Date() > exp) {
-      return res.status(400).json({ error: 'This secret code has expired and is no longer valid.' });
+  try {
+    const ip = getVisitorIP(req);
+    const { code } = req.body || {};
+    if (!code || typeof code !== 'string' || normalizeCode(code).length < 12) {
+      return res.status(400).json({ error: 'Invalid secret code. Codes are at least 12 characters long.' });
     }
-  }
 
-  // Max download limit check
-  if (doc.maxDownloads && doc.downloads >= doc.maxDownloads) {
-    return res.status(400).json({ error: 'Maximum download limit has been reached for this secret code.' });
-  }
+    const submittedHash = hashCode(code);
+    const docs = readUserDocuments();
+    const doc = docs.find(d => d.codeHash === submittedHash);
 
-  clearUnlockAttempts(ip);
+    if (!doc || doc.revoked) {
+      await new Promise(r => setTimeout(r, 400));
+      return res.status(401).json({ error: 'Invalid or revoked secret unlock code.' });
+    }
 
-  // Generate short-lived (5 min) download token
-  const downloadToken = crypto.randomBytes(32).toString('hex');
-  downloadTokens.set(downloadToken, {
-    docId: doc.id,
-    storedFilename: doc.storedFilename,
-    originalName: doc.originalName,
-    expiresAt: Date.now() + 5 * 60 * 1000
-  });
+    // Expiry check
+    if (doc.expiryDate) {
+      const exp = new Date(doc.expiryDate);
+      exp.setHours(23, 59, 59, 999);
+      if (new Date() > exp) {
+        return res.status(400).json({ error: 'This secret code has expired and is no longer valid.' });
+      }
+    }
 
-  const k = 1024;
-  const sizes = ['B', 'KB', 'MB', 'GB'];
-  const i = Math.floor(Math.log(doc.size || 1) / Math.log(k));
-  const sizeFormatted = ((doc.size || 0) / Math.pow(k, i)).toFixed(1) + ' ' + sizes[i];
+    // Max download limit check
+    if (doc.maxDownloads && doc.downloads >= doc.maxDownloads) {
+      return res.status(400).json({ error: 'Maximum download limit has been reached for this secret code.' });
+    }
 
-  res.json({
-    success: true,
-    downloadToken,
-    document: {
+    clearUnlockAttempts(ip);
+
+    // Generate short-lived (5 min) download token
+    const downloadToken = crypto.randomBytes(32).toString('hex');
+    downloadTokens.set(downloadToken, {
+      docId: doc.id,
+      storedFilename: doc.storedFilename,
       originalName: doc.originalName,
-      sizeFormatted,
-      category: doc.category
-    }
-  });
+      expiresAt: Date.now() + 5 * 60 * 1000
+    });
+
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(doc.size || 1) / Math.log(k));
+    const sizeFormatted = ((doc.size || 0) / Math.pow(k, i)).toFixed(1) + ' ' + sizes[i];
+
+    res.json({
+      success: true,
+      downloadToken,
+      document: {
+        originalName: doc.originalName,
+        sizeFormatted,
+        category: doc.category
+      }
+    });
+  } catch (err) {
+    console.error('Unlock verify error:', err);
+    res.status(500).json({ error: 'Failed to verify unlock code: ' + err.message });
+  }
 });
 
 // GET /api/unlock/download?token=... (Streams file after code verification)
 app.get('/api/unlock/download', (req, res) => {
-  const token = req.query.token;
-  if (!token || !downloadTokens.has(token)) {
-    return res.status(403).json({ error: 'Invalid or expired download authorization token.' });
+  try {
+    const token = req.query.token;
+    if (!token || !downloadTokens.has(token)) {
+      return res.status(403).json({ error: 'Invalid or expired download authorization token.' });
+    }
+
+    const tokenData = downloadTokens.get(token);
+    downloadTokens.delete(token);
+
+    const filePath = path.join(PRIVATE_UPLOADS_DIR, tokenData.storedFilename);
+    if (!fs.existsSync(filePath)) {
+      return res.status(404).json({ error: 'Document file not found on vault server.' });
+    }
+
+    // Update download count
+    const docs = readUserDocuments();
+    const doc = docs.find(d => d.id === tokenData.docId);
+    if (doc) {
+      doc.downloads = (doc.downloads || 0) + 1;
+      writeUserDocuments(docs);
+    }
+
+    // Log visitor download
+    const ip = getVisitorIP(req);
+    const visitors = readVisitors();
+    visitors.push({
+      ip,
+      userAgent: req.headers['user-agent'] || 'Unknown',
+      timestamp: new Date().toISOString(),
+      page: 'Unlocked Download: ' + tokenData.originalName
+    });
+    writeVisitors(visitors);
+
+    const stat = fs.statSync(filePath);
+    res.set({
+      'Content-Type': 'application/pdf',
+      'Content-Disposition': `attachment; filename="${encodeURIComponent(tokenData.originalName)}"`,
+      'Content-Length': stat.size
+    });
+    fs.createReadStream(filePath).pipe(res);
+  } catch (err) {
+    console.error('Unlock download error:', err);
+    res.status(500).json({ error: 'Failed to stream unlocked document: ' + err.message });
   }
-
-  const tokenData = downloadTokens.get(token);
-  downloadTokens.delete(token);
-
-  const filePath = path.join(PRIVATE_UPLOADS_DIR, tokenData.storedFilename);
-  if (!fs.existsSync(filePath)) {
-    return res.status(404).json({ error: 'Document file not found on vault server.' });
-  }
-
-  // Update download count
-  const docs = readUserDocuments();
-  const doc = docs.find(d => d.id === tokenData.docId);
-  if (doc) {
-    doc.downloads = (doc.downloads || 0) + 1;
-    writeUserDocuments(docs);
-  }
-
-  // Log visitor download
-  const ip = getVisitorIP(req);
-  const visitors = readVisitors();
-  visitors.push({
-    ip,
-    userAgent: req.headers['user-agent'] || 'Unknown',
-    timestamp: new Date().toISOString(),
-    page: 'Unlocked Download: ' + tokenData.originalName
-  });
-  writeVisitors(visitors);
-
-  const stat = fs.statSync(filePath);
-  res.set({
-    'Content-Type': 'application/pdf',
-    'Content-Disposition': `attachment; filename="${encodeURIComponent(tokenData.originalName)}"`,
-    'Content-Length': stat.size
-  });
-  fs.createReadStream(filePath).pipe(res);
 });
 
 // ═════════════════════════════════════════════════════════════════════
@@ -4834,6 +4933,24 @@ app.post('/api/translate/document', translateLimiter, async (req, res) => {
     console.error('Translation error:', err);
     res.status(500).json({ error: 'Failed to translate document: ' + err.message });
   }
+});
+
+// ─── Global Error Handling Middleware (Multer + Application Errors) ──
+app.use((err, req, res, next) => {
+  if (err.name === 'MulterError') {
+    if (err.code === 'LIMIT_FILE_SIZE') {
+      return res.status(400).json({ error: 'File exceeds maximum upload size limit.' });
+    }
+    return res.status(400).json({ error: `File upload error: ${err.message}` });
+  }
+
+  console.error('Unhandled server exception:', err);
+  if (res.headersSent) {
+    return next(err);
+  }
+  res.status(err.status || 500).json({
+    error: err.message || 'An unexpected internal server error occurred.'
+  });
 });
 
 // ─── Start server ───────────────────────────────────────────────────
