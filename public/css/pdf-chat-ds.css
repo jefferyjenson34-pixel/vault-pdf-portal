@@ -1,0 +1,291 @@
+/* ─── Vault Design System: Scoped Ask AI Drawer ─── */
+/* All rules strictly scoped under body.ds */
+
+body.ds .pdf-chat-backdrop {
+  position: fixed;
+  inset: 0;
+  background-color: var(--ds-color-overlay);
+  z-index: 9999;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+body.ds .pdf-chat-backdrop.active {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+body.ds .pdf-chat-drawer {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 440px;
+  max-width: 100vw;
+  background-color: var(--ds-color-bg-surface);
+  border-left: 1px solid var(--ds-color-border-primary);
+  display: flex;
+  flex-direction: column;
+  transform: translateX(100%);
+  transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: var(--ds-shadow-lg);
+}
+
+body.ds .pdf-chat-backdrop.active .pdf-chat-drawer {
+  transform: translateX(0);
+}
+
+/* Header */
+body.ds .pdf-chat-header {
+  padding: var(--ds-space-4) var(--ds-space-5);
+  border-bottom: 1px solid var(--ds-color-border-subtle);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background-color: var(--ds-color-bg-surface);
+}
+
+body.ds .pdf-chat-header-info {
+  display: flex;
+  align-items: center;
+  gap: var(--ds-space-3);
+  min-width: 0;
+}
+
+body.ds .pdf-chat-bot-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: var(--ds-radius-md);
+  background-color: var(--ds-color-accent-subtle);
+  color: var(--ds-color-accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  flex-shrink: 0;
+}
+
+body.ds .pdf-chat-title-wrap {
+  min-width: 0;
+}
+
+body.ds .pdf-chat-main-title {
+  font: var(--ds-text-body-semibold);
+  color: var(--ds-color-text-primary);
+  display: flex;
+  align-items: center;
+  gap: var(--ds-space-2);
+}
+
+body.ds .pdf-chat-doc-sub {
+  font: var(--ds-text-meta);
+  color: var(--ds-color-text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-transform: none;
+  text-overflow: ellipsis;
+  max-width: 260px;
+}
+
+body.ds .pdf-chat-close-btn {
+  background: transparent;
+  border: none;
+  font-size: 20px;
+  color: var(--ds-color-text-secondary);
+  cursor: pointer;
+  padding: var(--ds-space-2);
+  line-height: 1;
+  border-radius: var(--ds-radius-sm);
+  transition: color 0.15s ease, background-color 0.15s ease;
+}
+
+body.ds .pdf-chat-close-btn:hover {
+  color: var(--ds-color-text-primary);
+  background-color: var(--ds-color-bg-subtle);
+}
+
+/* Suggested Chips */
+body.ds .pdf-chat-chips-bar {
+  padding: var(--ds-space-2) var(--ds-space-5);
+  border-bottom: 1px solid var(--ds-color-border-subtle);
+  background-color: var(--ds-color-bg-page);
+  display: flex;
+  gap: var(--ds-space-2);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+body.ds .pdf-chat-chips-bar::-webkit-scrollbar {
+  display: none;
+}
+
+body.ds .pdf-prompt-chip {
+  padding: var(--ds-space-1) var(--ds-space-3);
+  font: var(--ds-text-meta-medium);
+  color: var(--ds-color-text-secondary);
+  background-color: var(--ds-color-bg-surface);
+  border: 1px solid var(--ds-color-border-primary);
+  border-radius: var(--ds-radius-full);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s ease;
+}
+
+body.ds .pdf-prompt-chip:hover {
+  color: var(--ds-color-accent);
+  border-color: var(--ds-color-accent);
+  background-color: var(--ds-color-accent-subtle);
+}
+
+/* Messages Area */
+body.ds .pdf-chat-messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--ds-space-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--ds-space-4);
+  background-color: var(--ds-color-bg-surface);
+}
+
+body.ds .pdf-msg {
+  display: flex;
+  flex-direction: column;
+  max-width: 88%;
+}
+
+body.ds .pdf-msg-user {
+  align-self: flex-end;
+}
+
+body.ds .pdf-msg-ai {
+  align-self: flex-start;
+}
+
+body.ds .pdf-msg-bubble {
+  padding: var(--ds-space-3) var(--ds-space-4);
+  font-size: 14px;
+  line-height: 1.5;
+  word-break: break-word;
+}
+
+body.ds .pdf-msg-user .pdf-msg-bubble {
+  background-color: var(--ds-color-accent);
+  color: var(--ds-color-text-inverse);
+  border-radius: 14px 14px 2px 14px;
+}
+
+body.ds .pdf-msg-ai .pdf-msg-bubble {
+  background-color: var(--ds-color-bg-subtle);
+  color: var(--ds-color-text-primary);
+  border: 1px solid var(--ds-color-border-subtle);
+  border-radius: 14px 14px 14px 2px;
+}
+
+body.ds .pdf-msg-bubble p {
+  margin-bottom: var(--ds-space-2);
+}
+
+body.ds .pdf-msg-bubble p:last-child {
+  margin-bottom: 0;
+}
+
+body.ds .pdf-msg-footer {
+  margin-top: var(--ds-space-1);
+  display: flex;
+  justify-content: flex-start;
+}
+
+body.ds .btn-copy-reply {
+  background: transparent;
+  border: none;
+  font: var(--ds-text-meta);
+  color: var(--ds-color-text-tertiary);
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: var(--ds-radius-sm);
+  transition: color 0.15s ease;
+}
+
+body.ds .btn-copy-reply:hover {
+  color: var(--ds-color-text-primary);
+}
+
+/* Typing Indicator */
+body.ds .typing-dots {
+  display: flex;
+  gap: 5px;
+  padding: 6px 4px;
+}
+
+body.ds .typing-dot {
+  width: 6px;
+  height: 6px;
+  background-color: var(--ds-color-text-tertiary);
+  border-radius: 50%;
+  animation: dsTypingDot 1.2s infinite ease-in-out;
+}
+
+body.ds .typing-dot:nth-child(2) { animation-delay: 0.2s; }
+body.ds .typing-dot:nth-child(3) { animation-delay: 0.4s; }
+
+@keyframes dsTypingDot {
+  0%, 80%, 100% { opacity: 0.3; transform: scale(0.8); }
+  40% { opacity: 1; transform: scale(1); }
+}
+
+/* Input Bar */
+body.ds .pdf-chat-input-bar {
+  padding: var(--ds-space-3) var(--ds-space-5);
+  border-top: 1px solid var(--ds-color-border-subtle);
+  background-color: var(--ds-color-bg-surface);
+  display: flex;
+  gap: var(--ds-space-2);
+  align-items: flex-end;
+}
+
+body.ds .pdf-chat-textarea {
+  flex: 1;
+  min-height: 44px;
+  max-height: 120px;
+  padding: 10px 14px;
+  font-family: var(--ds-font-family);
+  font-size: 15px;
+  color: var(--ds-color-text-primary);
+  background-color: var(--ds-color-bg-subtle);
+  border: 1px solid var(--ds-color-border-primary);
+  border-radius: var(--ds-radius-md);
+  resize: none;
+  outline: none;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+
+body.ds .pdf-chat-textarea:focus {
+  background-color: var(--ds-color-bg-surface);
+  border-color: var(--ds-color-accent);
+}
+
+body.ds .pdf-chat-send-btn {
+  height: 44px;
+  padding: 0 var(--ds-space-4);
+  background-color: var(--ds-color-accent);
+  color: var(--ds-color-text-inverse);
+  border: none;
+  border-radius: var(--ds-radius-md);
+  cursor: pointer;
+  font-family: var(--ds-font-family);
+  font-size: 14px;
+  font-weight: 500;
+  transition: background-color 0.15s ease;
+  flex-shrink: 0;
+}
+
+body.ds .pdf-chat-send-btn:hover:not(:disabled) {
+  background-color: var(--ds-color-accent-hover);
+}
+
+body.ds .pdf-chat-send-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}

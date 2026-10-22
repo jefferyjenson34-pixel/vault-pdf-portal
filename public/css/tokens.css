@@ -1,0 +1,102 @@
+/* ─── Vault Design System: Design Tokens ─── */
+@font-face {
+  font-family: 'Instrument Sans';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/instrument-sans-latin-400-normal.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Instrument Sans';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url('/fonts/instrument-sans-latin-500-normal.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Instrument Sans';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url('/fonts/instrument-sans-latin-600-normal.woff2') format('woff2');
+}
+
+:root {
+  /* Surface & Background Palette */
+  --ds-color-bg-page: #FAF9FC;
+  --ds-color-bg-surface: #FFFFFF;
+  --ds-color-bg-subtle: #EDE9F6;
+  --ds-color-bg-muted: #EDE9F6;
+
+  /* Typography Colors */
+  --ds-color-text-primary: #4B3832;
+  --ds-color-text-secondary: #7A6A63;
+  --ds-color-text-tertiary: #7A6A63;
+  --ds-color-text-inverse: #FFFFFF;
+
+  /* Accent & Interactive (Primary) */
+  --ds-color-accent: #4B3832;
+  --ds-color-accent-hover: #3A2B26;
+  --ds-color-accent-subtle: #EDE9F6;
+
+  /* Focus Ring */
+  --ds-color-focus: #4B3832;
+  --ds-color-overlay: rgba(75, 56, 50, 0.4);
+
+  /* Destructive & Warning (Muted Functional Red & Amber) */
+  --ds-color-danger: #D70015;
+  --ds-color-danger-hover: #B20011;
+  --ds-color-danger-subtle: #FFEBEB;
+  --ds-color-warning: #B25E02;
+  --ds-color-warning-subtle: #FFF4E5;
+
+  /* Success (Muted Functional Green) */
+  --ds-color-success: #1A7A38;
+  --ds-color-success-subtle: #EAF5ED;
+
+  /* Borders & Dividers */
+  --ds-color-border-primary: #D9D7DC;
+  --ds-color-border-subtle: #D9D7DC;
+  --ds-color-border-strong: #7A6A63;
+
+  /* 8px Spatial Grid System */
+  --ds-space-1: 4px;
+  --ds-space-2: 8px;
+  --ds-space-3: 12px;
+  --ds-space-4: 16px;
+  --ds-space-5: 20px;
+  --ds-space-6: 24px;
+  --ds-space-8: 32px;
+  --ds-space-10: 40px;
+  --ds-space-12: 48px;
+  --ds-space-16: 64px;
+
+  /* Radii */
+  --ds-radius-sm: 6px;
+  --ds-radius-md: 8px;
+  --ds-radius-lg: 12px;
+  --ds-radius-xl: 16px;
+  --ds-radius-full: 9999px;
+
+  /* Typography Stack */
+  --ds-font-family: 'Instrument Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  --ds-font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+
+  /* Prescribed Font Sizes */
+  --ds-text-meta: 400 13px/1.4 var(--ds-font-family);
+  --ds-text-meta-medium: 500 13px/1.4 var(--ds-font-family);
+  --ds-text-meta-semibold: 600 13px/1.4 var(--ds-font-family);
+  --ds-text-body: 400 16px/1.5 var(--ds-font-family);
+  --ds-text-body-medium: 500 16px/1.5 var(--ds-font-family);
+  --ds-text-body-semibold: 600 16px/1.5 var(--ds-font-family);
+  --ds-text-h3: 600 20px/1.3 var(--ds-font-family);
+  --ds-text-h2: 600 32px/1.2 var(--ds-font-family);
+  --ds-text-display: 600 clamp(36px, 6vw, 56px)/1.1 var(--ds-font-family);
+
+  /* Shadows (Restrained & Flat) */
+  --ds-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.04);
+  --ds-shadow-md: 0 4px 12px rgba(0, 0, 0, 0.06);
+  --ds-shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.08);
+}
