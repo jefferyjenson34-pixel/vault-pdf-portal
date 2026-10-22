@@ -25,37 +25,41 @@
 
 :root {
   /* Surface & Background Palette */
-  --ds-color-bg-page: #FBFBFD;
+  --ds-color-bg-page: #FAF9FC;
   --ds-color-bg-surface: #FFFFFF;
-  --ds-color-bg-subtle: #F5F5F7;
-  --ds-color-bg-muted: #E5E5EA;
+  --ds-color-bg-subtle: #EDE9F6;
+  --ds-color-bg-muted: #EDE9F6;
 
   /* Typography Colors */
-  --ds-color-text-primary: #1D1D1F;
-  --ds-color-text-secondary: #6E6E73;
-  --ds-color-text-tertiary: #86868B;
+  --ds-color-text-primary: #4B3832;
+  --ds-color-text-secondary: #7A6A63;
+  --ds-color-text-tertiary: #7A6A63;
   --ds-color-text-inverse: #FFFFFF;
 
-  /* Accent & Interactive (Apple Royal Blue) */
-  --ds-color-accent: #2543C9;
-  --ds-color-accent-hover: #1E36A4;
-  --ds-color-accent-subtle: #EFF2FD;
+  /* Accent & Interactive (Primary) */
+  --ds-color-accent: #4B3832;
+  --ds-color-accent-hover: #3A2B26;
+  --ds-color-accent-subtle: #EDE9F6;
 
-  /* Destructive & Warning */
+  /* Focus Ring */
+  --ds-color-focus: #4B3832;
+  --ds-color-overlay: rgba(75, 56, 50, 0.4);
+
+  /* Destructive & Warning (Muted Functional Red & Amber) */
   --ds-color-danger: #D70015;
   --ds-color-danger-hover: #B20011;
   --ds-color-danger-subtle: #FFEBEB;
   --ds-color-warning: #B25E02;
   --ds-color-warning-subtle: #FFF4E5;
 
-  /* Success */
+  /* Success (Muted Functional Green) */
   --ds-color-success: #1A7A38;
   --ds-color-success-subtle: #EAF5ED;
 
   /* Borders & Dividers */
-  --ds-color-border-primary: #D2D2D7;
-  --ds-color-border-subtle: #E5E5EA;
-  --ds-color-border-strong: #86868B;
+  --ds-color-border-primary: #D9D7DC;
+  --ds-color-border-subtle: #D9D7DC;
+  --ds-color-border-strong: #7A6A63;
 
   /* 8px Spatial Grid System */
   --ds-space-1: 4px;

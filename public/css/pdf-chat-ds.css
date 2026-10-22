@@ -4,7 +4,7 @@
 body.ds .pdf-chat-backdrop {
   position: fixed;
   inset: 0;
-  background-color: rgba(29, 29, 31, 0.4);
+  background-color: var(--ds-color-overlay);
   z-index: 9999;
   opacity: 0;
   pointer-events: none;
