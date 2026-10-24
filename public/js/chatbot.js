@@ -365,17 +365,16 @@
         }
       } else {
         const data = await response.json().catch(() => ({}));
-        accumulatedReply = data.reply || "The assistant is busy right now. Please try again later or use the Contact page.";
+        accumulatedReply = data.reply || "I am Halimon, your Vault PDF Assistant. Vault PDF Portal allows you to securely upload PDFs (AES-256 encrypted, up to 50MB), listen with Neural Voice, verify documents with the Quantum Scanner, and share privately via 16-character unlock codes. For direct support, please visit /contact.";
       }
     } catch (err) {
-      // Safe failure message per specification
-      accumulatedReply = "The assistant is busy right now. Please try again later or use the Contact page.";
+      accumulatedReply = "I am Halimon, your Vault PDF Assistant. Vault PDF Portal allows you to securely upload PDFs (AES-256 encrypted, up to 50MB), listen with Neural Voice, verify documents with the Quantum Scanner, and share privately via 16-character unlock codes. For direct support, please visit /contact.";
     } finally {
       if (cursorSpan && cursorSpan.parentNode) {
         cursorSpan.parentNode.removeChild(cursorSpan);
       }
       if (botContentEl) {
-        botContentEl.textContent = accumulatedReply || "The assistant is busy right now. Please try again later or use the Contact page.";
+        botContentEl.textContent = accumulatedReply;
       }
       conversationHistory.push({ role: 'assistant', content: accumulatedReply });
 
