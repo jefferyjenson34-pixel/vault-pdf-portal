@@ -986,29 +986,108 @@
     });
   }
 
-  // ─── 20. Subtle 3D Tilt on Floating Hero Shield ───────────────
-  function initHeroTilt() {
-    const shield = document.querySelector('.floating-shield-card');
-    const visual = document.querySelector('.hero-visual-container');
-    if (!shield || !visual) return;
+  // ─── 20. Hero Interactive Experience Deck ─────────────────────
+  function initHeroDeck() {
+    const tabBtns = document.querySelectorAll('.deck-tab-btn');
+    const panels = document.querySelectorAll('.deck-panel');
+    if (!tabBtns.length || !panels.length) return;
 
-    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-    if (window.innerWidth < 1024) return;
+    tabBtns.forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const targetId = btn.getAttribute('data-deck-tab');
+        tabBtns.forEach((b) => {
+          b.classList.remove('active');
+          b.setAttribute('aria-selected', 'false');
+        });
+        panels.forEach((p) => {
+          p.classList.remove('active');
+        });
 
-    visual.addEventListener('mousemove', (e) => {
-      const rect = visual.getBoundingClientRect();
-      const x = e.clientX - rect.left - rect.width / 2;
-      const y = e.clientY - rect.top - rect.height / 2;
-
-      const tiltX = (y / (rect.height / 2)) * -6;
-      const tiltY = (x / (rect.width / 2)) * 6;
-
-      shield.style.transform = `perspective(1000px) rotateX(${tiltX}deg) rotateY(${tiltY}deg) translateY(-6px)`;
+        btn.classList.add('active');
+        btn.setAttribute('aria-selected', 'true');
+        const targetPanel = document.getElementById(targetId);
+        if (targetPanel) {
+          targetPanel.classList.add('active');
+        }
+      });
     });
 
-    visual.addEventListener('mouseleave', () => {
-      shield.style.transform = '';
-    });
+    // Copy sample code functionality
+    const copyBtn = document.getElementById('deck-copy-code-btn');
+    const sampleCodeEl = document.getElementById('deck-sample-code');
+    if (copyBtn && sampleCodeEl) {
+      copyBtn.addEventListener('click', async () => {
+        const code = sampleCodeEl.textContent.trim();
+        let copied = false;
+        try {
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            await navigator.clipboard.writeText(code);
+            copied = true;
+          }
+        } catch (_) {}
+        if (!copied) {
+          try {
+            const tempInput = document.createElement('input');
+            tempInput.value = code;
+            document.body.appendChild(tempInput);
+            tempInput.select();
+            document.execCommand('copy');
+            document.body.removeChild(tempInput);
+            copied = true;
+          } catch (e) {
+            console.warn('Copy fallback error:', e);
+          }
+        }
+        copyBtn.textContent = 'Copied!';
+        copyBtn.style.color = '#1A7A38';
+        copyBtn.style.borderColor = '#1A7A38';
+        setTimeout(() => {
+          copyBtn.textContent = 'Copy';
+          copyBtn.style.color = '';
+          copyBtn.style.borderColor = '';
+        }, 2000);
+      });
+    }
+
+    // Neural speech synthesis demo
+    const speechBtn = document.getElementById('deck-play-speech-btn');
+    const audioStatus = document.getElementById('deck-audio-status');
+    const audioBars = document.getElementById('deck-waveform-bars');
+    if (speechBtn && 'speechSynthesis' in window) {
+      let isSpeaking = false;
+      speechBtn.addEventListener('click', () => {
+        if (isSpeaking) {
+          window.speechSynthesis.cancel();
+          isSpeaking = false;
+          if (audioStatus) audioStatus.textContent = 'Sample speech engine ready';
+          if (audioBars) audioBars.style.opacity = '0.5';
+          speechBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg><span>Listen to Audio Demo</span>';
+          return;
+        }
+
+        window.speechSynthesis.cancel();
+        const text = "Welcome to Vault PDF Portal. Your documents are cryptographically verified and ready for secure review.";
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.rate = 1.1;
+        utterance.pitch = 1.0;
+
+        utterance.onstart = () => {
+          isSpeaking = true;
+          if (audioStatus) audioStatus.textContent = 'Playing neural audio bitstream...';
+          if (audioBars) audioBars.style.opacity = '1';
+          speechBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg><span>Pause Audio Demo</span>';
+        };
+
+        utterance.onend = utterance.onerror = () => {
+          isSpeaking = false;
+          if (audioStatus) audioStatus.textContent = 'Demo playback finished';
+          if (audioBars) audioBars.style.opacity = '0.5';
+          speechBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg><span>Listen Again</span>';
+        };
+
+        window.speechSynthesis.speak(utterance);
+      });
+    }
   }
 
   // ─── DOM Ready ────────────────────────────────────────────────
@@ -1022,6 +1101,6 @@
     initMobileMenu();
     initScrollSpy();
     initScrollReveal();
-    initHeroTilt();
+    initHeroDeck();
   });
 })();

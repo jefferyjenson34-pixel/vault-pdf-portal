@@ -148,15 +148,6 @@
             </svg>
             <span>Contact</span>
           </a>
-          <a href="/dashboard" class="nav-link" id="nav-link-dashboard">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-              <rect x="3" y="3" width="7" height="7"/>
-              <rect x="14" y="3" width="7" height="7"/>
-              <rect x="14" y="14" width="7" height="7"/>
-              <rect x="3" y="14" width="7" height="7"/>
-            </svg>
-            <span>Dashboard</span>
-          </a>
           <a href="/secret" class="nav-link nav-link-secret">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
               <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
@@ -174,15 +165,8 @@
               <path class="sound-wave" d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path>
             </svg>
           </button>
-          <a href="/login" class="btn-nav-cta" style="background:var(--bg-glass-strong); border:1px solid var(--border-medium); color:var(--text-primary);">
+          <a href="/login" class="btn-nav-cta btn-nav-signin">
             <span>Sign In</span>
-          </a>
-          <a href="#documents" class="btn-nav-cta">
-            <span>Explore</span>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M5 12h14"></path>
-              <path d="m12 5 7 7-7 7"></path>
-            </svg>
           </a>
         </div>
 
@@ -231,11 +215,12 @@
                   <path d="m12 5 7 7-7 7"></path>
                 </svg>
               </a>
-              <a href="#about" class="btn-secondary">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+              <a href="/unlock" class="btn-secondary">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                  <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+                  <path d="M7 11V7a5 5 0 0 1 9.9-1"/>
                 </svg>
-                <span>Built Around Trust</span>
+                <span>Unlock PDF with Code</span>
               </a>
             </div>
 
@@ -268,6 +253,190 @@
             </div>
           </div>
 
+          <!-- Interactive Vault Core Experience Deck -->
+          <div class="hero-interactive-deck">
+            <div class="deck-header-bar">
+              <div class="deck-top-row">
+                <div class="deck-window-controls">
+                  <span class="deck-dot red"></span>
+                  <span class="deck-dot yellow"></span>
+                  <span class="deck-dot green"></span>
+                </div>
+                <div class="deck-status-pill">
+                  <span class="status-pulse"></span>
+                  <span>ONLINE // 256-BIT</span>
+                </div>
+              </div>
+
+              <!-- Tab Selectors -->
+              <div class="deck-tab-triggers" role="tablist">
+                <button class="deck-tab-btn active" data-deck-tab="tab-share" type="button" role="tab" aria-selected="true">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+                    <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+                    <path d="M7 11V7a5 5 0 0 1 9.9-1"/>
+                  </svg>
+                  <span>Secret Codes</span>
+                </button>
+                <button class="deck-tab-btn" data-deck-tab="tab-verify" type="button" role="tab" aria-selected="false">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                    <path d="m9 12 2 2 4-4"/>
+                  </svg>
+                  <span>Forensics</span>
+                </button>
+                <button class="deck-tab-btn" data-deck-tab="tab-audio" type="button" role="tab" aria-selected="false">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+                    <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+                    <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+                  </svg>
+                  <span>Voice Reader</span>
+                </button>
+              </div>
+            </div>
+
+            <div class="deck-body">
+              <!-- Tab 1: Secret Sharing -->
+              <div class="deck-panel active" id="tab-share" role="tabpanel">
+                <div class="deck-showcase-grid">
+                  <div>
+                    <h3 style="font-size:1.15rem; font-weight:800; color:var(--navy-900); margin-bottom:6px; line-height:1.25;">
+                      Share Securely With 16-Character Cryptographic Codes
+                    </h3>
+                    <p style="font-size:0.88rem; color:var(--text-secondary); line-height:1.55; margin-bottom:0;">
+                      Send sensitive files with AES-256 GCM encryption. Anyone with the code can view and download at <strong>/unlock</strong> with zero account required.
+                    </p>
+                  </div>
+
+                  <div class="deck-preview-box">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                      <div style="display:flex; align-items:center; gap:8px;">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#D70015" stroke-width="2">
+                          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                          <polyline points="14 2 14 8 20 8"></polyline>
+                        </svg>
+                        <span style="font-weight:700; font-size:0.86rem; color:var(--navy-900);">Audit_Report_2026.pdf</span>
+                      </div>
+                      <span style="font-size:0.72rem; font-weight:700; background:#FFEBEB; color:#D70015; padding:2px 8px; border-radius:6px;">PRIVATE</span>
+                    </div>
+
+                    <div style="font-size:0.76rem; color:var(--text-muted); margin-bottom:4px;">16-Character Secret Unlock Code:</div>
+                    <div class="deck-code-display">
+                      <span id="deck-sample-code">VAULT-8821-K92A-4401</span>
+                      <button type="button" id="deck-copy-code-btn" style="background:var(--purple-tint); border:1px solid var(--border-subtle); color:var(--navy-900); cursor:pointer; padding:3px 10px; font-size:0.78rem; font-weight:700; border-radius:6px; transition:all 0.2s;" title="Copy Code">
+                        Copy
+                      </button>
+                    </div>
+                    <div style="display:flex; justify-content:space-between; font-size:0.76rem; color:var(--text-secondary);">
+                      <span>AES-256 GCM Client Encryption</span>
+                      <span>10 Downloads Remaining</span>
+                    </div>
+                  </div>
+
+                  <div style="display:flex; gap:10px; flex-wrap:wrap;">
+                    <a href="/unlock" class="btn-deck-action primary">
+                      <span>Try Unlock Demo</span>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+                    </a>
+                    <a href="/login" class="btn-deck-action">
+                      <span>Sign In to Upload</span>
+                    </a>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Tab 2: Cryptographic Forensics -->
+              <div class="deck-panel" id="tab-verify" role="tabpanel">
+                <div class="deck-showcase-grid">
+                  <div>
+                    <h3 style="font-size:1.15rem; font-weight:800; color:var(--navy-900); margin-bottom:6px; line-height:1.25;">
+                      Mathematical Proof of Bitstream Authenticity
+                    </h3>
+                    <p style="font-size:0.88rem; color:var(--text-secondary); line-height:1.55; margin-bottom:0;">
+                      Instant client-side verification computes SHA-256 and SHA-512 cryptographic digests and Shannon byte entropy without uploading.
+                    </p>
+                  </div>
+
+                  <div class="deck-preview-box">
+                    <div style="margin-bottom:10px;">
+                      <div style="font-size:0.75rem; font-weight:700; color:var(--text-secondary); margin-bottom:4px;">SHA-256 Checksum</div>
+                      <div style="font-family:'JetBrains Mono',monospace; font-size:0.72rem; background:#FFFFFF; padding:6px 10px; border-radius:6px; border:1px solid var(--border-subtle); color:var(--navy-900); word-break:break-all;">
+                        4f89be21c784ad901ec4d924156ae23405be1299a7b03ec91039485721839401
+                      </div>
+                    </div>
+
+                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+                      <div style="background:#FFFFFF; padding:8px 10px; border-radius:6px; border:1px solid var(--border-subtle);">
+                        <div style="font-size:0.7rem; color:var(--text-muted);">Shannon Entropy</div>
+                        <div style="font-weight:800; font-size:0.92rem; color:var(--navy-900);">7.98 bits/byte</div>
+                      </div>
+                      <div style="background:#FFFFFF; padding:8px 10px; border-radius:6px; border:1px solid var(--border-subtle);">
+                        <div style="font-size:0.7rem; color:var(--text-muted);">Tamper Risk</div>
+                        <div style="font-weight:800; font-size:0.92rem; color:#1A7A38;">0.00% Clean</div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div style="display:flex; gap:10px; flex-wrap:wrap;">
+                    <a href="#neural-scanner" class="btn-deck-action primary">
+                      <span>Launch Full Scanner</span>
+                    </a>
+                    <a href="/verify-certificate.html" class="btn-deck-action">
+                      <span>Verify Certificates</span>
+                    </a>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Tab 3: Neural Voice Synthesis -->
+              <div class="deck-panel" id="tab-audio" role="tabpanel">
+                <div class="deck-showcase-grid">
+                  <div>
+                    <h3 style="font-size:1.15rem; font-weight:800; color:var(--navy-900); margin-bottom:6px; line-height:1.25;">
+                      Listen To Your Documents Aloud In Browser
+                    </h3>
+                    <p style="font-size:0.88rem; color:var(--text-secondary); line-height:1.55; margin-bottom:0;">
+                      Transform complex PDFs into clear speech right in your browser. Multi-speed playback, clean pronunciation, and live speech synthesis.
+                    </p>
+                  </div>
+
+                  <div class="deck-preview-box">
+                    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:10px;">
+                      <div style="display:flex; align-items:center; gap:8px;">
+                        <div class="deck-audio-bars" id="deck-waveform-bars">
+                          <span class="deck-audio-bar"></span>
+                          <span class="deck-audio-bar"></span>
+                          <span class="deck-audio-bar"></span>
+                          <span class="deck-audio-bar"></span>
+                          <span class="deck-audio-bar"></span>
+                          <span class="deck-audio-bar"></span>
+                        </div>
+                        <div>
+                          <div style="font-size:0.82rem; font-weight:700; color:var(--navy-900);">Neural Speech Synthesis</div>
+                          <div style="font-size:0.72rem; color:var(--text-muted);" id="deck-audio-status">Sample speech engine ready</div>
+                        </div>
+                      </div>
+                      <span style="font-size:0.72rem; font-weight:700; background:var(--purple-tint); color:var(--navy-900); padding:3px 7px; border-radius:6px;">1.15x SPEED</span>
+                    </div>
+
+                    <div style="background:#FFFFFF; border:1px solid var(--border-subtle); border-radius:6px; padding:8px 12px; font-size:0.78rem; color:var(--text-secondary); font-style:italic;">
+                      "Welcome to Vault PDF Portal. Your documents are cryptographically verified and ready for secure review."
+                    </div>
+                  </div>
+
+                  <div style="display:flex; gap:10px; flex-wrap:wrap;">
+                    <button type="button" id="deck-play-speech-btn" class="btn-deck-action primary">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                      <span>Listen to Audio Demo</span>
+                    </button>
+                    <a href="#documents" class="btn-deck-action">
+                      <span>Explore Documents</span>
+                    </a>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+          </div>
 
         </div>
 
