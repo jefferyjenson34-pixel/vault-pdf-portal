@@ -892,22 +892,15 @@
   };
 
   // ═══════════════════════════════════════════════════════════════
-  // 6. GLOBAL QUANTUM HUD MANAGER
+  // 6. AUDIO & SOUND FX MANAGER
   // ═══════════════════════════════════════════════════════════════
   const HUDManager = {
-    isActive: localStorage.getItem('vault_quantum_hud') === 'true',
-    btn: null,
-
     init() {
-      this.btn = document.getElementById('btn-hud-toggle');
-      if (this.isActive) {
-        document.body.classList.add('quantum-hud-mode');
-        if (this.btn) this.btn.classList.add('active');
-      }
-
-      if (this.btn) {
-        this.btn.addEventListener('click', () => this.toggle());
-      }
+      // Clean up legacy HUD state
+      try {
+        localStorage.removeItem('vault_quantum_hud');
+        document.body.classList.remove('quantum-hud-mode');
+      } catch (e) {}
 
       const soundBtn = document.getElementById('btn-sound-toggle');
       if (soundBtn) {
@@ -917,20 +910,6 @@
           if (isMuted) soundBtn.classList.add('muted');
           else soundBtn.classList.remove('muted');
         });
-      }
-    },
-
-    toggle() {
-      this.isActive = !this.isActive;
-      localStorage.setItem('vault_quantum_hud', this.isActive);
-      SoundFX.playConfirm();
-
-      if (this.isActive) {
-        document.body.classList.add('quantum-hud-mode');
-        if (this.btn) this.btn.classList.add('active');
-      } else {
-        document.body.classList.remove('quantum-hud-mode');
-        if (this.btn) this.btn.classList.remove('active');
       }
     }
   };
