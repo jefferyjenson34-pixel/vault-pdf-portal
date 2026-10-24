@@ -3921,6 +3921,7 @@ function sanitizeAiContent(text) {
 const CHATBOT_SYSTEM_PROMPT = `You are Halimon, the official AI Assistant for Vault PDF Portal (https://vault-pdf-portal.onrender.com).
 
 PORTAL FACTS & CAPABILITIES:
+- Origin & Creator: Halimon was built and developed by the Vault PDF Portal engineering team. Vault PDF Portal is an independent, security-first document management platform created for encrypted PDF storage, private code-based sharing, and verification.
 - Document Management & Uploads: Registered users can upload PDF files up to 50MB from their /dashboard. Files are encrypted with AES-256 and stored outside the web root.
 - Document Visibility: Can be set to "Public" (listed on homepage Available Documents for all visitors) or "Private" (shared exclusively via secret unlock code).
 - Secret Sharing Codes: Private documents are protected by 16-character cryptographic codes (XXXX-XXXX-XXXX-XXXX). Users can unlock and download files at /unlock without creating an account. Document owners can set expiration dates, download limits, or revoke/regenerate codes in their dashboard.
@@ -3933,6 +3934,7 @@ PORTAL FACTS & CAPABILITIES:
 
 RULES:
 - Answer ONLY from the accurate facts above about Vault PDF Portal.
+- If asked who built you or who made you, state clearly that you were built by the Vault PDF Portal engineering team.
 - If unsure or if a question is not covered by these facts, say: "I don't know, please use the Contact page."
 - Never invent features, unlisted tools, or security guarantees not mentioned above.
 - Do not include thinking, reasoning, or thought process tags in your response.
@@ -3943,14 +3945,16 @@ const ASSISTANT_BUSY_MESSAGE = "The assistant is busy right now. Please try agai
 // ─── Query OpenRouter with Single Model & 10s Timeout ─────────────────
 async function queryOpenRouterModel({ model, messages, apiKey, isStreaming, onToken }) {
   const isQwen = model.toLowerCase().includes('qwen');
-  const isInkling = model.toLowerCase().includes('inkling') || model.toLowerCase().includes('thinkingmachines');
 
   const requestBody = {
     model,
     messages,
     temperature: 0.2,
-    max_tokens: parseInt(process.env.CHATBOT_MAX_TOKENS || '350', 10),
-    stream: isStreaming
+    max_tokens: parseInt(process.env.CHATBOT_MAX_TOKENS || '900', 10),
+    stream: isStreaming,
+    reasoning: {
+      exclude: true
+    }
   };
 
   if (isQwen) {
@@ -3959,11 +3963,6 @@ async function queryOpenRouterModel({ model, messages, apiKey, isStreaming, onTo
       type: 'disabled',
       exclude: true,
       max_tokens: 0
-    };
-  } else if (isInkling) {
-    // Never show its reasoning text to users
-    requestBody.reasoning = {
-      exclude: true
     };
   }
 
@@ -4095,8 +4094,12 @@ function getLocalKnowledgeReply(userQuery) {
     return "Hello! I am Halimon, the AI Assistant for Vault PDF Portal. I'm here to help you manage, verify, read, and share your PDF documents securely. How can I assist you today?";
   }
 
-  if (/who are you|what is halimon|what can you do|your name|introduce/i.test(q)) {
-    return "I am Halimon, the official AI Assistant for Vault PDF Portal. I assist you with document uploads (AES-256 encrypted), private sharing via 16-character secret codes, Neural Voice reading, Quantum Scanner verification, and account security.";
+  if (/(who\s*(built|made|created|developed|coded|programmed|designed)\s*(you|u|halimon|vault|this))|who\s*is\s*(the\s*)?(creator|developer|founder|author|maker|builder|team)|who\s*created\s*(you|u|halimon|vault)/i.test(q)) {
+    return "I am Halimon, built and developed by the Vault PDF Portal engineering team. Vault PDF Portal was created to provide individuals and teams with a reliable, secure environment for encrypted PDF storage, private code-based sharing, and integrity verification. If you'd like to reach our team or creators, please visit our /contact page.";
+  }
+
+  if (/who\s*(are\s*)?(you|u)|what\s*is\s*halimon|what\s*can\s*you\s*do|your\s*name|introduce/i.test(q)) {
+    return "I am Halimon, the official AI Assistant for Vault PDF Portal, created by the Vault engineering team. I assist you with document uploads (AES-256 encrypted), private sharing via 16-character secret codes, Neural Voice reading, Quantum Scanner verification, and account security.";
   }
 
   if (/what is (vault|this (portal|website|app))|about (vault|this portal)|overview|features/i.test(q)) {
