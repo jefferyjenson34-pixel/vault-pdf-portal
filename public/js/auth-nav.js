@@ -32,44 +32,52 @@
       return;
     }
 
-    // 1. Ensure "Dashboard" link is present in all navigation menus
+    // 1. In navigation drawer (mobile), ensure "Dashboard" link is present
     const navMenus = document.querySelectorAll('.nav-menu, #nav-menu');
     navMenus.forEach(menu => {
       const existingDash = menu.querySelector('a[href="/dashboard"]');
       if (!existingDash) {
         const dashLink = document.createElement('a');
         dashLink.href = '/dashboard';
-        dashLink.className = 'nav-link' + (window.location.pathname === '/dashboard' ? ' active' : '');
-        dashLink.textContent = 'Dashboard';
+        dashLink.className = 'nav-link nav-link-auth-dash' + (window.location.pathname === '/dashboard' ? ' active' : '');
+        dashLink.innerHTML = `
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+            <rect x="3" y="3" width="7" height="7"></rect>
+            <rect x="14" y="3" width="7" height="7"></rect>
+            <rect x="14" y="14" width="7" height="7"></rect>
+            <rect x="3" y="14" width="7" height="7"></rect>
+          </svg>
+          <span>Dashboard</span>
+        `;
         menu.appendChild(dashLink);
       }
     });
 
-    // 2. Replace static "Sign In" button with dynamic User Dashboard & Sign Out in nav actions
+    // 2. Replace static "Sign In" button with dynamic Dashboard pill & Sign Out in nav actions
     const navActionsContainers = document.querySelectorAll('.nav-actions');
     navActionsContainers.forEach(container => {
       const signInBtn = container.querySelector('a[href="/login"], a[href*="login"]');
       if (signInBtn) {
-        // Create logged-in widget
         const userWrap = document.createElement('div');
         userWrap.className = 'nav-auth-user-wrap';
         userWrap.style.display = 'inline-flex';
         userWrap.style.alignItems = 'center';
-        userWrap.style.gap = '8px';
+        userWrap.style.gap = '6px';
+        userWrap.style.flexShrink = '0';
 
         const dashboardBtn = document.createElement('a');
         dashboardBtn.href = '/dashboard';
         dashboardBtn.className = 'btn-nav-cta nav-user-btn';
-        dashboardBtn.style.cssText = 'background:#4B3832; border:1px solid #3A2B26; color:#ffffff; font-weight:600; font-size:0.85rem; padding:6px 14px; border-radius:999px; text-decoration:none; display:inline-flex; align-items:center; gap:6px;';
+        dashboardBtn.style.cssText = 'background:#4B3832; border:1px solid #3A2B26; color:#ffffff; font-weight:600; font-size:0.82rem; padding:6px 12px; border-radius:8px; text-decoration:none; display:inline-flex; align-items:center; gap:6px; flex-shrink:0;';
         dashboardBtn.innerHTML = `
-          <span style="display:inline-block; width:8px; height:8px; background:#1A7A38; border-radius:50%; box-shadow:0 0 6px rgba(26,122,56,0.6);"></span>
+          <span style="display:inline-block; width:7px; height:7px; background:#1A7A38; border-radius:50%; box-shadow:0 0 4px rgba(26,122,56,0.6);"></span>
           <span>Dashboard</span>
         `;
 
         const logoutBtn = document.createElement('button');
         logoutBtn.type = 'button';
         logoutBtn.className = 'btn-nav-cta nav-global-logout-btn';
-        logoutBtn.style.cssText = 'background:#EDE9F6; border:1px solid #D9D7DC; color:#4B3832; font-weight:600; font-size:0.82rem; padding:6px 12px; border-radius:8px; cursor:pointer; transition:all 0.2s ease;';
+        logoutBtn.style.cssText = 'background:#FAF9FC; border:1px solid #D9D7DC; color:#4B3832; font-weight:600; font-size:0.80rem; padding:6px 10px; border-radius:8px; cursor:pointer; transition:all 0.2s ease; flex-shrink:0;';
         logoutBtn.innerHTML = '<span>Sign Out</span>';
 
         logoutBtn.addEventListener('click', async (e) => {

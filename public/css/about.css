@@ -130,10 +130,10 @@ img, svg {
 }
 
 .site-header .container {
-  max-width: 1400px;
+  max-width: 1440px;
   width: 100%;
-  padding-left: clamp(16px, 2.5vw, 36px);
-  padding-right: clamp(16px, 2.5vw, 36px);
+  padding-left: clamp(14px, 2vw, 28px);
+  padding-right: clamp(14px, 2vw, 28px);
 }
 
 .site-header.scrolled {
@@ -145,7 +145,7 @@ img, svg {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
+  gap: 12px;
   height: 72px;
   width: 100%;
 }
@@ -192,33 +192,39 @@ img, svg {
 .nav-menu {
   display: flex;
   align-items: center;
-  gap: clamp(10px, 1.4vw, 20px);
+  gap: clamp(4px, 0.75vw, 12px);
   flex-shrink: 1;
   min-width: 0;
 }
 
 .nav-link {
-  font-size: 0.88rem;
+  font-size: 0.83rem;
   font-weight: 500;
   color: var(--navy-700);
   transition: all 0.2s ease;
   position: relative;
-  padding: 6px 4px;
+  padding: 6px 7px;
+  border-radius: 6px;
   display: inline-flex;
   align-items: center;
-  gap: 5px;
+  gap: 4px;
   text-decoration: none;
   white-space: nowrap;
+  line-height: 1;
 }
 
 .nav-link svg {
+  width: 13px;
+  height: 13px;
   flex-shrink: 0;
   opacity: 0.85;
   transition: transform 0.2s ease, opacity 0.2s ease;
+  vertical-align: middle;
 }
 
 .nav-link:hover {
-  color: var(--purple-primary);
+  color: var(--navy-950);
+  background: rgba(75, 56, 50, 0.05);
 }
 
 .nav-link:hover svg {
@@ -240,8 +246,8 @@ img, svg {
   content: '';
   position: absolute;
   bottom: 0;
-  left: 0;
-  right: 0;
+  left: 6px;
+  right: 6px;
   height: 2px;
   background: var(--navy-900);
   border-radius: 2px;
@@ -252,13 +258,13 @@ img, svg {
   font-weight: 600;
   display: inline-flex;
   align-items: center;
-  gap: 5px;
+  gap: 4px;
 }
 
 .nav-actions {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
   flex-shrink: 0;
   white-space: nowrap;
 }
@@ -267,13 +273,13 @@ img, svg {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  padding: 9px 20px;
-  font-size: 0.88rem;
+  gap: 6px;
+  padding: 7px 15px;
+  font-size: 0.84rem;
   font-weight: 600;
   color: white;
   background: var(--navy-900);
-  border-radius: var(--radius-sm);
+  border-radius: 8px;
   transition: var(--transition-smooth);
   box-shadow: var(--shadow-sm);
   border: 1px solid var(--navy-900);
@@ -287,6 +293,64 @@ img, svg {
   border-color: #3A2B26;
   box-shadow: 0 4px 14px rgba(75, 56, 50, 0.2);
   transform: translateY(-1px);
+}
+
+.btn-nav-signin {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 7px 14px;
+  font-size: 0.84rem;
+  font-weight: 600;
+  color: var(--navy-900);
+  background: #FAF9FC;
+  border: 1px solid var(--border-medium);
+  border-radius: 8px;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+  flex-shrink: 0;
+  text-decoration: none;
+}
+
+.btn-nav-signin:hover {
+  background: #EDE9F6;
+  border-color: #D9D7DC;
+  color: var(--navy-950);
+  transform: translateY(-1px);
+}
+
+.btn-nav-explore {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 7px 16px;
+  font-size: 0.84rem;
+  font-weight: 600;
+  color: #FFFFFF;
+  background: var(--navy-900);
+  border: 1px solid var(--navy-900);
+  border-radius: 8px;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+  flex-shrink: 0;
+  text-decoration: none;
+  box-shadow: 0 2px 6px rgba(75, 56, 50, 0.15);
+}
+
+.btn-nav-explore:hover {
+  background: #3A2B26;
+  border-color: #3A2B26;
+  box-shadow: 0 4px 12px rgba(75, 56, 50, 0.22);
+  transform: translateY(-1px);
+}
+
+.btn-nav-explore svg {
+  transition: transform 0.2s ease;
+}
+
+.btn-nav-explore:hover svg {
+  transform: translateX(2px);
 }
 
 /* Mobile Toggle */
@@ -1653,13 +1717,14 @@ img, svg {
   }
 }
 
-@media (max-width: 1260px) {
+@media (max-width: 1360px) {
   .nav-menu {
-    gap: 8px;
+    gap: clamp(3px, 0.6vw, 8px);
   }
   .nav-link {
-    font-size: 0.82rem;
-    padding: 6px 3px;
+    font-size: 0.81rem;
+    padding: 6px 5px;
+    gap: 0;
   }
   .nav-link svg {
     display: none;
@@ -1699,10 +1764,11 @@ img, svg {
     font-weight: 500;
     border: 1px solid var(--border-subtle);
     justify-content: flex-start;
+    gap: 10px;
   }
 
   .nav-menu .nav-link svg {
-    display: inline-block;
+    display: inline-block !important;
   }
 
   .nav-menu .nav-link.active::after {
