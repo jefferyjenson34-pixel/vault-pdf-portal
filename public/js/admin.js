@@ -893,17 +893,17 @@
           <td style="text-align:right;">
             <div style="display:flex; justify-content:flex-end; gap:6px;">
               ${!isUnpublished && !isDeleted ? `
-                <button class="browse-btn" style="padding:4px 10px; font-size:0.75rem; background:linear-gradient(135deg,#f59e0b,#d97706);" onclick="window.unpublishReport('${report.id}')">
+                <button class="browse-btn" style="padding:4px 10px; font-size:0.75rem; background:#EDE9F6; border:1px solid #D9D7DC; color:#4B3832;" onclick="window.unpublishReport('${report.id}')">
                   Unpublish
                 </button>
               ` : ''}
               ${isPending ? `
-                <button class="browse-btn" style="padding:4px 10px; font-size:0.75rem; background:var(--bg-glass-strong); border:1px solid var(--border-medium);" onclick="window.dismissReport('${report.id}')">
+                <button class="browse-btn" style="padding:4px 10px; font-size:0.75rem; background:var(--bg-glass-strong); border:1px solid var(--border-medium); color:var(--text-primary);" onclick="window.dismissReport('${report.id}')">
                   Dismiss
                 </button>
               ` : ''}
               ${!isDeleted ? `
-                <button class="browse-btn" style="padding:4px 10px; font-size:0.75rem; background:linear-gradient(135deg,#ef4444,#dc2626);" onclick="window.deleteReportedFile('${report.id}')">
+                <button class="browse-btn" style="padding:4px 10px; font-size:0.75rem; background:#D70015; color:#FFFFFF;" onclick="window.deleteReportedFile('${report.id}')">
                   Delete
                 </button>
               ` : ''}

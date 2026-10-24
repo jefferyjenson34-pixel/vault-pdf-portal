@@ -1,13 +1,16 @@
 /**
  * ═══════════════════════════════════════════════════════════════════════
  *  VAULT SECURE SHARE: SELF-DESTRUCTING LINK GENERATOR MODAL
+ *  Warm Neutral Theme — Zero Gradients — Strict Accessibility
  * ═══════════════════════════════════════════════════════════════════════
  */
+
+@import url('/css/tokens.css');
 
 .share-modal-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(3, 7, 18, 0.8);
+  background: rgba(75, 56, 50, 0.45);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
   z-index: 99980;
@@ -27,17 +30,18 @@
 }
 
 .share-modal-card {
-  background: #0f172a;
-  border: 1px solid rgba(124, 58, 237, 0.4);
+  background: #FFFFFF;
+  border: 1px solid #D9D7DC;
   border-radius: 20px;
   max-width: 500px;
   width: 100%;
   padding: 32px 28px;
-  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.7);
+  box-shadow: 0 25px 60px rgba(75, 56, 50, 0.25);
   box-sizing: border-box;
   transform: scale(0.95) translateY(10px);
   transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
   position: relative;
+  color: #4B3832;
 }
 
 .share-modal-backdrop.active .share-modal-card {
@@ -61,32 +65,32 @@
   width: 44px;
   height: 44px;
   border-radius: 12px;
-  background: linear-gradient(135deg, #ef4444, #f59e0b);
+  background: #EDE9F6;
+  border: 1px solid #D9D7DC;
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 1.4rem;
-  color: #ffffff;
-  box-shadow: 0 4px 15px rgba(239, 68, 68, 0.4);
+  color: #4B3832;
 }
 
 .share-modal-title {
   font-size: 1.15rem;
   font-weight: 800;
-  color: #ffffff;
+  color: #4B3832;
   margin: 0 0 4px 0;
 }
 
 .share-modal-subtitle {
   font-size: 0.8rem;
-  color: #94a3b8;
+  color: #7A6A63;
   margin: 0;
 }
 
 .share-modal-close {
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  color: #cbd5e1;
+  background: #EDE9F6;
+  border: 1px solid #D9D7DC;
+  color: #4B3832;
   width: 32px;
   height: 32px;
   border-radius: 8px;
@@ -99,14 +103,15 @@
 }
 
 .share-modal-close:hover {
-  background: rgba(239, 68, 68, 0.2);
-  color: #ef4444;
+  background: #FFEBEB;
+  border-color: rgba(215, 0, 21, 0.25);
+  color: #D70015;
 }
 
 /* Document Chip */
 .share-doc-preview {
-  background: rgba(2, 6, 23, 0.6);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: #FAF9FC;
+  border: 1px solid #D9D7DC;
   border-radius: 10px;
   padding: 10px 14px;
   display: flex;
@@ -115,7 +120,7 @@
   margin-bottom: 20px;
   font-size: 0.85rem;
   font-weight: 600;
-  color: #f1f5f9;
+  color: #4B3832;
 }
 
 /* Form Groups */
@@ -127,7 +132,7 @@
   display: block;
   font-size: 0.8rem;
   font-weight: 700;
-  color: #cbd5e1;
+  color: #7A6A63;
   margin-bottom: 6px;
   text-transform: uppercase;
   letter-spacing: 0.04em;
@@ -135,11 +140,11 @@
 
 .share-select, .share-input {
   width: 100%;
-  background: #020617;
-  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: #FFFFFF;
+  border: 1px solid #D9D7DC;
   border-radius: 10px;
   padding: 11px 14px;
-  color: #ffffff;
+  color: #4B3832;
   font-size: 0.88rem;
   outline: none;
   box-sizing: border-box;
@@ -147,14 +152,14 @@
 }
 
 .share-select:focus, .share-input:focus {
-  border-color: #a855f7;
-  box-shadow: 0 0 10px rgba(168, 85, 247, 0.25);
+  border-color: #4B3832;
+  box-shadow: 0 0 0 3px rgba(75, 56, 50, 0.15);
 }
 
 .share-btn-generate {
   width: 100%;
-  background: linear-gradient(135deg, #ef4444, #a855f7);
-  color: #ffffff;
+  background: #4B3832;
+  color: #FFFFFF;
   border: none;
   padding: 13px;
   border-radius: 12px;
@@ -166,20 +171,20 @@
   justify-content: center;
   gap: 8px;
   margin-top: 22px;
-  box-shadow: 0 4px 18px rgba(239, 68, 68, 0.4);
+  box-shadow: var(--shadow-sm);
   transition: all 0.2s;
 }
 
 .share-btn-generate:hover {
+  background: #3A2B26;
   transform: translateY(-2px);
-  box-shadow: 0 6px 25px rgba(239, 68, 68, 0.55);
 }
 
 /* Result Box */
 .share-result-box {
   margin-top: 20px;
-  background: #020617;
-  border: 1px solid rgba(56, 189, 248, 0.4);
+  background: #FAF9FC;
+  border: 1px solid #D9D7DC;
   border-radius: 12px;
   padding: 16px;
   display: none;
@@ -189,7 +194,7 @@
 .share-result-header {
   font-size: 0.78rem;
   font-weight: 700;
-  color: #38bdf8;
+  color: #4B3832;
   text-transform: uppercase;
   letter-spacing: 0.05em;
   margin-bottom: 8px;
@@ -205,18 +210,18 @@
 
 .share-link-input {
   flex: 1;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: #FFFFFF;
+  border: 1px solid #D9D7DC;
   border-radius: 8px;
   padding: 9px 12px;
   font-family: 'JetBrains Mono', monospace;
   font-size: 0.8rem;
-  color: #38bdf8;
+  color: #4B3832;
   outline: none;
 }
 
 .share-btn-copy {
-  background: linear-gradient(135deg, #7c3aed, #06b6d4);
+  background: #4B3832;
   border: none;
   color: #ffffff;
   padding: 9px 16px;
@@ -228,5 +233,6 @@
 }
 
 .share-btn-copy:hover {
+  background: #3A2B26;
   transform: translateY(-1px);
 }

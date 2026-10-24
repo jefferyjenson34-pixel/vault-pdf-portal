@@ -15,33 +15,32 @@
 
   <style>
     :root {
-      --bg-dark: #070d19;
-      --card-bg: rgba(13, 21, 39, 0.85);
-      --border-cyan: rgba(56, 189, 248, 0.3);
-      --accent-cyan: #38bdf8;
-      --accent-emerald: #10b981;
-      --accent-rose: #f43f5e;
+      --bg-dark: #FAF9FC;
+      --card-bg: #FFFFFF;
+      --border-cyan: #D9D7DC;
+      --accent-cyan: #4B3832;
+      --accent-emerald: #1A7A38;
+      --accent-rose: #D70015;
     }
 
     body {
       margin: 0;
       padding: 0;
       font-family: 'Inter', sans-serif;
-      background: var(--bg-dark);
-      color: #f1f5f9;
+      background: #FAF9FC;
+      color: #4B3832;
       min-height: 100vh;
       display: flex;
       flex-direction: column;
     }
 
     .verify-navbar {
-      background: rgba(13, 21, 39, 0.9);
-      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      background: #FFFFFF;
+      border-bottom: 1px solid #D9D7DC;
       padding: 16px 28px;
       display: flex;
       align-items: center;
       justify-content: space-between;
-      backdrop-filter: blur(12px);
     }
 
     .brand-wrap {
@@ -49,7 +48,7 @@
       align-items: center;
       gap: 12px;
       text-decoration: none;
-      color: #ffffff;
+      color: #4B3832;
       font-weight: 700;
       font-size: 1.15rem;
     }
@@ -58,16 +57,17 @@
       width: 36px;
       height: 36px;
       border-radius: 10px;
-      background: linear-gradient(135deg, #0284c7, #6366f1);
+      background: #EDE9F6;
+      border: 1px solid #D9D7DC;
       display: flex;
       align-items: center;
       justify-content: center;
-      color: #fff;
+      color: #4B3832;
       font-size: 1.1rem;
     }
 
     .btn-nav-back {
-      color: var(--accent-cyan);
+      color: #4B3832;
       text-decoration: none;
       font-size: 0.88rem;
       font-weight: 600;
@@ -76,14 +76,15 @@
       gap: 6px;
       padding: 8px 14px;
       border-radius: 8px;
-      background: rgba(56, 189, 248, 0.08);
-      border: 1px solid rgba(56, 189, 248, 0.2);
+      background: #EDE9F6;
+      border: 1px solid #D9D7DC;
       transition: all 0.2s ease;
     }
 
     .btn-nav-back:hover {
-      background: rgba(56, 189, 248, 0.15);
-      border-color: rgba(56, 189, 248, 0.4);
+      background: #4B3832;
+      color: #FFFFFF;
+      border-color: #4B3832;
     }
 
     .verify-hero {
@@ -98,13 +99,11 @@
       font-weight: 800;
       letter-spacing: -0.02em;
       margin: 0 0 10px;
-      background: linear-gradient(135deg, #ffffff 40%, var(--accent-cyan) 100%);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
+      color: #4B3832;
     }
 
     .verify-hero p {
-      color: #94a3b8;
+      color: #7A6A63;
       font-size: 1rem;
       max-width: 620px;
       margin: 0 auto;
@@ -115,35 +114,35 @@
       max-width: 760px;
       margin: 28px auto 40px;
       padding: 12px;
-      background: rgba(15, 23, 42, 0.7);
-      border: 1px solid var(--border-cyan);
+      background: #FFFFFF;
+      border: 1px solid #D9D7DC;
       border-radius: 14px;
-      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+      box-shadow: 0 10px 30px rgba(75, 56, 50, 0.08);
       display: flex;
       gap: 10px;
     }
 
     .search-input {
       flex: 1;
-      background: rgba(0, 0, 0, 0.35);
-      border: 1px solid rgba(255, 255, 255, 0.12);
+      background: #FAF9FC;
+      border: 1.5px solid #D9D7DC;
       border-radius: 10px;
       padding: 12px 18px;
       font-family: 'JetBrains Mono', monospace;
       font-size: 0.95rem;
-      color: #38bdf8;
+      color: #4B3832;
       outline: none;
       transition: border-color 0.2s;
     }
 
     .search-input:focus {
-      border-color: var(--accent-cyan);
-      box-shadow: 0 0 15px rgba(56, 189, 248, 0.2);
+      border-color: #4B3832;
+      box-shadow: 0 0 0 3px rgba(75, 56, 50, 0.15);
     }
 
     .search-btn {
-      background: linear-gradient(135deg, #0284c7, #2563eb);
-      color: #fff;
+      background: #4B3832;
+      color: #ffffff;
       border: none;
       padding: 0 24px;
       border-radius: 10px;
@@ -157,8 +156,9 @@
     }
 
     .search-btn:hover {
+      background: #3A2B26;
       transform: translateY(-1px);
-      box-shadow: 0 4px 16px rgba(2, 132, 199, 0.4);
+      box-shadow: 0 4px 16px rgba(75, 56, 50, 0.25);
     }
 
     .result-container {
@@ -180,15 +180,15 @@
     }
 
     .verify-badge-banner.is-valid {
-      background: rgba(16, 185, 129, 0.12);
-      border: 1px solid rgba(16, 185, 129, 0.35);
-      color: #10b981;
+      background: #EAF5ED;
+      border: 1px solid #1A7A38;
+      color: #1A7A38;
     }
 
     .verify-badge-banner.is-invalid {
-      background: rgba(244, 63, 94, 0.12);
-      border: 1px solid rgba(244, 63, 94, 0.35);
-      color: #f43f5e;
+      background: #FFEBEB;
+      border: 1px solid #D70015;
+      color: #D70015;
     }
 
     .cert-audit-grid {
@@ -208,17 +208,18 @@
     }
 
     .audit-card {
-      background: rgba(15, 23, 42, 0.7);
-      border: 1px solid rgba(255, 255, 255, 0.08);
+      background: #FFFFFF;
+      border: 1px solid #D9D7DC;
       border-radius: 12px;
       padding: 18px 20px;
+      box-shadow: 0 4px 12px rgba(75, 56, 50, 0.04);
     }
 
     .audit-label {
       font-size: 0.75rem;
       text-transform: uppercase;
       letter-spacing: 0.05em;
-      color: #94a3b8;
+      color: #7A6A63;
       margin-bottom: 6px;
       display: flex;
       align-items: center;
@@ -227,7 +228,7 @@
 
     .audit-val {
       font-size: 0.95rem;
-      color: #f1f5f9;
+      color: #4B3832;
       font-weight: 500;
       word-break: break-all;
     }
@@ -235,15 +236,17 @@
     .audit-val.mono {
       font-family: 'JetBrains Mono', monospace;
       font-size: 0.85rem;
-      color: #38bdf8;
-      background: rgba(0, 0, 0, 0.25);
+      color: #4B3832;
+      background: #EDE9F6;
+      border: 1px solid #D9D7DC;
       padding: 4px 8px;
       border-radius: 6px;
       display: inline-block;
     }
 
     .sig-preview-card {
-      background: #ffffff;
+      background: #FFFFFF;
+      border: 1px solid #D9D7DC;
       border-radius: 12px;
       padding: 20px;
       text-align: center;
@@ -263,7 +266,7 @@
   <header class="verify-navbar">
     <a href="/" class="brand-wrap">
       <div class="brand-badge">🛡️</div>
-      <span>Vault <span style="color:#38bdf8;">PDF</span> Cryptographic Portal</span>
+      <span>Vault PDF Cryptographic Portal</span>
     </a>
     <a href="/" class="btn-nav-back">
       <span>← Back to Documents</span>
@@ -320,8 +323,8 @@
       async function runVerification(certId) {
         container.style.display = 'block';
         container.innerHTML = `
-          <div style="text-align:center; padding: 40px; color:#94a3b8;">
-            <div class="spinner-quantum" style="margin: 0 auto 16px; width:36px; height:36px; border:3px solid rgba(56,189,248,0.2); border-top-color:#38bdf8; border-radius:50%; animation:spin 0.8s linear infinite;"></div>
+          <div style="text-align:center; padding: 40px; color:#7A6A63;">
+            <div class="spinner-quantum" style="margin: 0 auto 16px; width:36px; height:36px; border:3px solid #D9D7DC; border-top-color:#4B3832; border-radius:50%; animation:spin 0.8s linear infinite;"></div>
             <div>Querying Cryptographic Ledger for <strong>${certId}</strong>...</div>
           </div>
           <style>@keyframes spin { to { transform: rotate(360deg); } }</style>
@@ -355,7 +358,7 @@
                 <div style="font-size:0.8rem; opacity:0.85;">SHA-256 hash match confirmed • Tamper-evident checksum valid</div>
               </div>
             </div>
-            <div style="font-family:'JetBrains Mono', monospace; font-size:0.85rem; background:rgba(16,185,129,0.2); padding:4px 10px; border-radius:6px;">
+            <div style="font-family:'JetBrains Mono', monospace; font-size:0.85rem; background:#EAF5ED; color:#1A7A38; border:1px solid #1A7A38; padding:4px 10px; border-radius:6px;">
               ${cert.id}
             </div>
           </div>
@@ -423,7 +426,7 @@
                 <div style="font-size:0.82rem; opacity:0.85;">${escapeHtml(msg)}</div>
               </div>
             </div>
-            <div style="font-family:'JetBrains Mono', monospace; font-size:0.85rem; background:rgba(244,63,94,0.2); padding:4px 10px; border-radius:6px;">
+            <div style="font-family:'JetBrains Mono', monospace; font-size:0.85rem; background:#FFEBEB; color:#D70015; border:1px solid #D70015; padding:4px 10px; border-radius:6px;">
               ${escapeHtml(certId)}
             </div>
           </div>

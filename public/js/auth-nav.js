@@ -60,16 +60,16 @@
         const dashboardBtn = document.createElement('a');
         dashboardBtn.href = '/dashboard';
         dashboardBtn.className = 'btn-nav-cta nav-user-btn';
-        dashboardBtn.style.cssText = 'background:linear-gradient(135deg, rgba(124,58,237,0.3), rgba(6,182,212,0.3)); border:1px solid rgba(167,139,250,0.5); color:#f8fafc; font-weight:600; font-size:0.85rem; padding:6px 14px; border-radius:999px; text-decoration:none; display:inline-flex; align-items:center; gap:6px;';
+        dashboardBtn.style.cssText = 'background:#4B3832; border:1px solid #3A2B26; color:#ffffff; font-weight:600; font-size:0.85rem; padding:6px 14px; border-radius:999px; text-decoration:none; display:inline-flex; align-items:center; gap:6px;';
         dashboardBtn.innerHTML = `
-          <span style="display:inline-block; width:8px; height:8px; background:#10b981; border-radius:50%; box-shadow:0 0 8px #10b981;"></span>
+          <span style="display:inline-block; width:8px; height:8px; background:#1A7A38; border-radius:50%; box-shadow:0 0 6px rgba(26,122,56,0.6);"></span>
           <span>Dashboard</span>
         `;
 
         const logoutBtn = document.createElement('button');
         logoutBtn.type = 'button';
         logoutBtn.className = 'btn-nav-cta nav-global-logout-btn';
-        logoutBtn.style.cssText = 'background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.12); color:#cbd5e1; font-weight:600; font-size:0.82rem; padding:6px 12px; border-radius:8px; cursor:pointer; transition:all 0.2s ease;';
+        logoutBtn.style.cssText = 'background:#EDE9F6; border:1px solid #D9D7DC; color:#4B3832; font-weight:600; font-size:0.82rem; padding:6px 12px; border-radius:8px; cursor:pointer; transition:all 0.2s ease;';
         logoutBtn.innerHTML = '<span>Sign Out</span>';
 
         logoutBtn.addEventListener('click', async (e) => {

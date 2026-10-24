@@ -41,9 +41,9 @@ body.quantum-hud-mode .auth-card {
   width: 52px;
   height: 52px;
   border-radius: 16px;
-  background: linear-gradient(135deg, rgba(124, 58, 237, 0.12) 0%, rgba(79, 70, 229, 0.08) 100%);
-  border: 1px solid rgba(124, 58, 237, 0.25);
-  color: var(--purple-primary);
+  background: var(--purple-tint);
+  border: 1px solid var(--border-subtle);
+  color: var(--navy-900);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -51,10 +51,9 @@ body.quantum-hud-mode .auth-card {
 }
 
 body.quantum-hud-mode .auth-icon-badge {
-  background: rgba(0, 240, 255, 0.12);
-  border-color: rgba(0, 240, 255, 0.3);
-  color: var(--neon-cyan);
-  box-shadow: 0 0 15px rgba(0, 240, 255, 0.2);
+  background: var(--purple-tint);
+  border-color: var(--border-subtle);
+  color: var(--navy-900);
 }
 
 .auth-title {
@@ -76,7 +75,7 @@ body.quantum-hud-mode .auth-title {
 }
 
 body.quantum-hud-mode .auth-subtitle {
-  color: #94a3b8;
+  color: #7A6A63;
 }
 
 /* Form inputs */
@@ -102,7 +101,7 @@ body.quantum-hud-mode .auth-subtitle {
 }
 
 body.quantum-hud-mode .auth-label {
-  color: #cbd5e1;
+  color: #4B3832;
 }
 
 .auth-label a {
@@ -153,20 +152,20 @@ body.quantum-hud-mode .auth-input {
 }
 
 .auth-input:focus {
-  border-color: var(--purple-primary);
-  box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.15);
+  border-color: #4B3832;
+  box-shadow: 0 0 0 3px rgba(75, 56, 50, 0.15);
 }
 
 body.quantum-hud-mode .auth-input:focus {
-  border-color: var(--neon-cyan);
-  box-shadow: 0 0 0 3px rgba(0, 240, 255, 0.2);
+  border-color: #4B3832;
+  box-shadow: 0 0 0 3px rgba(75, 56, 50, 0.15);
 }
 
 .auth-btn-submit {
   width: 100%;
   padding: 13px 20px;
   border-radius: 12px;
-  background: var(--gradient-navy);
+  background: #4B3832;
   color: #ffffff;
   font-family: inherit;
   font-size: 1rem;
@@ -185,18 +184,17 @@ body.quantum-hud-mode .auth-input:focus {
 .auth-btn-submit:hover {
   transform: translateY(-1px);
   box-shadow: var(--shadow-button-hover);
-  background: linear-gradient(135deg, #1e1b4b 0%, #4338ca 100%);
+  background: #3A2B26;
 }
 
 body.quantum-hud-mode .auth-btn-submit {
-  background: linear-gradient(135deg, #00f0ff 0%, #7c3aed 100%);
-  color: #060913;
+  background: #4B3832;
+  color: #ffffff;
   font-weight: 700;
-  box-shadow: 0 0 20px rgba(0, 240, 255, 0.3);
 }
 
 body.quantum-hud-mode .auth-btn-submit:hover {
-  box-shadow: 0 0 30px rgba(0, 240, 255, 0.5);
+  background: #3A2B26;
 }
 
 .auth-footer {
@@ -213,7 +211,7 @@ body.quantum-hud-mode .auth-btn-submit:hover {
 }
 
 body.quantum-hud-mode .auth-footer a {
-  color: var(--neon-cyan);
+  color: var(--purple-primary);
 }
 
 .auth-alert {
@@ -229,28 +227,28 @@ body.quantum-hud-mode .auth-footer a {
 
 .auth-alert.error {
   display: flex;
-  background: #fef2f2;
-  border: 1px solid #fecaca;
-  color: #b91c1c;
+  background: #FFEBEB;
+  border: 1px solid rgba(215, 0, 21, 0.25);
+  color: #D70015;
 }
 
 .auth-alert.success {
   display: flex;
-  background: #ecfdf5;
-  border: 1px solid #a7f3d0;
-  color: #047857;
+  background: #EAF5ED;
+  border: 1px solid rgba(26, 122, 56, 0.25);
+  color: #1A7A38;
 }
 
 body.quantum-hud-mode .auth-alert.error {
-  background: rgba(239, 68, 68, 0.15);
-  border-color: rgba(239, 68, 68, 0.3);
-  color: #fca5a5;
+  background: #FFEBEB;
+  border-color: rgba(215, 0, 21, 0.25);
+  color: #D70015;
 }
 
 body.quantum-hud-mode .auth-alert.success {
-  background: rgba(16, 185, 129, 0.15);
-  border-color: rgba(16, 185, 129, 0.3);
-  color: #6ee7b7;
+  background: #EAF5ED;
+  border-color: rgba(26, 122, 56, 0.25);
+  color: #1A7A38;
 }
 
 /* Dashboard Specific Styles */
@@ -292,7 +290,7 @@ body.quantum-hud-mode .dashboard-header-card {
   width: 50px;
   height: 50px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #7c3aed 0%, #4f46e5 100%);
+  background: #4B3832;
   color: #ffffff;
   display: flex;
   align-items: center;
@@ -313,7 +311,7 @@ body.quantum-hud-mode .dashboard-header-card {
   gap: 8px;
   padding: 10px 20px;
   border-radius: 10px;
-  background: var(--gradient-purple);
+  background: #4B3832;
   color: #ffffff;
   font-weight: 600;
   font-size: 0.92rem;
@@ -324,7 +322,7 @@ body.quantum-hud-mode .dashboard-header-card {
 
 .btn-upload-trigger:hover {
   transform: translateY(-1px);
-  box-shadow: 0 4px 14px rgba(124, 58, 237, 0.3);
+  background: #3A2B26;
 }
 
 .btn-logout {
@@ -333,7 +331,7 @@ body.quantum-hud-mode .dashboard-header-card {
   gap: 6px;
   padding: 10px 16px;
   border-radius: 10px;
-  background: rgba(15, 23, 42, 0.05);
+  background: #FAF9FC;
   border: 1px solid var(--border-subtle);
   color: var(--navy-700);
   font-weight: 600;
@@ -343,15 +341,15 @@ body.quantum-hud-mode .dashboard-header-card {
 }
 
 body.quantum-hud-mode .btn-logout {
-  background: rgba(255, 255, 255, 0.05);
-  border-color: rgba(255, 255, 255, 0.15);
-  color: #cbd5e1;
+  background: #FAF9FC;
+  border-color: var(--border-subtle);
+  color: var(--navy-700);
 }
 
 .btn-logout:hover {
-  background: #fef2f2;
-  color: #dc2626;
-  border-color: #fecaca;
+  background: #FFEBEB;
+  color: #D70015;
+  border-color: rgba(215, 0, 21, 0.25);
 }
 
 /* User documents table / list */
@@ -402,26 +400,26 @@ body.quantum-hud-mode .user-docs-container {
 }
 
 .otp-digit-input:focus {
-  border-color: var(--purple-primary);
-  box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.2);
+  border-color: #4B3832;
+  box-shadow: 0 0 0 3px rgba(75, 56, 50, 0.15);
   transform: translateY(-2px);
 }
 
 body.quantum-hud-mode .otp-digit-input {
-  background: rgba(10, 16, 31, 0.85);
-  border-color: rgba(0, 240, 255, 0.3);
-  color: var(--neon-cyan);
+  background: #FFFFFF;
+  border-color: var(--border-subtle);
+  color: var(--navy-950);
 }
 
 body.quantum-hud-mode .otp-digit-input:focus {
-  border-color: var(--neon-cyan);
-  box-shadow: 0 0 15px rgba(0, 240, 255, 0.4);
+  border-color: #4B3832;
+  box-shadow: 0 0 0 3px rgba(75, 56, 50, 0.15);
 }
 
 .otp-dispatch-card {
   padding: 12px 16px;
-  background: rgba(124, 58, 237, 0.08);
-  border: 1px dashed rgba(124, 58, 237, 0.35);
+  background: var(--purple-tint);
+  border: 1px dashed var(--border-subtle);
   border-radius: 12px;
   font-size: 0.86rem;
   color: var(--navy-900);
@@ -433,25 +431,26 @@ body.quantum-hud-mode .otp-digit-input:focus {
 }
 
 body.quantum-hud-mode .otp-dispatch-card {
-  background: rgba(0, 240, 255, 0.08);
-  border-color: rgba(0, 240, 255, 0.35);
-  color: #e2e8f0;
+  background: var(--purple-tint);
+  border-color: var(--border-subtle);
+  color: var(--navy-900);
 }
 
 .otp-dispatch-code {
   font-family: var(--font-mono, monospace);
   font-size: 1.15rem;
   font-weight: 800;
-  color: var(--purple-primary);
-  background: rgba(124, 58, 237, 0.15);
+  color: var(--navy-900);
+  background: #FFFFFF;
+  border: 1px solid var(--border-subtle);
   padding: 2px 8px;
   border-radius: 6px;
   letter-spacing: 0.08em;
 }
 
 body.quantum-hud-mode .otp-dispatch-code {
-  color: var(--neon-cyan);
-  background: rgba(0, 240, 255, 0.15);
+  color: var(--navy-900);
+  background: #FFFFFF;
 }
 
 .otp-actions {

@@ -298,10 +298,7 @@
 
     function draw() {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
-      const gradient = ctx.createLinearGradient(0, canvas.height, 0, 0);
-      gradient.addColorStop(0, '#7c3aed');
-      gradient.addColorStop(1, '#38bdf8');
-      ctx.fillStyle = gradient;
+      ctx.fillStyle = '#4B3832';
 
       for (let i = 0; i < numBars; i++) {
         let height;

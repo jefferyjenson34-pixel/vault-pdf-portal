@@ -4,36 +4,39 @@
    ═══════════════════════════════════════════════════════════════ */
 
 /* ─── CSS Variables / Design Tokens ──────────────────────────── */
+@import url('/css/tokens.css');
+
+/* ─── CSS Variables / Design Tokens ──────────────────────────── */
 :root {
   /* Colors */
-  --bg-primary: #0a0a0f;
-  --bg-secondary: #111118;
-  --bg-card: rgba(17, 17, 24, 0.7);
-  --bg-card-hover: rgba(25, 25, 38, 0.85);
-  --bg-glass: rgba(255, 255, 255, 0.03);
-  --bg-glass-strong: rgba(255, 255, 255, 0.06);
+  --bg-primary: #FAF9FC;
+  --bg-secondary: #EDE9F6;
+  --bg-card: #FFFFFF;
+  --bg-card-hover: #FFFFFF;
+  --bg-glass: #FFFFFF;
+  --bg-glass-strong: #EDE9F6;
 
-  --text-primary: #f0f0f5;
-  --text-secondary: #9495a5;
-  --text-muted: #5c5d6e;
+  --text-primary: #4B3832;
+  --text-secondary: #7A6A63;
+  --text-muted: #7A6A63;
 
-  --accent-indigo: #818cf8;
-  --accent-purple: #c084fc;
-  --accent-violet: #a78bfa;
-  --accent-pink: #f472b6;
+  --accent-indigo: #4B3832;
+  --accent-purple: #4B3832;
+  --accent-violet: #4B3832;
+  --accent-pink: #D70015;
 
-  --gradient-primary: linear-gradient(135deg, #818cf8 0%, #c084fc 100%);
-  --gradient-secondary: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  --gradient-glow: linear-gradient(135deg, rgba(129, 140, 248, 0.15) 0%, rgba(192, 132, 252, 0.15) 100%);
+  --gradient-primary: #4B3832;
+  --gradient-secondary: #4B3832;
+  --gradient-glow: #EDE9F6;
 
-  --border-subtle: rgba(255, 255, 255, 0.06);
-  --border-medium: rgba(255, 255, 255, 0.1);
-  --border-accent: rgba(129, 140, 248, 0.3);
+  --border-subtle: #D9D7DC;
+  --border-medium: #D9D7DC;
+  --border-accent: #D9D7DC;
 
-  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.3);
-  --shadow-md: 0 8px 32px rgba(0, 0, 0, 0.4);
-  --shadow-lg: 0 16px 64px rgba(0, 0, 0, 0.5);
-  --shadow-glow: 0 0 40px rgba(129, 140, 248, 0.15);
+  --shadow-sm: 0 1px 3px rgba(75, 56, 50, 0.05);
+  --shadow-md: 0 4px 20px -2px rgba(75, 56, 50, 0.06);
+  --shadow-lg: 0 16px 32px -4px rgba(75, 56, 50, 0.1);
+  --shadow-glow: none;
 
   /* Typography */
   --font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
@@ -83,59 +86,10 @@ a {
 }
 
 /* ─── Animated Background ────────────────────────────────────── */
-.bg-gradient {
-  position: fixed;
-  inset: 0;
-  background: radial-gradient(ellipse at 50% 0%, rgba(129, 140, 248, 0.08) 0%, transparent 60%),
-              radial-gradient(ellipse at 80% 50%, rgba(192, 132, 252, 0.05) 0%, transparent 50%),
-              radial-gradient(ellipse at 20% 80%, rgba(99, 102, 241, 0.05) 0%, transparent 50%);
-  z-index: 0;
-  pointer-events: none;
-}
-
-.bg-grid {
-  position: fixed;
-  inset: 0;
-  background-image:
-    linear-gradient(rgba(255, 255, 255, 0.015) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255, 255, 255, 0.015) 1px, transparent 1px);
-  background-size: 60px 60px;
-  z-index: 0;
-  pointer-events: none;
-  mask-image: radial-gradient(ellipse at center, black 30%, transparent 70%);
-  -webkit-mask-image: radial-gradient(ellipse at center, black 30%, transparent 70%);
-}
-
+.bg-gradient,
+.bg-grid,
 .bg-glow {
-  position: fixed;
-  width: 500px;
-  height: 500px;
-  border-radius: 50%;
-  filter: blur(120px);
-  opacity: 0.4;
-  z-index: 0;
-  pointer-events: none;
-  animation: float 20s ease-in-out infinite;
-}
-.glow-1 {
-  top: -200px;
-  left: 20%;
-  background: rgba(129, 140, 248, 0.12);
-  animation-delay: 0s;
-}
-.glow-2 {
-  bottom: -200px;
-  right: 10%;
-  background: rgba(192, 132, 252, 0.1);
-  animation-delay: -7s;
-}
-.glow-3 {
-  top: 40%;
-  left: -100px;
-  width: 300px;
-  height: 300px;
-  background: rgba(99, 102, 241, 0.08);
-  animation-delay: -14s;
+  display: none !important;
 }
 
 @keyframes float {
