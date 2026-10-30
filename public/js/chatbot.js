@@ -63,9 +63,12 @@
       trigger.setAttribute('aria-label', 'Open Vault AI Assistant');
       trigger.innerHTML = `
         <span class="vault-chat-badge-dot" aria-hidden="true"></span>
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
-        </svg>
+        <div class="vault-chat-trigger-icon">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+          </svg>
+        </div>
+        <span class="vault-chat-trigger-label">Ask Halimon AI</span>
       `;
       document.body.appendChild(trigger);
     }
@@ -397,6 +400,28 @@
     return div.innerHTML;
   }
 
+  // ─── Global Window Interface for External Buttons & Links ───
+  window.openVaultChat = function (query) {
+    const dialog = document.getElementById('vault-chat-dialog');
+    const input = document.getElementById('vault-chat-input');
+    if (!dialog) {
+      initChatbotDOM();
+    }
+    const activeDialog = document.getElementById('vault-chat-dialog');
+    if (activeDialog) {
+      activeDialog.classList.add('active');
+      playCyberChime('chime');
+      if (query && typeof query === 'string' && query.trim()) {
+        const chatInput = document.getElementById('vault-chat-input');
+        if (chatInput) chatInput.value = query.trim();
+        handleSendMessage(query.trim());
+      } else {
+        const chatInput = document.getElementById('vault-chat-input');
+        if (chatInput) setTimeout(() => chatInput.focus(), 200);
+      }
+    }
+  };
+
   // ─── Initialize on DOM Ready ────────────────────────────────
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', initChatbotDOM);
@@ -404,3 +429,4 @@
     initChatbotDOM();
   }
 })();
+

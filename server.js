@@ -5,6 +5,7 @@ const path = require('path');
 const fs = require('fs');
 const bcrypt = require('bcryptjs');
 const cookieParser = require('cookie-parser');
+const db = require('./db');
 
 // Load environment variables from .env if present (Node 20+)
 const envPath = path.join(__dirname, '.env');
@@ -57,12 +58,11 @@ if (!fs.existsSync(CATEGORIES_FILE)) fs.writeFileSync(CATEGORIES_FILE, JSON.stri
 if (!fs.existsSync(SHARED_LINKS_FILE)) fs.writeFileSync(SHARED_LINKS_FILE, JSON.stringify({}, null, 2));
 if (!fs.existsSync(SIGNING_CERTS_FILE)) fs.writeFileSync(SIGNING_CERTS_FILE, JSON.stringify({}, null, 2));
 
-function readSigningCertificates() {
-  try { return JSON.parse(fs.readFileSync(SIGNING_CERTS_FILE, 'utf-8')); } catch { return {}; }
-}
-function writeSigningCertificates(data) {
-  fs.writeFileSync(SIGNING_CERTS_FILE, JSON.stringify(data, null, 2));
-}
+const {
+  readSigningCertificates,
+  writeSigningCertificates
+} = db;
+
 const DEFAULT_SEED_USER = {
   id: 'usr_seed_001',
   email: 'admin@vaultpdfportal.com',
@@ -70,18 +70,6 @@ const DEFAULT_SEED_USER = {
   verified: true,
   createdAt: new Date().toISOString()
 };
-if (!fs.existsSync(USERS_FILE)) {
-  fs.writeFileSync(USERS_FILE, JSON.stringify([DEFAULT_SEED_USER], null, 2));
-} else {
-  try {
-    const existingUsers = JSON.parse(fs.readFileSync(USERS_FILE, 'utf-8'));
-    if (!Array.isArray(existingUsers) || existingUsers.length === 0) {
-      fs.writeFileSync(USERS_FILE, JSON.stringify([DEFAULT_SEED_USER], null, 2));
-    }
-  } catch (_) {
-    fs.writeFileSync(USERS_FILE, JSON.stringify([DEFAULT_SEED_USER], null, 2));
-  }
-}
 if (!fs.existsSync(USER_SESSIONS_FILE)) fs.writeFileSync(USER_SESSIONS_FILE, JSON.stringify({}, null, 2));
 if (!fs.existsSync(USER_DOCUMENTS_FILE)) fs.writeFileSync(USER_DOCUMENTS_FILE, JSON.stringify([], null, 2));
 if (!fs.existsSync(REPORTS_FILE)) fs.writeFileSync(REPORTS_FILE, JSON.stringify([], null, 2));
@@ -487,102 +475,29 @@ async function resolveGeoIP(ip) {
   return fallback;
 }
 
-// Helper: read visitors
-function readVisitors() {
-  try {
-    return JSON.parse(fs.readFileSync(VISITORS_FILE, 'utf-8'));
-  } catch {
-    return [];
-  }
-}
-
-// Helper: write visitors
-function writeVisitors(visitors) {
-  fs.writeFileSync(VISITORS_FILE, JSON.stringify(visitors, null, 2));
-}
-
-// Helper: read/write contacts
-function readContacts() {
-  try { return JSON.parse(fs.readFileSync(CONTACTS_FILE, 'utf-8')); } catch { return []; }
-}
-function writeContacts(contacts) {
-  fs.writeFileSync(CONTACTS_FILE, JSON.stringify(contacts, null, 2));
-}
-
-// Helper: read/write download counts
-function readDownloads() {
-  try { return JSON.parse(fs.readFileSync(DOWNLOADS_FILE, 'utf-8')); } catch { return {}; }
-}
-function writeDownloads(downloads) {
-  fs.writeFileSync(DOWNLOADS_FILE, JSON.stringify(downloads, null, 2));
-}
-
-// Helper: read/write categories
-function readCategories() {
-  try { return JSON.parse(fs.readFileSync(CATEGORIES_FILE, 'utf-8')); } catch { return {}; }
-}
-function writeCategories(categories) {
-  fs.writeFileSync(CATEGORIES_FILE, JSON.stringify(categories, null, 2));
-}
-
-// Helper: read/write shared self-destructing links
-function readSharedLinks() {
-  try { return JSON.parse(fs.readFileSync(SHARED_LINKS_FILE, 'utf-8')); } catch { return {}; }
-}
-function writeSharedLinks(links) {
-  fs.writeFileSync(SHARED_LINKS_FILE, JSON.stringify(links, null, 2));
-}
-
-// ─── Phase 1, 2, 3 Data Helpers ─────────────────────────────────────
-function readUsers() {
-  try {
-    const list = JSON.parse(fs.readFileSync(USERS_FILE, 'utf-8'));
-    if (Array.isArray(list) && list.length > 0) return list;
-  } catch {}
-  try {
-    fs.writeFileSync(USERS_FILE, JSON.stringify([DEFAULT_SEED_USER], null, 2));
-  } catch {}
-  return [DEFAULT_SEED_USER];
-}
-function writeUsers(users) {
-  fs.writeFileSync(USERS_FILE, JSON.stringify(users, null, 2));
-}
-
-function readUserSessions() {
-  try { return JSON.parse(fs.readFileSync(USER_SESSIONS_FILE, 'utf-8')); } catch { return {}; }
-}
-function writeUserSessions(sessions) {
-  fs.writeFileSync(USER_SESSIONS_FILE, JSON.stringify(sessions, null, 2));
-}
-
-function readUserDocuments() {
-  try { return JSON.parse(fs.readFileSync(USER_DOCUMENTS_FILE, 'utf-8')); } catch { return []; }
-}
-function writeUserDocuments(docs) {
-  fs.writeFileSync(USER_DOCUMENTS_FILE, JSON.stringify(docs, null, 2));
-}
-
-function readReports() {
-  try { return JSON.parse(fs.readFileSync(REPORTS_FILE, 'utf-8')); } catch { return []; }
-}
-function writeReports(reports) {
-  fs.writeFileSync(REPORTS_FILE, JSON.stringify(reports, null, 2));
-}
-
-// ─── Email & SMTP Relay Configuration Helpers ────────────────────────
-function readEmailConfig() {
-  try {
-    if (fs.existsSync(EMAIL_CONFIG_FILE)) {
-      const cfg = JSON.parse(fs.readFileSync(EMAIL_CONFIG_FILE, 'utf-8'));
-      if (cfg && (cfg.user || cfg.pass || cfg.apiKey)) return cfg;
-    }
-  } catch {}
-  return DEFAULT_EMAIL_CONFIG;
-}
-
-function writeEmailConfig(config) {
-  fs.writeFileSync(EMAIL_CONFIG_FILE, JSON.stringify(config, null, 2));
-}
+// ─── Data Access & Persistence via MongoDB Atlas (with local cache fallback) ─
+const {
+  readVisitors,
+  writeVisitors,
+  readContacts,
+  writeContacts,
+  readDownloads,
+  writeDownloads,
+  readCategories,
+  writeCategories,
+  readSharedLinks,
+  writeSharedLinks,
+  readUsers,
+  writeUsers,
+  readUserSessions,
+  writeUserSessions,
+  readUserDocuments,
+  writeUserDocuments,
+  readReports,
+  writeReports,
+  readEmailConfig,
+  writeEmailConfig
+} = db;
 
 function getActiveEmailConfig() {
   const fileConfig = readEmailConfig();
@@ -5024,9 +4939,34 @@ app.use((err, req, res, next) => {
   });
 });
 
-// ─── Start server ───────────────────────────────────────────────────
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`\n  🚀 PDF Portal running at http://localhost:${PORT}`);
-  console.log(`  📋 Admin panel at http://localhost:${PORT}/admin\n`);
-  console.log(`  🛡️  Security: Trust Proxy set to ${app.get('trust proxy')} hops. express-rate-limit active.`);
-});
+// ─── Start server with MongoDB Atlas Persistence ────────────────────
+async function startServer() {
+  const filePaths = {
+    USERS_FILE,
+    USER_SESSIONS_FILE,
+    USER_DOCUMENTS_FILE,
+    SHARED_LINKS_FILE,
+    REPORTS_FILE,
+    CONTACTS_FILE,
+    VISITORS_FILE,
+    EMAIL_CONFIG_FILE,
+    SIGNING_CERTS_FILE,
+    DOWNLOADS_FILE,
+    CATEGORIES_FILE
+  };
+
+  try {
+    await db.initDatabase(filePaths, DEFAULT_SEED_USER, DEFAULT_EMAIL_CONFIG);
+  } catch (err) {
+    console.warn('⚠️ Warning during database initialization:', err.message);
+  }
+
+  app.listen(PORT, '0.0.0.0', () => {
+    console.log(`\n  🚀 PDF Portal running at http://localhost:${PORT}`);
+    console.log(`  📋 Admin panel at http://localhost:${PORT}/admin\n`);
+    console.log(`  🛡️  Security: Trust Proxy set to ${app.get('trust proxy')} hops. express-rate-limit active.`);
+    console.log(`  🍃 Persistence: MongoDB Atlas cloud store active.\n`);
+  });
+}
+
+startServer();

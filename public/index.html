@@ -142,6 +142,12 @@
             </svg>
             <span>Verify Certs</span>
           </a>
+          <a href="javascript:void(0)" class="nav-link" id="nav-link-chatbot" onclick="window.openVaultChat && window.openVaultChat()" title="Chat with Halimon AI Assistant">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+            </svg>
+            <span>AI Chat</span>
+          </a>
           <a href="/contact" class="nav-link" id="nav-link-contact">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
@@ -284,6 +290,12 @@
                   </svg>
                   <span>Forensics</span>
                 </button>
+                <button class="deck-tab-btn" data-deck-tab="tab-chatbot" type="button" role="tab" aria-selected="false">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+                  </svg>
+                  <span>AI Assistant</span>
+                </button>
                 <button class="deck-tab-btn" data-deck-tab="tab-audio" type="button" role="tab" aria-selected="false">
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
                     <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
@@ -381,6 +393,66 @@
                     </button>
                     <a href="#documents" class="btn-deck-action">
                       <span>Explore Documents</span>
+                    </a>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Tab 3: AI Assistant (Halimon) -->
+              <div class="deck-panel" id="tab-chatbot" role="tabpanel">
+                <div class="deck-showcase-grid">
+                  <div>
+                    <h3 style="font-size:1.15rem; font-weight:800; color:var(--navy-900); margin-bottom:6px; line-height:1.25;">
+                      Halimon — Official Vault AI Assistant
+                    </h3>
+                    <p style="font-size:0.88rem; color:var(--text-secondary); line-height:1.55; margin-bottom:0;">
+                      Ask questions about AES-256 encryption, 16-character secret codes, voice synthesis, upload limits, or document verification.
+                    </p>
+                  </div>
+
+                  <div class="deck-preview-box">
+                    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:10px;">
+                      <div style="display:flex; align-items:center; gap:10px;">
+                        <div style="width:34px; height:34px; border-radius:50%; background:#4B3832; color:#ffffff; display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+                          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+                            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                            <path d="m9 12 2 2 4-4"/>
+                          </svg>
+                        </div>
+                        <div>
+                          <div style="font-size:0.84rem; font-weight:700; color:var(--navy-900);">Halimon Cyber Sentinel</div>
+                          <div style="font-size:0.72rem; color:#1A7A38; font-weight:600; display:flex; align-items:center; gap:5px;">
+                            <span style="display:inline-block; width:7px; height:7px; background:#1A7A38; border-radius:50%;"></span>
+                            <span>Online • Neural Multi-Model AI</span>
+                          </div>
+                        </div>
+                      </div>
+                      <span style="font-size:0.72rem; font-weight:700; background:var(--purple-tint); color:var(--navy-900); padding:3px 7px; border-radius:6px;">LIVE ASSIST</span>
+                    </div>
+
+                    <div style="display:flex; flex-wrap:wrap; gap:6px; margin-bottom:12px;">
+                      <button type="button" class="deck-chip-btn" onclick="window.openVaultChat &amp;&amp; window.openVaultChat('How do 16-character secret codes work?')">🔑 Secret Codes</button>
+                      <button type="button" class="deck-chip-btn" onclick="window.openVaultChat &amp;&amp; window.openVaultChat('What are the PDF upload limits?')">📤 Upload Limits</button>
+                      <button type="button" class="deck-chip-btn" onclick="window.openVaultChat &amp;&amp; window.openVaultChat('How does the Neural Voice Reader work?')">🎙️ Voice Reader</button>
+                      <button type="button" class="deck-chip-btn" onclick="window.openVaultChat &amp;&amp; window.openVaultChat('How does the Quantum Scanner work?')">⚡ Scanner Forensics</button>
+                    </div>
+
+                    <form id="hero-quick-chat-form" onsubmit="event.preventDefault(); const q = document.getElementById('hero-quick-chat-input')?.value; if(window.openVaultChat) window.openVaultChat(q);" style="display:flex; gap:8px;">
+                      <input type="text" id="hero-quick-chat-input" placeholder="Ask Halimon anything about Vault..." maxlength="500" style="flex:1; font-size:0.82rem; padding:8px 12px; border:1px solid var(--border-subtle); border-radius:8px; outline:none; background:#FFFFFF; color:var(--navy-900);">
+                      <button type="submit" style="background:#4B3832; color:#FFFFFF; border:none; padding:8px 16px; border-radius:8px; font-size:0.82rem; font-weight:700; cursor:pointer; display:flex; align-items:center; gap:6px; transition:background 0.2s;">
+                        <span>Ask</span>
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                      </button>
+                    </form>
+                  </div>
+
+                  <div style="display:flex; gap:10px; flex-wrap:wrap;">
+                    <button type="button" onclick="window.openVaultChat &amp;&amp; window.openVaultChat()" class="btn-deck-action primary" style="cursor:pointer;">
+                      <span>Open Full AI Chatbot</span>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+                    </button>
+                    <a href="/contact" class="btn-deck-action">
+                      <span>Direct Contact Support</span>
                     </a>
                   </div>
                 </div>
@@ -1009,6 +1081,36 @@
               <li class="feature-bullet">
                 <span class="bullet-icon">&#10003;</span>
                 <span>Audit-friendly download tracking for admin visibility</span>
+              </li>
+            </ul>
+          </div>
+
+          <!-- Feature Card 5: Halimon AI Assistant -->
+          <div class="feature-card reveal-fade-up delay-100" style="cursor:pointer;" onclick="window.openVaultChat &amp;&amp; window.openVaultChat()">
+            <div class="feature-header">
+              <div class="feature-icon-box" style="background:#EDE9F6; color:#4B3832;">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+                </svg>
+              </div>
+              <span class="feature-number">05 / AI ASSISTANT</span>
+            </div>
+            <h3 class="feature-title">Halimon AI Assistant</h3>
+            <p class="feature-desc">
+              Instant guidance on encryption, 16-character secret codes, neural speech, and forensic scans powered by multi-model AI.
+            </p>
+            <ul class="feature-bullets">
+              <li class="feature-bullet">
+                <span class="bullet-icon">&#10003;</span>
+                <span>Powered by neural multi-model streaming</span>
+              </li>
+              <li class="feature-bullet">
+                <span class="bullet-icon">&#10003;</span>
+                <span>In-memory private sessions with zero tracking</span>
+              </li>
+              <li class="feature-bullet">
+                <span class="bullet-icon">&#10003;</span>
+                <span>Directly click to chat anytime from the main page</span>
               </li>
             </ul>
           </div>
