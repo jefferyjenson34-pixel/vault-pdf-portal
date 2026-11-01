@@ -12,8 +12,20 @@ const mongoose = require('mongoose');
 const fs = require('fs');
 const path = require('path');
 
-const MONGODB_URI = process.env.MONGODB_URI ||
-  'mongodb+srv://jefferyjenson34_db_user:t0S2ZSrrrpkcUTrK@mongoose.lifcamf.mongodb.net/vault_pdf_portal?retryWrites=true&w=majority';
+// Load environment variables from .env if present (Node 20+)
+const envPath = path.join(__dirname, '.env');
+if (fs.existsSync(envPath) && typeof process.loadEnvFile === 'function') {
+  try {
+    process.loadEnvFile(envPath);
+  } catch (_) {}
+}
+
+const MONGODB_URI = process.env.MONGODB_URI;
+
+if (!MONGODB_URI) {
+  process.exitCode = 1;
+  throw new Error('MONGODB_URI is not set');
+}
 
 // ─── Mongoose Schemas (with id: false to preserve custom 'id' string field) ──
 const userSchema = new mongoose.Schema({
