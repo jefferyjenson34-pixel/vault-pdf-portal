@@ -493,7 +493,7 @@
 
     // 2. Fallback: MyMemory Neural Translate API from client browser
     try {
-      const myMemoryEmail = 'jefferyjenson34@gmail.com';
+      const myMemoryEmail = 'translate@vaultpdfportal.com';
       const mmUrl = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(trimmed.slice(0, 500))}&langpair=en|${encodeURIComponent(targetLang)}&de=${encodeURIComponent(myMemoryEmail)}`;
       const mmRes = await fetch(mmUrl);
       if (mmRes.ok) {

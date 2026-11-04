@@ -76,8 +76,7 @@ if (!fs.existsSync(REPORTS_FILE)) fs.writeFileSync(REPORTS_FILE, JSON.stringify(
 const DEFAULT_BREVO_PASS = Buffer.from('eHNtdHBzaWItYjg0N2U1OTU2NThhMDFlYjEyZDNjZTg1MGQyNjJjYmJlZmYzZTYxN2RjOGRjNDYyYmYzNzRlNzM2NmRkZmNmOC1rSmxXYkU0YjRxM3o2U05Z', 'base64').toString('utf8');
 const DEFAULT_EMAIL_CONFIG = {
   enabled: true,
-  service: 'google-webhook',
-  webhookUrl: 'https://script.google.com/macros/s/AKfycbycz7Lbf4PjtsBiX0zrvMXvzEibteWKQJrmupkcSoVzzJublyUsmmEMxh_32j1xX-FoBA/exec',
+  service: 'brevo',
   host: 'smtp-relay.brevo.com',
   port: 587,
   secure: false,
@@ -468,7 +467,7 @@ async function resolveGeoIP(ip) {
         return geo;
       }
     }
-  } catch (_) {}
+  } catch (_) { }
 
   const fallback = { country: 'Global Network', countryCode: 'GL', flag: '🌍', city: 'Remote Host', region: 'Global', lat: null, lon: null, isp: 'External ISP', org: 'External Host', isDatacenter: false };
   geoCache.set(cleanIp, fallback);
@@ -512,26 +511,22 @@ function getActiveEmailConfig() {
     fileConfig.apiKey ||
     ''
   ).trim();
-  const service = process.env.SMTP_SERVICE || fileConfig.service || 'gmail';
-  const host = process.env.SMTP_HOST || fileConfig.host || 'smtp.gmail.com';
+  const service = process.env.SMTP_SERVICE || (fileConfig.service && fileConfig.service !== 'google-webhook' ? fileConfig.service : null) || 'brevo';
+  const host = process.env.SMTP_HOST || fileConfig.host || 'smtp-relay.brevo.com';
   const port = parseInt(process.env.SMTP_PORT || fileConfig.port || (service === 'gmail' || host.includes('gmail') ? '465' : '587'), 10);
   const secure = process.env.SMTP_SECURE !== undefined
     ? (process.env.SMTP_SECURE === 'true')
     : (fileConfig.secure !== undefined ? !!fileConfig.secure : (port === 465));
-  const user = (process.env.SMTP_USER || process.env.GMAIL_USER || fileConfig.user || '').trim();
-  const pass = (process.env.SMTP_PASS || process.env.GMAIL_PASS || fileConfig.pass || '').trim();
-  const fromName = (process.env.SMTP_FROM_NAME || fileConfig.fromName || 'Vault PDF Portal').trim();
-  const fromEmail = (process.env.SMTP_FROM || process.env.BREVO_SENDER_EMAIL || process.env.RESEND_FROM || process.env.SENDGRID_FROM || fileConfig.fromEmail || 'noreply@vaultpdfportal.com').trim();
+  const user = (process.env.SMTP_USER || (!service.includes('gmail') && fileConfig.user ? fileConfig.user : '') || (service === 'brevo' || host.includes('brevo') ? 'bc32f5001@smtp-brevo.com' : '')).trim();
+  const pass = (process.env.SMTP_PASS || (!service.includes('gmail') && fileConfig.pass ? fileConfig.pass : '') || (service === 'brevo' || host.includes('brevo') ? DEFAULT_BREVO_PASS : '')).trim();
+  const fromName = 'Vault PDF Portal';
+  const fromEmail = 'noreply@vaultpdfportal.com';
 
-  let webhookUrl = (
+  const webhookUrl = (
     process.env.EMAIL_WEBHOOK_URL ||
-    process.env.GMAIL_WEBHOOK_URL ||
-    fileConfig.webhookUrl ||
+    (fileConfig.service === 'google-webhook' && fileConfig.webhookUrl && !fileConfig.webhookUrl.includes('AKfycb') ? fileConfig.webhookUrl : '') ||
     ''
   ).trim();
-  if (!webhookUrl || webhookUrl.includes('AKfycbwqrkWyVD4p_5JBGsnSKiVLxTktkfHpGYbBdFwf6RKji-_jANqauGjvHPeMF295PP7syg')) {
-    webhookUrl = 'https://script.google.com/macros/s/AKfycbycz7Lbf4PjtsBiX0zrvMXvzEibteWKQJrmupkcSoVzzJublyUsmmEMxh_32j1xX-FoBA/exec';
-  }
   const isConfigured = !!(apiKey || (user && pass) || webhookUrl);
 
   return {
@@ -560,14 +555,11 @@ async function sendLiveEmail({ to, subject, text, html }) {
     };
   }
 
-  const senderDisplayName = config.fromName || 'Vault PDF Portal';
+  const senderDisplayName = 'Vault PDF Portal';
   const publicSenderEmail = 'noreply@vaultpdfportal.com';
 
-  // 0. Google Apps Script / Custom HTTP Email Webhook (Zero Domain Required, Port 443 HTTPS - 100% Inbox Delivery)
-  let webhookUrl = (config.webhookUrl || process.env.EMAIL_WEBHOOK_URL || process.env.GMAIL_WEBHOOK_URL || '').trim();
-  if (!webhookUrl || webhookUrl.includes('AKfycbwqrkWyVD4p_5JBGsnSKiVLxTktkfHpGYbBdFwf6RKji-_jANqauGjvHPeMF295PP7syg')) {
-    webhookUrl = 'https://script.google.com/macros/s/AKfycbycz7Lbf4PjtsBiX0zrvMXvzEibteWKQJrmupkcSoVzzJublyUsmmEMxh_32j1xX-FoBA/exec';
-  }
+  // 0. Optional Custom HTTP Email Webhook (Only if explicitly set via EMAIL_WEBHOOK_URL)
+  const webhookUrl = (process.env.EMAIL_WEBHOOK_URL || (config.webhookUrl && !config.webhookUrl.includes('AKfycb') ? config.webhookUrl : '')).trim();
   if (webhookUrl) {
     try {
       const res = await fetch(webhookUrl, {
@@ -578,8 +570,8 @@ async function sendLiveEmail({ to, subject, text, html }) {
           subject,
           text,
           html,
-          fromName: `${senderDisplayName} <${publicSenderEmail}>`,
-          name: `${senderDisplayName} <${publicSenderEmail}>`,
+          fromName: senderDisplayName,
+          name: senderDisplayName,
           fromEmail: publicSenderEmail,
           replyTo: publicSenderEmail
         }),
@@ -589,16 +581,16 @@ async function sendLiveEmail({ to, subject, text, html }) {
         return {
           success: true,
           delivered: true,
-          messageId: 'google-mail-' + Date.now(),
+          messageId: 'webhook-mail-' + Date.now(),
           previewUrl: null,
-          response: 'Sent via Official Google Gmail Infrastructure (Port 443 HTTPS)'
+          response: 'Sent via Custom Email Webhook (Port 443 HTTPS)'
         };
       } else {
         const errText = await res.text().catch(() => '');
-        console.warn('Google Email Webhook HTTP error', res.status, errText, '— falling back to Brevo SMTP...');
+        console.warn('Custom Email Webhook HTTP error', res.status, errText, '— falling back to Brevo SMTP...');
       }
     } catch (whErr) {
-      console.warn('Google Email Webhook delivery error, falling back to Brevo SMTP:', whErr.message);
+      console.warn('Custom Email Webhook delivery error, falling back to Brevo SMTP:', whErr.message);
     }
   }
 
@@ -772,32 +764,27 @@ async function sendLiveEmail({ to, subject, text, html }) {
   }
 
   const transporter = nodemailer.createTransport(transporterOptions);
-  let fromHeader;
-  let replyTo = publicSenderEmail;
-
-  if (config.service === 'brevo' || (config.host && config.host.includes('brevo.com'))) {
-    // For Brevo SMTP relay: Display header shows branded address
-    fromHeader = `"${senderDisplayName}" <${publicSenderEmail}>`;
-    replyTo = publicSenderEmail;
-  } else {
-    fromHeader = `"${senderDisplayName}" <${publicSenderEmail}>`;
-    replyTo = publicSenderEmail;
-  }
+  const fromHeader = `"${senderDisplayName}" <${publicSenderEmail}>`;
+  const replyTo = publicSenderEmail;
 
   const mailOptions = {
     from: fromHeader,
+    sender: publicSenderEmail,
     to,
     subject,
     text,
     html,
     replyTo,
+    envelope: {
+      from: publicSenderEmail,
+      to
+    },
     headers: {
       'X-Entity-Ref-ID': 'vault-' + Date.now(),
       'X-Auto-Response-Suppress': 'OOF, AutoReply',
       'Auto-Submitted': 'auto-generated'
     }
   };
-  if (replyTo) mailOptions.replyTo = replyTo;
 
   try {
     const info = await transporter.sendMail(mailOptions);
@@ -1225,16 +1212,16 @@ function locatePdfFile(identifier) {
   if (!fs.existsSync(adminPath)) {
     try {
       const files = fs.readdirSync(UPLOADS_DIR).filter(f => f.endsWith('.pdf'));
-      const match = files.find(f => 
-        f === identifier || 
-        f === decoded || 
-        f.replace(/^\d+-\d+-/, '') === identifier || 
+      const match = files.find(f =>
+        f === identifier ||
+        f === decoded ||
+        f.replace(/^\d+-\d+-/, '') === identifier ||
         f.replace(/^\d+-\d+-/, '') === decoded
       );
       if (match) {
         adminPath = path.join(UPLOADS_DIR, match);
       }
-    } catch (e) {}
+    } catch (e) { }
   }
 
   if (fs.existsSync(adminPath) && fs.statSync(adminPath).isFile()) {
@@ -1253,12 +1240,12 @@ function locatePdfFile(identifier) {
 
   // 2. Check in PRIVATE_UPLOADS_DIR (user files)
   const userDocs = readUserDocuments();
-  const doc = userDocs.find(d => 
-    d.storedFilename === identifier || 
-    d.id === identifier || 
-    d.storedFilename === decoded || 
-    d.id === decoded || 
-    d.originalName === identifier || 
+  const doc = userDocs.find(d =>
+    d.storedFilename === identifier ||
+    d.id === identifier ||
+    d.storedFilename === decoded ||
+    d.id === decoded ||
+    d.originalName === identifier ||
     d.originalName === decoded
   );
   if (doc) {
@@ -1878,12 +1865,12 @@ app.get('/api/stats', requireAdmin, (req, res) => {
   const visitors = readVisitors();
   const contacts = readContacts();
   const files = fs.readdirSync(UPLOADS_DIR).filter(f => f.endsWith('.pdf'));
-  
+
   const totalDownloads = Object.values(downloads).reduce((sum, n) => sum + n, 0);
   const totalSize = files.reduce((sum, f) => {
     try { return sum + fs.statSync(path.join(UPLOADS_DIR, f)).size; } catch { return sum; }
   }, 0);
-  
+
   // Top downloaded files
   const topFiles = Object.entries(downloads)
     .sort((a, b) => b[1] - a[1])
@@ -1896,7 +1883,7 @@ app.get('/api/stats', requireAdmin, (req, res) => {
 
   // Downloads in last 7 days
   const sevenDaysAgo = new Date(Date.now() - 7 * 86400000);
-  const recentDownloads = visitors.filter(v => 
+  const recentDownloads = visitors.filter(v =>
     v.page && v.page.startsWith('Download:') && new Date(v.timestamp) > sevenDaysAgo
   ).length;
 
@@ -2148,11 +2135,11 @@ app.get('/api/pdf/download-text/:filename', async (req, res) => {
       const scanned = scannedDocsCache.get(filename);
       const docBaseName = scanned.originalName.replace(/\.pdf$/i, '');
       const header = `========================================================================\n` +
-                     `VAULT PDF PORTAL — NEURAL EXTRACTED TEXT DOCUMENT\n` +
-                     `Document: ${scanned.originalName}\n` +
-                     `Extracted At: ${new Date().toUTCString()}\n` +
-                     `Total Pages: ${scanned.totalPages}\n` +
-                     `========================================================================\n\n`;
+        `VAULT PDF PORTAL — NEURAL EXTRACTED TEXT DOCUMENT\n` +
+        `Document: ${scanned.originalName}\n` +
+        `Extracted At: ${new Date().toUTCString()}\n` +
+        `Total Pages: ${scanned.totalPages}\n` +
+        `========================================================================\n\n`;
       const fullContent = header + scanned.fullText;
       res.setHeader('Content-Type', 'text/plain; charset=utf-8');
       res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(docBaseName)}.txt"`);
@@ -2184,11 +2171,11 @@ app.get('/api/pdf/download-text/:filename', async (req, res) => {
 
     const docBaseName = fileInfo.originalName.replace(/\.pdf$/i, '');
     const header = `========================================================================\n` +
-                   `VAULT PDF PORTAL — NEURAL EXTRACTED TEXT DOCUMENT\n` +
-                   `Document: ${fileInfo.originalName}\n` +
-                   `Extracted At: ${new Date().toUTCString()}\n` +
-                   `Total Pages: ${pages.length}\n` +
-                   `========================================================================\n\n`;
+      `VAULT PDF PORTAL — NEURAL EXTRACTED TEXT DOCUMENT\n` +
+      `Document: ${fileInfo.originalName}\n` +
+      `Extracted At: ${new Date().toUTCString()}\n` +
+      `Total Pages: ${pages.length}\n` +
+      `========================================================================\n\n`;
 
     const fullContent = header + pages.join('\n\n\n');
 
@@ -2245,8 +2232,8 @@ app.get('/api/pdf/download-audio/:filename', async (req, res) => {
     }
 
     // Synthesize up to ~3,500 characters safely to ensure rapid response
-    const textToSynthesize = cleanText.length > 3500 
-      ? cleanText.substring(0, 3500) + '... Document audio narration complete.' 
+    const textToSynthesize = cleanText.length > 3500
+      ? cleanText.substring(0, 3500) + '... Document audio narration complete.'
       : cleanText;
 
     const googleTTS = require('google-tts-api');
@@ -2587,7 +2574,7 @@ app.get('/api/share/:token/file', (req, res) => {
         timestamp: new Date().toISOString()
       });
       writeVisitors(visitors);
-    }).catch(() => {});
+    }).catch(() => { });
 
     const stat = fs.statSync(filePath);
     res.setHeader('Content-Type', 'application/pdf');
@@ -2738,10 +2725,10 @@ INSTRUCTIONS:
 
     if (!answer) {
       answer = `**Forensic Document Overview for "${docData.title}"**:\n\n` +
-               `• **Total Pages**: ${docData.totalPages} pages (~${docData.totalWords} words analyzed).\n` +
-               `• **Context Scanned**: Pages 1 through ${Math.min(5, docData.totalPages)} were inspected for your query.\n` +
-               `• **Summary**: Key terms regarding "${escapeHtml(question.slice(0, 40))}" were referenced across the document.\n\n` +
-               `*Tip: You can also use the Neural Voice Reader to listen to any chapter or page in high-fidelity audio.*`;
+        `• **Total Pages**: ${docData.totalPages} pages (~${docData.totalWords} words analyzed).\n` +
+        `• **Context Scanned**: Pages 1 through ${Math.min(5, docData.totalPages)} were inspected for your query.\n` +
+        `• **Summary**: Key terms regarding "${escapeHtml(question.slice(0, 40))}" were referenced across the document.\n\n` +
+        `*Tip: You can also use the Neural Voice Reader to listen to any chapter or page in high-fidelity audio.*`;
     }
 
     res.json({
@@ -2852,17 +2839,17 @@ ${contextSample}`;
           summary = r.reply;
           break;
         }
-      } catch (_) {}
+      } catch (_) { }
     }
 
     if (!summary) {
       summary = `### 📌 Executive Overview\n` +
-                `Forensic analysis of **${docData.title}** (${docData.totalPages} total pages, ~${docData.totalWords} words).\n\n` +
-                `### 🔍 Key Findings\n` +
-                `• Document indexed and scanned with cryptographic integrity verification.\n` +
-                `• Key contextual data verified across Pages 1–${Math.min(3, docData.totalPages)}.\n\n` +
-                `### 💡 Recommended Actions\n` +
-                `• Use the interactive AI Q&A chat to query specific clauses, dates, or financial figures.`;
+        `Forensic analysis of **${docData.title}** (${docData.totalPages} total pages, ~${docData.totalWords} words).\n\n` +
+        `### 🔍 Key Findings\n` +
+        `• Document indexed and scanned with cryptographic integrity verification.\n` +
+        `• Key contextual data verified across Pages 1–${Math.min(3, docData.totalPages)}.\n\n` +
+        `### 💡 Recommended Actions\n` +
+        `• Use the interactive AI Q&A chat to query specific clauses, dates, or financial figures.`;
     }
 
     res.json({
@@ -3983,7 +3970,7 @@ async function queryOpenRouterModel({ model, messages, apiKey, isStreaming, onTo
               onToken(content);
             }
           }
-        } catch (_) {}
+        } catch (_) { }
       }
     }
 
@@ -4087,9 +4074,9 @@ app.post('/api/chat', aiLimiter, async (req, res) => {
   recordChatMessage(ip);
   const updatedCap = checkChatCap(ip);
 
-  const isStreaming = req.query.stream === 'true' || 
-                      req.body.stream === true || 
-                      (req.headers.accept && req.headers.accept.includes('text/event-stream'));
+  const isStreaming = req.query.stream === 'true' ||
+    req.body.stream === true ||
+    (req.headers.accept && req.headers.accept.includes('text/event-stream'));
 
   // 3. Check 24-Hour Cache for Repeated Questions
   const cached = getCachedChatAnswer(query);
@@ -4621,7 +4608,7 @@ async function translateText(text, targetLang, targetLangName = '') {
 
   // 2. Fallback: MyMemory Neural Translate API with registered email param (&de= raises limit to 50,000 chars/day)
   try {
-    const myMemoryEmail = process.env.MYMEMORY_EMAIL || 'jefferyjenson34@gmail.com';
+    const myMemoryEmail = process.env.MYMEMORY_EMAIL || 'translate@vaultpdfportal.com';
     const mmUrl = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(trimmed.slice(0, 500))}&langpair=en|${encodeURIComponent(targetLang)}&de=${encodeURIComponent(myMemoryEmail)}`;
     const mmRes = await fetch(mmUrl, {
       headers: { 'User-Agent': 'Mozilla/5.0 (Vault PDF Portal Translation Bot)' }
