@@ -4608,7 +4608,7 @@ async function translateText(text, targetLang, targetLangName = '') {
 
   // 2. Fallback: MyMemory Neural Translate API with registered email param (&de= raises limit to 50,000 chars/day)
   try {
-    const myMemoryEmail = process.env.MYMEMORY_EMAIL || 'jefferyjenson34@gmail.com';
+    const myMemoryEmail = process.env.MYMEMORY_EMAIL || 'translate@vaultpdfportal.com';
     const mmUrl = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(trimmed.slice(0, 500))}&langpair=en|${encodeURIComponent(targetLang)}&de=${encodeURIComponent(myMemoryEmail)}`;
     const mmRes = await fetch(mmUrl, {
       headers: { 'User-Agent': 'Mozilla/5.0 (Vault PDF Portal Translation Bot)' }
