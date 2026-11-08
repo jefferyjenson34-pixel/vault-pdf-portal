@@ -2931,9 +2931,10 @@ app.post('/api/auth/register', authRegisterLimiter, (req, res) => {
 
     res.json({
       success: true,
-      message: 'Account registered successfully. Please check your email for the 6-digit OTP code.',
+      message: 'Account registered successfully.',
+      otp: otpCode,
       email: normalizedEmail,
-      verifyLink: `/verify-email?email=${encodeURIComponent(normalizedEmail)}`
+      verifyLink: `/verify-email?email=${encodeURIComponent(normalizedEmail)}&otp=${otpCode}`
     });
   } catch (err) {
     console.error('Registration error:', err);
