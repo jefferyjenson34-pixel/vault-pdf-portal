@@ -511,16 +511,16 @@ function getActiveEmailConfig() {
     fileConfig.apiKey ||
     ''
   ).trim();
-  const service = process.env.SMTP_SERVICE || (fileConfig.service && fileConfig.service !== 'google-webhook' ? fileConfig.service : null) || 'brevo';
-  const host = process.env.SMTP_HOST || fileConfig.host || 'smtp-relay.brevo.com';
+  const service = process.env.SMTP_SERVICE || (fileConfig.service && fileConfig.service !== 'google-webhook' ? fileConfig.service : null) || 'gmail';
+  const host = process.env.SMTP_HOST || fileConfig.host || (service === 'gmail' ? 'smtp.gmail.com' : 'smtp-relay.brevo.com');
   const port = parseInt(process.env.SMTP_PORT || fileConfig.port || (service === 'gmail' || host.includes('gmail') ? '465' : '587'), 10);
   const secure = process.env.SMTP_SECURE !== undefined
     ? (process.env.SMTP_SECURE === 'true')
     : (fileConfig.secure !== undefined ? !!fileConfig.secure : (port === 465));
-  const user = (process.env.SMTP_USER || (!service.includes('gmail') && fileConfig.user ? fileConfig.user : '') || (service === 'brevo' || host.includes('brevo') ? 'bc32f5001@smtp-brevo.com' : '')).trim();
-  const pass = (process.env.SMTP_PASS || (!service.includes('gmail') && fileConfig.pass ? fileConfig.pass : '') || (service === 'brevo' || host.includes('brevo') ? DEFAULT_BREVO_PASS : '')).trim();
-  const fromName = 'Vault PDF Portal';
-  const fromEmail = 'noreply@vaultpdfportal.com';
+  const user = (process.env.SMTP_USER || fileConfig.user || 'vaultpdfportal@gmail.com').trim();
+  const pass = (process.env.SMTP_PASS || fileConfig.pass || '').trim();
+  const fromName = (process.env.SMTP_FROM_NAME || fileConfig.fromName || 'Vault PDF Portal').trim();
+  const fromEmail = (process.env.SMTP_FROM || fileConfig.fromEmail || (service === 'gmail' || host.includes('gmail') ? user : 'noreply@vaultpdfportal.com')).trim();
 
   const webhookUrl = (
     process.env.EMAIL_WEBHOOK_URL ||
@@ -555,8 +555,8 @@ async function sendLiveEmail({ to, subject, text, html }) {
     };
   }
 
-  const senderDisplayName = 'Vault PDF Portal';
-  const publicSenderEmail = 'noreply@vaultpdfportal.com';
+  const senderDisplayName = config.fromName || 'Vault PDF Portal';
+  const publicSenderEmail = config.fromEmail || (config.service === 'gmail' || (config.host && config.host.includes('gmail')) ? config.user : 'noreply@vaultpdfportal.com');
 
   // 0. Optional Custom HTTP Email Webhook (Only if explicitly set via EMAIL_WEBHOOK_URL)
   const webhookUrl = (process.env.EMAIL_WEBHOOK_URL || (config.webhookUrl && !config.webhookUrl.includes('AKfycb') ? config.webhookUrl : '')).trim();
@@ -742,7 +742,7 @@ async function sendLiveEmail({ to, subject, text, html }) {
       socketTimeout: 8000,
       auth: {
         user: config.user,
-        pass: config.pass.replace(/\s+/g, '')
+        pass: config.pass.replace(/[\s\-]+/g, '')
       }
     };
   } else {
