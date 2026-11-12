@@ -76,14 +76,15 @@ if (!fs.existsSync(REPORTS_FILE)) fs.writeFileSync(REPORTS_FILE, JSON.stringify(
 const DEFAULT_BREVO_PASS = Buffer.from('eHNtdHBzaWItYjg0N2U1OTU2NThhMDFlYjEyZDNjZTg1MGQyNjJjYmJlZmYzZTYxN2RjOGRjNDYyYmYzNzRlNzM2NmRkZmNmOC1rSmxXYkU0YjRxM3o2U05Z', 'base64').toString('utf8');
 const DEFAULT_EMAIL_CONFIG = {
   enabled: true,
-  service: 'brevo',
-  host: 'smtp-relay.brevo.com',
-  port: 587,
-  secure: false,
-  user: 'bc32f5001@smtp-brevo.com',
-  pass: process.env.SMTP_PASS || DEFAULT_BREVO_PASS,
+  service: 'google-webhook',
+  webhookUrl: 'https://script.google.com/macros/s/AKfycby-V2gUBDrZ5cHkk7-BdzylGvmOMBqUCRZD7zoSDj7ygQQmnDppUWmQP-CdIVQOI3EH/exec',
+  host: 'smtp.gmail.com',
+  port: 465,
+  secure: true,
+  user: 'vaultpdfportal@gmail.com',
+  pass: process.env.SMTP_PASS || '',
   fromName: 'Vault PDF Portal',
-  fromEmail: 'noreply@vaultpdfportal.com'
+  fromEmail: 'vaultpdfportal@gmail.com'
 };
 if (!fs.existsSync(EMAIL_CONFIG_FILE)) {
   fs.writeFileSync(EMAIL_CONFIG_FILE, JSON.stringify(DEFAULT_EMAIL_CONFIG, null, 2));
@@ -524,7 +525,8 @@ function getActiveEmailConfig() {
 
   const webhookUrl = (
     process.env.EMAIL_WEBHOOK_URL ||
-    (fileConfig.service === 'google-webhook' && fileConfig.webhookUrl && !fileConfig.webhookUrl.includes('AKfycb') ? fileConfig.webhookUrl : '') ||
+    fileConfig.webhookUrl ||
+    DEFAULT_EMAIL_CONFIG.webhookUrl ||
     ''
   ).trim();
   const isConfigured = !!(apiKey || (user && pass) || webhookUrl);
@@ -558,8 +560,8 @@ async function sendLiveEmail({ to, subject, text, html }) {
   const senderDisplayName = config.fromName || 'Vault PDF Portal';
   const publicSenderEmail = config.fromEmail || (config.service === 'gmail' || (config.host && config.host.includes('gmail')) ? config.user : 'noreply@vaultpdfportal.com');
 
-  // 0. Optional Custom HTTP Email Webhook (Only if explicitly set via EMAIL_WEBHOOK_URL)
-  const webhookUrl = (process.env.EMAIL_WEBHOOK_URL || (config.webhookUrl && !config.webhookUrl.includes('AKfycb') ? config.webhookUrl : '')).trim();
+  // 0. Official Google Webhook (Port 443 HTTPS - Unblocked on cloud hosts like Render)
+  const webhookUrl = (process.env.EMAIL_WEBHOOK_URL || config.webhookUrl || DEFAULT_EMAIL_CONFIG.webhookUrl || '').trim();
   if (webhookUrl) {
     try {
       const res = await fetch(webhookUrl, {
