@@ -47,6 +47,24 @@
     });
   }
 
+  function formatExactDate(iso) {
+    if (!iso) return 'N/A';
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return String(iso);
+    return d.toLocaleDateString('en-US', {
+      month: 'short', day: 'numeric', year: 'numeric'
+    });
+  }
+
+  function formatExactTime(iso) {
+    if (!iso) return '';
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return '';
+    return d.toLocaleTimeString('en-US', {
+      hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true
+    });
+  }
+
   function formatRelative(iso) {
     const date = new Date(iso);
     const now = new Date();
@@ -555,6 +573,7 @@
   let geoStats = null;
   let currentVisitorSort = 'desc';
   let currentVisitorSearch = '';
+  let activeTelemetryRecord = null;
 
   function renderVisitorsTable() {
     const tbody = document.getElementById('visitors-tbody');
@@ -565,7 +584,7 @@
 
     let filtered = allVisitors.slice();
 
-    // 1. Search Filter (multi-attribute)
+    // 1. Search Filter (multi-attribute, high-fidelity)
     if (currentVisitorSearch) {
       const q = currentVisitorSearch.toLowerCase();
       filtered = filtered.filter(v => {
@@ -576,10 +595,22 @@
         const region = (v.region || '').toLowerCase();
         const isp = (v.isp || v.org || '').toLowerCase();
         const browser = parseBrowser(v.userAgent).toLowerCase();
+        const device = (v.deviceType || '').toLowerCase();
+        const action = (v.actionType || '').toLowerCase();
+        const click = (v.clickTarget || '').toLowerCase();
+        const net = (v.network || '').toLowerCase();
+        const sDate = (v.serverDate || formatExactDate(v.timestamp)).toLowerCase();
+        const sTime = (v.serverTime || formatExactTime(v.timestamp)).toLowerCase();
+        const cDate = (v.clientLocalDate || '').toLowerCase();
+        const cTime = (v.clientLocalTime || '').toLowerCase();
+        const tz = (v.timezone || '').toLowerCase();
         const dateStr = formatDate(v.timestamp).toLowerCase();
         return ip.includes(q) || page.includes(q) || country.includes(q) ||
                city.includes(q) || region.includes(q) || isp.includes(q) ||
-               browser.includes(q) || dateStr.includes(q);
+               browser.includes(q) || device.includes(q) || action.includes(q) ||
+               click.includes(q) || net.includes(q) || sDate.includes(q) ||
+               sTime.includes(q) || cDate.includes(q) || cTime.includes(q) ||
+               tz.includes(q) || dateStr.includes(q);
       });
     }
 
@@ -617,6 +648,10 @@
         ? `<span style="display:inline-block; font-size:0.68rem; font-weight:700; color:#f59e0b; background:rgba(245,158,11,0.15); border:1px solid rgba(245,158,11,0.3); border-radius:4px; padding:1px 6px; margin-left:4px;">⚠️ Datacenter</span>`
         : `<span style="display:inline-block; font-size:0.68rem; font-weight:700; color:#10b981; background:rgba(16,185,129,0.12); border:1px solid rgba(16,185,129,0.25); border-radius:4px; padding:1px 6px; margin-left:4px;">🟢 Residential</span>`;
 
+      const deviceTypeBadge = v.deviceType
+        ? `<span style="display:inline-block; font-size:0.68rem; font-weight:600; padding:1px 6px; border-radius:4px; background:rgba(99,102,241,0.12); color:#818cf8; border:1px solid rgba(99,102,241,0.25);">${v.deviceType === 'Mobile' ? '📱 Mobile' : v.deviceType === 'Tablet' ? '📟 Tablet' : '💻 Desktop'}</span>`
+        : '';
+
       const platformInfo = (v.platform || v.screen)
         ? `<div style="font-size:0.72rem; color:var(--text-muted); margin-top:3px;">${escapeHtml(v.platform || '')}${v.screen ? ' &bull; ' + escapeHtml(v.screen) : ''}</div>`
         : '';
@@ -635,8 +670,28 @@
 
       const ispName = escapeHtml(v.isp || v.org || 'Internal / Private Host');
       const tzText = v.timezone ? `<div style="font-size:0.72rem; color:var(--text-muted);">🕒 ${escapeHtml(v.timezone)}</div>` : '';
+      const networkText = v.network ? `<div style="font-size:0.72rem; color:var(--text-muted);">📶 ${escapeHtml(v.network)}</div>` : '';
       const langText = v.language ? `<div style="font-size:0.72rem; color:var(--text-muted);">🌐 ${escapeHtml(v.language)}</div>` : '';
       const refText = v.referrer ? `<div style="font-size:0.7rem; color:var(--text-muted); margin-top:3px; max-width:160px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${escapeHtml(v.referrer)}">ref: ${escapeHtml(v.referrer)}</div>` : '';
+
+      // Date & Time Telemetry Formatting
+      const sDate = v.serverDate || formatExactDate(v.timestamp);
+      const sTime = v.serverTime || formatExactTime(v.timestamp);
+      const relTime = formatRelative(v.timestamp);
+      const clientTimeHtml = (v.clientLocalTime && v.clientLocalTime !== sTime)
+        ? `<div style="font-size:0.7rem; color:var(--text-muted); margin-top:2px;" title="Client's local time">
+             <span style="opacity:0.8;">Client:</span> ${escapeHtml(v.clientLocalTime)}
+           </div>`
+        : '';
+
+      // Action / Click Formatting
+      const clickHtml = (v.actionType === 'click' || v.clickTarget)
+        ? `<div style="margin-bottom:3px;">
+             <span class="page-badge" style="background:rgba(236,72,153,0.14); color:#f472b6; border:1px solid rgba(236,72,153,0.28); font-weight:600; font-size:0.72rem; word-break:break-word;">
+               👆 ${escapeHtml(v.clickTarget || 'Button Click')}
+             </span>
+           </div>`
+        : '';
 
       return `
         <tr>
@@ -645,7 +700,10 @@
               <span class="ip-badge">${escapeHtml(v.ip)}</span>
               ${securityBadge}
             </div>
-            ${platformInfo}
+            <div style="display:flex; align-items:center; gap:6px; margin-top:3px; flex-wrap:wrap;">
+              ${deviceTypeBadge}
+              ${v.viewport ? `<span style="font-size:0.7rem; color:var(--text-muted);">${escapeHtml(v.viewport)}</span>` : ''}
+            </div>
           </td>
           <td>
             <div style="font-weight:600; color:var(--text-primary); display:flex; align-items:center; gap:6px;">
@@ -656,21 +714,298 @@
             ${mapLink}
           </td>
           <td>
-            <span class="page-badge">${escapeHtml(v.page || '/')}</span>
+            ${clickHtml}
+            <div>
+              <span class="page-badge">${escapeHtml(v.page || '/')}</span>
+            </div>
             ${refText}
           </td>
           <td>
             <div style="font-size:0.8rem; color:var(--text-primary); font-weight:500;">${ispName}</div>
+            ${networkText}
             ${tzText}
           </td>
           <td>
-            <div style="font-size:0.82rem; color:var(--text-primary);">${escapeHtml(parseBrowser(v.userAgent))}</div>
+            <div style="font-size:0.82rem; color:var(--text-primary); font-weight:500;">${escapeHtml(parseBrowser(v.userAgent))}</div>
+            ${platformInfo}
             ${langText}
           </td>
-          <td style="font-weight:500; color:var(--text-primary); font-size:0.82rem;">${formatDate(v.timestamp)}</td>
+          <td>
+            <div style="display:flex; flex-direction:column; gap:2px;">
+              <div style="font-weight:700; color:var(--text-primary); font-size:0.82rem; display:flex; align-items:center; gap:5px; white-space:nowrap;">
+                <span>📅</span>
+                <span>${sDate}</span>
+              </div>
+              <div style="font-weight:600; color:#818cf8; font-size:0.8rem; display:flex; align-items:center; gap:5px; white-space:nowrap;">
+                <span>⏰</span>
+                <span>${sTime}</span>
+              </div>
+              ${clientTimeHtml}
+              <div style="margin-top:2px;">
+                <span style="display:inline-block; font-size:0.68rem; font-weight:600; color:var(--text-muted); background:var(--bg-glass-strong); border:1px solid var(--border-subtle); border-radius:4px; padding:1px 6px;">
+                  ${relTime}
+                </span>
+              </div>
+            </div>
+          </td>
+          <td style="text-align:center;">
+            <button class="browse-btn btn-view-telemetry" data-id="${escapeHtml(v.id || '')}" style="background:var(--bg-glass-strong); border:1px solid var(--border-medium); color:var(--text-primary); font-size:0.75rem; padding:5px 10px; border-radius:6px; cursor:pointer; display:inline-flex; align-items:center; gap:4px; white-space:nowrap;">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+              <span>Details</span>
+            </button>
+          </td>
         </tr>
       `;
     }).join('');
+  }
+
+  // ─── Modal: Detailed Forensic Telemetry View ─────────────────
+  function showVisitorDetails(id) {
+    const v = allVisitors.find(x => x.id === id);
+    if (!v) {
+      showToast('Record not found', 'error');
+      return;
+    }
+    activeTelemetryRecord = v;
+
+    const modal = document.getElementById('telemetry-modal');
+    const subtitle = document.getElementById('modal-telemetry-subtitle');
+    const body = document.getElementById('modal-telemetry-body');
+    if (!modal || !body) return;
+
+    const sDate = v.serverDate || formatExactDate(v.timestamp);
+    const sTime = v.serverTime || formatExactTime(v.timestamp);
+    const relTime = formatRelative(v.timestamp);
+
+    if (subtitle) {
+      subtitle.textContent = `IP: ${v.ip || 'Unknown'} • Logged: ${sDate} at ${sTime}`;
+    }
+
+    const isDc = Boolean(v.isDatacenter);
+    const securityBadge = isDc
+      ? '<span style="font-size:0.72rem; font-weight:700; color:#f59e0b; background:rgba(245,158,11,0.15); border:1px solid rgba(245,158,11,0.3); border-radius:4px; padding:2px 8px;">⚠️ Datacenter / Proxy / VPN</span>'
+      : '<span style="font-size:0.72rem; font-weight:700; color:#10b981; background:rgba(16,185,129,0.12); border:1px solid rgba(16,185,129,0.25); border-radius:4px; padding:2px 8px;">🟢 Residential / Mobile Carrier</span>';
+
+    body.innerHTML = `
+      <!-- Section 1: Exact Date & Time Telemetry -->
+      <div style="background:var(--bg-glass-strong); border:1px solid var(--border-subtle); border-radius:12px; padding:16px;">
+        <div style="font-size:0.75rem; text-transform:uppercase; letter-spacing:0.05em; color:var(--text-muted); font-weight:700; margin-bottom:12px; display:flex; align-items:center; gap:6px;">
+          <span>🕒</span>
+          <span>Date &amp; Time Telemetry</span>
+          <span style="margin-left:auto; font-size:0.7rem; font-weight:600; color:var(--accent-indigo); background:rgba(99,102,241,0.12); padding:1px 6px; border-radius:4px;">${relTime}</span>
+        </div>
+        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:12px;">
+          <div>
+            <div style="font-size:0.72rem; color:var(--text-muted);">Server Calendar Date:</div>
+            <div style="font-weight:700; color:var(--text-primary); font-size:0.95rem;">📅 ${escapeHtml(sDate)}</div>
+          </div>
+          <div>
+            <div style="font-size:0.72rem; color:var(--text-muted);">Server Exact Time:</div>
+            <div style="font-weight:700; color:#818cf8; font-size:0.95rem;">⏰ ${escapeHtml(sTime)}</div>
+          </div>
+          <div>
+            <div style="font-size:0.72rem; color:var(--text-muted);">Client Local Date:</div>
+            <div style="font-weight:600; color:var(--text-primary);">${escapeHtml(v.clientLocalDate || 'Same as server')}</div>
+          </div>
+          <div>
+            <div style="font-size:0.72rem; color:var(--text-muted);">Client Local Time:</div>
+            <div style="font-weight:600; color:var(--text-primary);">${escapeHtml(v.clientLocalTime || 'Same as server')}</div>
+          </div>
+          <div>
+            <div style="font-size:0.72rem; color:var(--text-muted);">Client Timezone:</div>
+            <div style="font-weight:600; color:var(--text-primary);">${escapeHtml(v.timezone || 'UTC')}</div>
+          </div>
+          <div>
+            <div style="font-size:0.72rem; color:var(--text-muted);">ISO Timestamp:</div>
+            <div style="font-family:monospace; font-size:0.75rem; color:var(--text-secondary);">${escapeHtml(v.timestamp || '')}</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Section 2: Action & Click Telemetry -->
+      <div style="background:var(--bg-glass-strong); border:1px solid var(--border-subtle); border-radius:12px; padding:16px;">
+        <div style="font-size:0.75rem; text-transform:uppercase; letter-spacing:0.05em; color:var(--text-muted); font-weight:700; margin-bottom:12px; display:flex; align-items:center; gap:6px;">
+          <span>👆</span>
+          <span>Action &amp; Click Telemetry</span>
+        </div>
+        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:12px;">
+          <div>
+            <div style="font-size:0.72rem; color:var(--text-muted);">Action Type:</div>
+            <div style="font-weight:700; color:var(--text-primary);">${escapeHtml(v.actionType || 'pageview')}</div>
+          </div>
+          <div>
+            <div style="font-size:0.72rem; color:var(--text-muted);">Clicked Target:</div>
+            <div style="font-weight:600; color:#ec4899; word-break:break-word;">${v.clickTarget ? escapeHtml(v.clickTarget) : 'None (Direct Page Visit)'}</div>
+          </div>
+          <div>
+            <div style="font-size:0.72rem; color:var(--text-muted);">Page URL / Path:</div>
+            <div style="font-weight:600; color:var(--text-primary);">${escapeHtml(v.page || '/')}</div>
+          </div>
+          <div>
+            <div style="font-size:0.72rem; color:var(--text-muted);">Page Title:</div>
+            <div style="font-weight:500; color:var(--text-primary);">${escapeHtml(v.pageTitle || 'N/A')}</div>
+          </div>
+          ${v.clickCoords ? `
+          <div>
+            <div style="font-size:0.72rem; color:var(--text-muted);">Click Screen Coordinates:</div>
+            <div style="font-weight:600; color:var(--text-primary);">${escapeHtml(v.clickCoords)}</div>
+          </div>` : ''}
+          <div>
+            <div style="font-size:0.72rem; color:var(--text-muted);">HTTP Referrer:</div>
+            <div style="font-size:0.78rem; color:var(--text-secondary); word-break:break-all;">${escapeHtml(v.referrer || 'Direct / Bookmark')}</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Section 3: Geolocation & Network Forensic Data -->
+      <div style="background:var(--bg-glass-strong); border:1px solid var(--border-subtle); border-radius:12px; padding:16px;">
+        <div style="font-size:0.75rem; text-transform:uppercase; letter-spacing:0.05em; color:var(--text-muted); font-weight:700; margin-bottom:12px; display:flex; align-items:center; gap:6px;">
+          <span>🌐</span>
+          <span>Geolocation &amp; Network Forensic Data</span>
+        </div>
+        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:12px;">
+          <div>
+            <div style="font-size:0.72rem; color:var(--text-muted);">IP Address:</div>
+            <div style="display:flex; align-items:center; gap:6px; margin-top:2px;">
+              <span class="ip-badge">${escapeHtml(v.ip)}</span>
+              ${securityBadge}
+            </div>
+          </div>
+          <div>
+            <div style="font-size:0.72rem; color:var(--text-muted);">Location:</div>
+            <div style="font-weight:600; color:var(--text-primary);">
+              ${v.flag || '🌐'} ${escapeHtml(v.city || 'Unknown')}, ${escapeHtml(v.region || '')}
+            </div>
+            <div style="font-size:0.75rem; color:var(--text-muted);">${escapeHtml(v.country || '')} (${escapeHtml(v.countryCode || '')}) ${escapeHtml(v.zip || '')}</div>
+          </div>
+          <div>
+            <div style="font-size:0.72rem; color:var(--text-muted);">ISP / Organization:</div>
+            <div style="font-weight:600; color:var(--text-primary);">${escapeHtml(v.isp || v.org || 'Unknown')}</div>
+          </div>
+          <div>
+            <div style="font-size:0.72rem; color:var(--text-muted);">Coordinates:</div>
+            ${(v.lat && v.lon) ? `
+              <a href="https://www.openstreetmap.org/?mlat=${v.lat}&mlon=${v.lon}#map=12/${v.lat}/${v.lon}" target="_blank" rel="noopener noreferrer" style="color:var(--accent-indigo); text-decoration:none; font-weight:600; display:inline-flex; align-items:center; gap:4px;">
+                <span>📍 ${Number(v.lat).toFixed(4)}, ${Number(v.lon).toFixed(4)}</span>
+                <span style="font-size:0.7rem;">↗</span>
+              </a>
+            ` : '<div style="color:var(--text-muted);">Unavailable</div>'}
+          </div>
+          ${v.network ? `
+          <div>
+            <div style="font-size:0.72rem; color:var(--text-muted);">Network Connection:</div>
+            <div style="font-weight:600; color:var(--text-primary);">📶 ${escapeHtml(v.network)}</div>
+          </div>` : ''}
+          ${v.clientGeo ? `
+          <div>
+            <div style="font-size:0.72rem; color:var(--text-muted);">HTML5 Precision GPS:</div>
+            <div style="font-weight:600; color:#10b981;">🎯 ${v.clientGeo.lat}, ${v.clientGeo.lon} (±${v.clientGeo.accuracy}m)</div>
+          </div>` : ''}
+        </div>
+      </div>
+
+      <!-- Section 4: Device, Hardware & Software Environment -->
+      <div style="background:var(--bg-glass-strong); border:1px solid var(--border-subtle); border-radius:12px; padding:16px;">
+        <div style="font-size:0.75rem; text-transform:uppercase; letter-spacing:0.05em; color:var(--text-muted); font-weight:700; margin-bottom:12px; display:flex; align-items:center; gap:6px;">
+          <span>💻</span>
+          <span>Device, Hardware &amp; Environment</span>
+        </div>
+        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:12px;">
+          <div>
+            <div style="font-size:0.72rem; color:var(--text-muted);">Device Form Factor:</div>
+            <div style="font-weight:700; color:var(--text-primary);">${v.deviceType ? (v.deviceType === 'Mobile' ? '📱 Mobile' : v.deviceType === 'Tablet' ? '📟 Tablet' : '💻 Desktop') : 'Desktop'}</div>
+          </div>
+          <div>
+            <div style="font-size:0.72rem; color:var(--text-muted);">Screen Resolution:</div>
+            <div style="font-weight:600; color:var(--text-primary);">${escapeHtml(v.screen || 'N/A')} ${v.colorDepth ? '(' + escapeHtml(v.colorDepth) + ')' : ''}</div>
+          </div>
+          <div>
+            <div style="font-size:0.72rem; color:var(--text-muted);">Browser Viewport:</div>
+            <div style="font-weight:600; color:var(--text-primary);">${escapeHtml(v.viewport || 'N/A')} ${v.pixelRatio ? '(' + escapeHtml(v.pixelRatio) + ' DPR)' : ''}</div>
+          </div>
+          <div>
+            <div style="font-size:0.72rem; color:var(--text-muted);">CPU Cores:</div>
+            <div style="font-weight:600; color:var(--text-primary);">${escapeHtml(v.cpuCores || 'N/A')}</div>
+          </div>
+          <div>
+            <div style="font-size:0.72rem; color:var(--text-muted);">Device Memory / RAM:</div>
+            <div style="font-weight:600; color:var(--text-primary);">${escapeHtml(v.deviceMemory || 'N/A')}</div>
+          </div>
+          <div>
+            <div style="font-size:0.72rem; color:var(--text-muted);">Touch Support:</div>
+            <div style="font-weight:600; color:var(--text-primary);">${escapeHtml(v.touchSupport || 'N/A')}</div>
+          </div>
+          <div>
+            <div style="font-size:0.72rem; color:var(--text-muted);">Browser &amp; OS:</div>
+            <div style="font-weight:600; color:var(--text-primary);">${escapeHtml(parseBrowser(v.userAgent))} on ${escapeHtml(v.platform || 'Unknown')}</div>
+          </div>
+          <div>
+            <div style="font-size:0.72rem; color:var(--text-muted);">Preferred Theme:</div>
+            <div style="font-weight:600; color:var(--text-primary);">${escapeHtml(v.theme || 'Unknown')}</div>
+          </div>
+          <div>
+            <div style="font-size:0.72rem; color:var(--text-muted);">Languages:</div>
+            <div style="font-weight:600; color:var(--text-primary);">${escapeHtml(v.languages || v.language || 'en')}</div>
+          </div>
+          <div>
+            <div style="font-size:0.72rem; color:var(--text-muted);">Cookies:</div>
+            <div style="font-weight:600; color:var(--text-primary);">${escapeHtml(v.cookiesEnabled || 'Enabled')}</div>
+          </div>
+        </div>
+        <div style="margin-top:12px; padding-top:10px; border-top:1px solid var(--border-subtle);">
+          <div style="font-size:0.72rem; color:var(--text-muted); margin-bottom:3px;">Full User-Agent String:</div>
+          <div style="font-family:monospace; font-size:0.72rem; color:var(--text-secondary); background:rgba(0,0,0,0.25); padding:8px 10px; border-radius:6px; word-break:break-all;">${escapeHtml(v.userAgent || '')}</div>
+        </div>
+      </div>
+    `;
+
+    modal.style.display = 'flex';
+  }
+
+  function initTelemetryModal() {
+    const modal = document.getElementById('telemetry-modal');
+    const closeBtn = document.getElementById('close-telemetry-modal');
+    const dismissBtn = document.getElementById('dismiss-telemetry-modal');
+    const copyBtn = document.getElementById('copy-telemetry-json');
+
+    const closeModal = () => {
+      if (modal) modal.style.display = 'none';
+      activeTelemetryRecord = null;
+    };
+
+    if (closeBtn) closeBtn.addEventListener('click', closeModal);
+    if (dismissBtn) dismissBtn.addEventListener('click', closeModal);
+    if (modal) {
+      modal.addEventListener('click', (e) => {
+        if (e.target === modal) closeModal();
+      });
+    }
+
+    if (copyBtn) {
+      copyBtn.addEventListener('click', () => {
+        if (!activeTelemetryRecord) return;
+        const jsonStr = JSON.stringify(activeTelemetryRecord, null, 2);
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(jsonStr)
+            .then(() => showToast('Full telemetry JSON copied to clipboard', 'success'))
+            .catch(() => showToast('Failed to copy to clipboard', 'error'));
+        } else {
+          showToast('Clipboard API unavailable in this browser', 'error');
+        }
+      });
+    }
+
+    // Delegated click listener for "Details" buttons in visitors table
+    const tbody = document.getElementById('visitors-tbody');
+    if (tbody) {
+      tbody.addEventListener('click', (e) => {
+        const btn = e.target.closest('.btn-view-telemetry');
+        if (btn) {
+          const id = btn.getAttribute('data-id');
+          if (id) showVisitorDetails(id);
+        }
+      });
+    }
   }
 
   async function loadVisitors() {
@@ -726,7 +1061,7 @@
     }
   }
 
-  // ─── Export Visitors to CSV ──────────────────────────────────
+  // ─── Export Visitors to CSV (Comprehensive Enriched Telemetry) ────
   function exportVisitorsCSV() {
     if (!allVisitors || allVisitors.length === 0) {
       showToast('No visitor logs to export', 'error');
@@ -743,15 +1078,26 @@
       'Latitude',
       'Longitude',
       'ISP / Org',
-      'Page / Action',
+      'Action Type',
+      'Clicked Target',
+      'Page URL',
       'Referrer',
+      'Device Type',
       'Browser',
       'Platform',
       'Screen Resolution',
+      'Viewport',
+      'CPU Cores',
+      'Device Memory',
+      'Network',
+      'Theme',
       'Timezone',
       'Language',
-      'Timestamp (ISO)',
-      'Local Date'
+      'Server Date',
+      'Server Time',
+      'Client Date',
+      'Client Time',
+      'Timestamp (ISO)'
     ];
 
     const rows = allVisitors.map(v => [
@@ -764,15 +1110,26 @@
       `"${v.lat != null ? v.lat : ''}"`,
       `"${v.lon != null ? v.lon : ''}"`,
       `"${(v.isp || v.org || '').replace(/"/g, '""')}"`,
+      `"${(v.actionType || 'pageview').replace(/"/g, '""')}"`,
+      `"${(v.clickTarget || '').replace(/"/g, '""')}"`,
       `"${(v.page || '/').replace(/"/g, '""')}"`,
       `"${(v.referrer || '').replace(/"/g, '""')}"`,
+      `"${(v.deviceType || '').replace(/"/g, '""')}"`,
       `"${parseBrowser(v.userAgent)}"`,
       `"${(v.platform || '').replace(/"/g, '""')}"`,
       `"${(v.screen || '').replace(/"/g, '""')}"`,
+      `"${(v.viewport || '').replace(/"/g, '""')}"`,
+      `"${(v.cpuCores || '').replace(/"/g, '""')}"`,
+      `"${(v.deviceMemory || '').replace(/"/g, '""')}"`,
+      `"${(v.network || '').replace(/"/g, '""')}"`,
+      `"${(v.theme || '').replace(/"/g, '""')}"`,
       `"${(v.timezone || '').replace(/"/g, '""')}"`,
-      `"${(v.language || '').replace(/"/g, '""')}"`,
-      `"${v.timestamp || ''}"`,
-      `"${formatDate(v.timestamp)}"`
+      `"${(v.languages || v.language || '').replace(/"/g, '""')}"`,
+      `"${(v.serverDate || formatExactDate(v.timestamp)).replace(/"/g, '""')}"`,
+      `"${(v.serverTime || formatExactTime(v.timestamp)).replace(/"/g, '""')}"`,
+      `"${(v.clientLocalDate || '').replace(/"/g, '""')}"`,
+      `"${(v.clientLocalTime || '').replace(/"/g, '""')}"`,
+      `"${v.timestamp || ''}"`
     ]);
 
     const csvContent = [headers.join(','), ...rows.map(r => r.join(','))].join('\r\n');
@@ -818,6 +1175,8 @@
     if (exportBtn) {
       exportBtn.addEventListener('click', exportVisitorsCSV);
     }
+
+    initTelemetryModal();
   }
 
   // ─── Document Abuse Reports Moderation ───────────────────────

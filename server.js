@@ -1058,20 +1058,78 @@ app.post('/api/visit', async (req, res) => {
   try {
     const ip = getVisitorIP(req);
     const userAgent = req.headers['user-agent'] || 'Unknown';
-    const { page, referrer, screen, timezone, language, platform, clientGeo } = req.body || {};
+    const {
+      page,
+      pageTitle,
+      actionType,
+      clickTarget,
+      clickCoords,
+      referrer,
+      deviceType,
+      screen,
+      viewport,
+      colorDepth,
+      pixelRatio,
+      orientation,
+      cpuCores,
+      deviceMemory,
+      network,
+      theme,
+      touchSupport,
+      cookiesEnabled,
+      timezone,
+      timezoneOffset,
+      language,
+      languages,
+      platform,
+      clientGeo,
+      clientTime,
+      clientLocalDate,
+      clientLocalTime
+    } = req.body || {};
 
     const geo = await resolveGeoIP(ip);
     const visitors = readVisitors();
+
+    const now = new Date();
+    const serverDate = now.toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric'
+    });
+    const serverTime = now.toLocaleTimeString('en-US', {
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: true
+    });
 
     const record = {
       id: 'vis_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7),
       ip,
       userAgent,
       page: page || '/',
+      pageTitle: pageTitle || null,
+      actionType: actionType || 'pageview',
+      clickTarget: clickTarget || null,
+      clickCoords: clickCoords || null,
       referrer: referrer || null,
+      deviceType: deviceType || null,
       screen: screen || null,
+      viewport: viewport || null,
+      colorDepth: colorDepth || null,
+      pixelRatio: pixelRatio || null,
+      orientation: orientation || null,
+      cpuCores: cpuCores || null,
+      deviceMemory: deviceMemory || null,
+      network: network || null,
+      theme: theme || null,
+      touchSupport: touchSupport || null,
+      cookiesEnabled: cookiesEnabled || null,
       timezone: timezone || geo.timezone || null,
+      timezoneOffset: timezoneOffset != null ? timezoneOffset : null,
       language: language || null,
+      languages: languages || null,
       platform: platform || null,
       country: geo.country,
       countryCode: geo.countryCode,
@@ -1085,7 +1143,12 @@ app.post('/api/visit', async (req, res) => {
       org: geo.org,
       isDatacenter: Boolean(geo.isDatacenter),
       clientGeo: clientGeo && clientGeo.lat ? { lat: clientGeo.lat, lon: clientGeo.lon, accuracy: clientGeo.accuracy } : null,
-      timestamp: new Date().toISOString()
+      clientTime: clientTime || null,
+      clientLocalDate: clientLocalDate || null,
+      clientLocalTime: clientLocalTime || null,
+      serverDate,
+      serverTime,
+      timestamp: now.toISOString()
     };
 
     visitors.push(record);
@@ -1347,11 +1410,16 @@ app.get('/api/download/:filename', (req, res) => {
 
   const ip = getVisitorIP(req);
   const visitors = readVisitors();
+  const dlNow = new Date();
   visitors.push({
+    id: 'vis_dl_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),
     ip,
     userAgent: req.headers['user-agent'] || 'Unknown',
-    timestamp: new Date().toISOString(),
-    page: 'Download: ' + fileInfo.originalName
+    actionType: 'download',
+    page: 'Download: ' + fileInfo.originalName,
+    serverDate: dlNow.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+    serverTime: dlNow.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true }),
+    timestamp: dlNow.toISOString()
   });
   writeVisitors(visitors);
 
@@ -2557,10 +2625,12 @@ app.get('/api/share/:token/file', (req, res) => {
     const ip = getVisitorIP(req);
     resolveGeoIP(ip).then(geo => {
       const visitors = readVisitors();
+      const shareNow = new Date();
       visitors.push({
-        id: 'vis_share_' + Date.now(),
+        id: 'vis_share_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),
         ip,
         userAgent: req.headers['user-agent'] || 'Unknown',
+        actionType: 'share_view',
         page: `Secure Share View: ${link.originalName} (${token})`,
         country: geo.country,
         countryCode: geo.countryCode,
@@ -2573,7 +2643,9 @@ app.get('/api/share/:token/file', (req, res) => {
         isp: geo.isp,
         org: geo.org,
         isDatacenter: Boolean(geo.isDatacenter),
-        timestamp: new Date().toISOString()
+        serverDate: shareNow.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+        serverTime: shareNow.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true }),
+        timestamp: shareNow.toISOString()
       });
       writeVisitors(visitors);
     }).catch(() => { });
@@ -3596,11 +3668,16 @@ app.get('/api/unlock/download', (req, res) => {
     // Log visitor download
     const ip = getVisitorIP(req);
     const visitors = readVisitors();
+    const dlNow = new Date();
     visitors.push({
+      id: 'vis_dl_unlocked_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),
       ip,
       userAgent: req.headers['user-agent'] || 'Unknown',
-      timestamp: new Date().toISOString(),
-      page: 'Unlocked Download: ' + tokenData.originalName
+      actionType: 'download',
+      page: 'Unlocked Download: ' + tokenData.originalName,
+      serverDate: dlNow.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+      serverTime: dlNow.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true }),
+      timestamp: dlNow.toISOString()
     });
     writeVisitors(visitors);
 
