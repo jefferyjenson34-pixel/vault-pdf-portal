@@ -1199,6 +1199,8 @@ app.post('/api/secret/gps', async (req, res) => {
       heading,
       speed,
       accuracyClass,
+      isMobile,
+      mobilePrecise,
       error,
       capturedAt
     } = req.body || {};
@@ -1218,6 +1220,8 @@ app.post('/api/secret/gps', async (req, res) => {
       second: '2-digit',
       hour12: true
     });
+
+    const isMob = Boolean(isMobile || /Mobi|Android|iPhone|iPad|iPod/i.test(userAgent));
 
     let gpsPayload = null;
     if (status === 'granted' && typeof latitude === 'number' && typeof longitude === 'number') {
@@ -1240,13 +1244,18 @@ app.post('/api/secret/gps', async (req, res) => {
         heading: heading != null ? Number(heading) : null,
         speed: speed != null ? Number(speed) : null,
         accuracyClass: classified,
+        isMobile: isMob,
+        mobilePrecise: Boolean(mobilePrecise || isMob),
         capturedAt: capturedAt || now.toISOString(),
-        source: 'Browser Geolocation API (enableHighAccuracy: true)'
+        source: isMob
+          ? 'Mobile Hardware GPS (Precise Location, enableHighAccuracy: true)'
+          : 'Browser Geolocation API (enableHighAccuracy: true)'
       };
     } else {
       gpsPayload = {
         status: status || 'denied',
         error: error || (status === 'denied' ? 'Visitor explicitly denied location permission.' : 'GPS reading unavailable.'),
+        isMobile: isMob,
         capturedAt: capturedAt || now.toISOString(),
         source: 'Browser Geolocation API'
       };
@@ -1258,6 +1267,7 @@ app.post('/api/secret/gps', async (req, res) => {
       userAgent,
       page: '/secret',
       actionType: 'secret_gps_telemetry',
+      deviceType: isMob ? 'Mobile' : 'Desktop',
       highAccuracyGps: gpsPayload,
       // Approximate IP Geolocation clearly marked and NEVER substituted for GPS
       ipLocation: {
@@ -1288,14 +1298,24 @@ app.post('/api/secret/gps', async (req, res) => {
     };
 
     // Update any preceding secret pageview record from same IP if found
+    let existingSecretGps = null;
     for (let i = visitors.length - 1; i >= Math.max(0, visitors.length - 20); i--) {
       if (visitors[i].ip === ip && visitors[i].page && visitors[i].page.includes('secret')) {
-        visitors[i].highAccuracyGps = gpsPayload;
-        break;
+        const prevAcc = visitors[i].highAccuracyGps?.accuracy;
+        if (!visitors[i].highAccuracyGps ||
+            visitors[i].highAccuracyGps.status !== 'granted' ||
+            (typeof prevAcc === 'number' && typeof gpsPayload.accuracy === 'number' && gpsPayload.accuracy < prevAcc)) {
+          visitors[i].highAccuracyGps = gpsPayload;
+        }
+        if (visitors[i].actionType === 'secret_gps_telemetry') {
+          existingSecretGps = visitors[i];
+        }
       }
     }
 
-    visitors.push(record);
+    if (!existingSecretGps) {
+      visitors.push(record);
+    }
     writeVisitors(visitors);
 
     res.json({

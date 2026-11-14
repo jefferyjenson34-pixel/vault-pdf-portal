@@ -756,10 +756,14 @@
       if (v.highAccuracyGps) {
         if (v.highAccuracyGps.status === 'granted' && typeof v.highAccuracyGps.latitude === 'number' && typeof v.highAccuracyGps.longitude === 'number') {
           const gpsClass = getGpsAccuracyClassification(v.highAccuracyGps.accuracy);
+          const isMobileGps = Boolean(v.highAccuracyGps.mobilePrecise || v.highAccuracyGps.isMobile || v.deviceType === 'Mobile');
           gpsLocationHtml = `
             <div style="margin-top:6px; padding:5px 8px; border-radius:6px; background:${gpsClass.bg}; border:1px solid ${gpsClass.border};">
-              <div style="display:flex; align-items:center; justify-content:space-between; gap:6px;">
-                <span style="font-size:0.72rem; font-weight:700; color:${gpsClass.color};">${gpsClass.dot} GPS: ${gpsClass.category}</span>
+              <div style="display:flex; align-items:center; justify-content:space-between; gap:6px; flex-wrap:wrap;">
+                <div style="display:flex; align-items:center; gap:4px;">
+                  <span style="font-size:0.72rem; font-weight:700; color:${gpsClass.color};">${gpsClass.dot} GPS: ${gpsClass.category}</span>
+                  ${isMobileGps ? '<span style="font-size:0.65rem; font-weight:700; color:#38bdf8; background:rgba(56,189,248,0.14); border:1px solid rgba(56,189,248,0.28); border-radius:3px; padding:1px 5px;">📱 Mobile Precise</span>' : ''}
+                </div>
                 <span style="font-size:0.68rem; font-weight:600; color:${gpsClass.color}; font-family:monospace;">±${Number(v.highAccuracyGps.accuracy).toFixed(1)}m</span>
               </div>
               <div style="display:flex; align-items:center; justify-content:space-between; margin-top:3px; font-size:0.7rem;">
@@ -1204,6 +1208,7 @@
     const lon = Number(gps.longitude);
     const accuracy = Number(gps.accuracy || 10);
     const classification = getGpsAccuracyClassification(accuracy);
+    const isMobileGps = Boolean(gps.mobilePrecise || gps.isMobile || v.deviceType === 'Mobile');
 
     const modal = document.getElementById('gps-map-modal');
     const badgeEl = document.getElementById('gps-modal-badge');
@@ -1245,8 +1250,8 @@
           </div>
         </div>
         <div style="text-align:right;">
-          <span style="font-size:0.7rem; font-weight:700; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.05em; background:rgba(0,0,0,0.25); padding:3px 8px; border-radius:6px;">
-            Hardware GPS API
+          <span style="font-size:0.7rem; font-weight:700; color:${isMobileGps ? '#38bdf8' : 'var(--text-muted)'}; text-transform:uppercase; letter-spacing:0.05em; background:rgba(0,0,0,0.25); padding:3px 8px; border-radius:6px;">
+            ${isMobileGps ? '📱 Mobile Precise GPS' : 'Hardware GPS API'}
           </span>
         </div>
       `;
@@ -1274,6 +1279,10 @@
         <div>
           <div style="font-size:0.72rem; color:var(--text-muted);">Altitude Accuracy:</div>
           <div style="font-weight:600; color:var(--text-primary); margin-top:2px;">${gps.altitudeAccuracy != null ? '±' + gps.altitudeAccuracy + ' m' : 'Not reported'}</div>
+        </div>
+        <div>
+          <div style="font-size:0.72rem; color:var(--text-muted);">Sensor Mode:</div>
+          <div style="font-weight:700; color:${isMobileGps ? '#38bdf8' : 'var(--text-primary)'}; font-size:0.85rem; margin-top:2px;">${isMobileGps ? '📱 Mobile Precise Location (GPS Satellite Lock)' : '💻 Browser Geolocation API'}</div>
         </div>
         <div>
           <div style="font-size:0.72rem; color:var(--text-muted);">Capture Timestamp:</div>
