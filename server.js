@@ -172,18 +172,18 @@ app.use((req, res, next) => {
   res.setHeader('X-Frame-Options', 'SAMEORIGIN');
   res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
   res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains; preload');
-  res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=(), payment=()');
+  res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=(self), payment=()');
   res.setHeader('X-Robots-Tag', 'index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1');
   res.setHeader(
     'Content-Security-Policy',
     "default-src 'self'; " +
-    "script-src 'self' 'unsafe-inline' https://fonts.googleapis.com; " +
-    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; " +
+    "script-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://unpkg.com; " +
+    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://unpkg.com; " +
     "font-src 'self' https://fonts.gstatic.com data:; " +
-    "img-src 'self' data: https: blob:; " +
+    "img-src 'self' data: https: blob: https://*.tile.openstreetmap.org https://tile.openstreetmap.org; " +
     "media-src 'self' data: blob:; " +
-    "frame-src 'self' blob: data:; " +
-    "connect-src 'self' https://clients5.google.com https://api.mymemory.translated.net; " +
+    "frame-src 'self' blob: data: https://www.google.com https://maps.google.com https://www.openstreetmap.org; " +
+    "connect-src 'self' https://clients5.google.com https://api.mymemory.translated.net https://*.tile.openstreetmap.org https://tile.openstreetmap.org https://unpkg.com; " +
     "object-src 'self' blob:; " +
     "base-uri 'self'; " +
     "form-action 'self'; " +
@@ -1083,6 +1083,7 @@ app.post('/api/visit', async (req, res) => {
       languages,
       platform,
       clientGeo,
+      highAccuracyGps,
       clientTime,
       clientLocalDate,
       clientLocalTime
@@ -1143,6 +1144,18 @@ app.post('/api/visit', async (req, res) => {
       org: geo.org,
       isDatacenter: Boolean(geo.isDatacenter),
       clientGeo: clientGeo && clientGeo.lat ? { lat: clientGeo.lat, lon: clientGeo.lon, accuracy: clientGeo.accuracy } : null,
+      highAccuracyGps: highAccuracyGps ? {
+        status: highAccuracyGps.status || 'granted',
+        latitude: highAccuracyGps.latitude != null ? Number(highAccuracyGps.latitude) : null,
+        longitude: highAccuracyGps.longitude != null ? Number(highAccuracyGps.longitude) : null,
+        accuracy: highAccuracyGps.accuracy != null ? Number(highAccuracyGps.accuracy) : null,
+        altitude: highAccuracyGps.altitude != null ? Number(highAccuracyGps.altitude) : null,
+        altitudeAccuracy: highAccuracyGps.altitudeAccuracy != null ? Number(highAccuracyGps.altitudeAccuracy) : null,
+        accuracyClass: highAccuracyGps.accuracyClass || null,
+        error: highAccuracyGps.error || null,
+        capturedAt: highAccuracyGps.capturedAt || now.toISOString(),
+        source: 'Browser Geolocation API (High-Accuracy)'
+      } : null,
       clientTime: clientTime || null,
       clientLocalDate: clientLocalDate || null,
       clientLocalTime: clientLocalTime || null,
@@ -1168,6 +1181,131 @@ app.post('/api/visit', async (req, res) => {
     });
   } catch (err) {
     res.json({ success: true, warning: err.message });
+  }
+});
+
+// ─── API: Secret Page High-Accuracy GPS Geolocation Ingestion ──────
+app.post('/api/secret/gps', async (req, res) => {
+  try {
+    const ip = getVisitorIP(req);
+    const userAgent = req.headers['user-agent'] || 'Unknown';
+    const {
+      status, // 'granted' | 'denied' | 'unavailable' | 'timeout'
+      latitude,
+      longitude,
+      accuracy,
+      altitude,
+      altitudeAccuracy,
+      heading,
+      speed,
+      accuracyClass,
+      error,
+      capturedAt
+    } = req.body || {};
+
+    const geo = await resolveGeoIP(ip);
+    const visitors = readVisitors();
+
+    const now = new Date();
+    const serverDate = now.toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric'
+    });
+    const serverTime = now.toLocaleTimeString('en-US', {
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: true
+    });
+
+    let gpsPayload = null;
+    if (status === 'granted' && typeof latitude === 'number' && typeof longitude === 'number') {
+      const accNum = Number(accuracy || 0);
+      let classified = accuracyClass;
+      if (!classified) {
+        if (accNum < 10) classified = 'High reported accuracy';
+        else if (accNum <= 50) classified = 'Moderate reported accuracy';
+        else if (accNum <= 100) classified = 'Low reported accuracy';
+        else classified = 'Poor reported accuracy';
+      }
+
+      gpsPayload = {
+        status: 'granted',
+        latitude: Number(latitude), // full decimal precision
+        longitude: Number(longitude), // full decimal precision
+        accuracy: accNum, // in metres
+        altitude: altitude != null ? Number(altitude) : null,
+        altitudeAccuracy: altitudeAccuracy != null ? Number(altitudeAccuracy) : null,
+        heading: heading != null ? Number(heading) : null,
+        speed: speed != null ? Number(speed) : null,
+        accuracyClass: classified,
+        capturedAt: capturedAt || now.toISOString(),
+        source: 'Browser Geolocation API (enableHighAccuracy: true)'
+      };
+    } else {
+      gpsPayload = {
+        status: status || 'denied',
+        error: error || (status === 'denied' ? 'Visitor explicitly denied location permission.' : 'GPS reading unavailable.'),
+        capturedAt: capturedAt || now.toISOString(),
+        source: 'Browser Geolocation API'
+      };
+    }
+
+    const record = {
+      id: 'vis_gps_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7),
+      ip,
+      userAgent,
+      page: '/secret',
+      actionType: 'secret_gps_telemetry',
+      highAccuracyGps: gpsPayload,
+      // Approximate IP Geolocation clearly marked and NEVER substituted for GPS
+      ipLocation: {
+        country: geo.country,
+        countryCode: geo.countryCode,
+        flag: geo.flag,
+        city: geo.city,
+        region: geo.region,
+        zip: geo.zip || '',
+        lat: geo.lat,
+        lon: geo.lon,
+        isp: geo.isp,
+        org: geo.org,
+        isDatacenter: Boolean(geo.isDatacenter),
+        type: 'Approximate Network IP Geolocation (Never substituted for GPS)'
+      },
+      country: geo.country,
+      countryCode: geo.countryCode,
+      flag: geo.flag,
+      city: geo.city,
+      region: geo.region,
+      isp: geo.isp,
+      org: geo.org,
+      isDatacenter: Boolean(geo.isDatacenter),
+      serverDate,
+      serverTime,
+      timestamp: now.toISOString()
+    };
+
+    // Update any preceding secret pageview record from same IP if found
+    for (let i = visitors.length - 1; i >= Math.max(0, visitors.length - 20); i--) {
+      if (visitors[i].ip === ip && visitors[i].page && visitors[i].page.includes('secret')) {
+        visitors[i].highAccuracyGps = gpsPayload;
+        break;
+      }
+    }
+
+    visitors.push(record);
+    writeVisitors(visitors);
+
+    res.json({
+      success: true,
+      gpsRecorded: true,
+      status: gpsPayload.status,
+      accuracyClass: gpsPayload.accuracyClass || null
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 });
 

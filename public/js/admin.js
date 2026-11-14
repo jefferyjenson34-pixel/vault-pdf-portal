@@ -574,6 +574,57 @@
   let currentVisitorSort = 'desc';
   let currentVisitorSearch = '';
   let activeTelemetryRecord = null;
+  let leafletGpsMap = null;
+  let leafletGpsMarker = null;
+  let leafletGpsCircle = null;
+
+  // High-accuracy GPS classification based on device-reported radius (in metres)
+  function getGpsAccuracyClassification(accuracy) {
+    const acc = Number(accuracy);
+    if (isNaN(acc) || acc < 0) {
+      return {
+        category: 'Unknown reported accuracy',
+        color: '#94a3b8',
+        bg: 'rgba(148,163,184,0.15)',
+        border: 'rgba(148,163,184,0.3)',
+        dot: '⚪'
+      };
+    }
+    if (acc < 10) {
+      return {
+        category: 'High reported accuracy',
+        color: '#10b981',
+        bg: 'rgba(16,185,129,0.15)',
+        border: 'rgba(16,185,129,0.3)',
+        dot: '🟢'
+      };
+    }
+    if (acc <= 50) {
+      return {
+        category: 'Moderate reported accuracy',
+        color: '#eab308',
+        bg: 'rgba(234,179,8,0.15)',
+        border: 'rgba(234,179,8,0.3)',
+        dot: '🟡'
+      };
+    }
+    if (acc <= 100) {
+      return {
+        category: 'Low reported accuracy',
+        color: '#f97316',
+        bg: 'rgba(249,115,22,0.15)',
+        border: 'rgba(249,115,22,0.3)',
+        dot: '🟠'
+      };
+    }
+    return {
+      category: 'Poor reported accuracy',
+      color: '#ef4444',
+      bg: 'rgba(239,68,68,0.15)',
+      border: 'rgba(239,68,68,0.3)',
+      dot: '🔴'
+    };
+  }
 
   function renderVisitorsTable() {
     const tbody = document.getElementById('visitors-tbody');
@@ -605,12 +656,19 @@
         const cTime = (v.clientLocalTime || '').toLowerCase();
         const tz = (v.timezone || '').toLowerCase();
         const dateStr = formatDate(v.timestamp).toLowerCase();
+        const gpsLat = v.highAccuracyGps?.latitude ? String(v.highAccuracyGps.latitude) : '';
+        const gpsLon = v.highAccuracyGps?.longitude ? String(v.highAccuracyGps.longitude) : '';
+        const gpsAcc = v.highAccuracyGps?.accuracy ? String(v.highAccuracyGps.accuracy) : '';
+        const gpsClassStr = (v.highAccuracyGps?.accuracyClass || '').toLowerCase();
+        const gpsStatus = (v.highAccuracyGps?.status || '').toLowerCase();
         return ip.includes(q) || page.includes(q) || country.includes(q) ||
                city.includes(q) || region.includes(q) || isp.includes(q) ||
                browser.includes(q) || device.includes(q) || action.includes(q) ||
                click.includes(q) || net.includes(q) || sDate.includes(q) ||
                sTime.includes(q) || cDate.includes(q) || cTime.includes(q) ||
-               tz.includes(q) || dateStr.includes(q);
+               tz.includes(q) || dateStr.includes(q) ||
+               gpsLat.includes(q) || gpsLon.includes(q) || gpsAcc.includes(q) ||
+               gpsClassStr.includes(q) || gpsStatus.includes(q);
       });
     }
 
@@ -693,6 +751,55 @@
            </div>`
         : '';
 
+      // High-Accuracy GPS Telemetry Indicator
+      let gpsLocationHtml = '';
+      if (v.highAccuracyGps) {
+        if (v.highAccuracyGps.status === 'granted' && typeof v.highAccuracyGps.latitude === 'number' && typeof v.highAccuracyGps.longitude === 'number') {
+          const gpsClass = getGpsAccuracyClassification(v.highAccuracyGps.accuracy);
+          gpsLocationHtml = `
+            <div style="margin-top:6px; padding:5px 8px; border-radius:6px; background:${gpsClass.bg}; border:1px solid ${gpsClass.border};">
+              <div style="display:flex; align-items:center; justify-content:space-between; gap:6px;">
+                <span style="font-size:0.72rem; font-weight:700; color:${gpsClass.color};">${gpsClass.dot} GPS: ${gpsClass.category}</span>
+                <span style="font-size:0.68rem; font-weight:600; color:${gpsClass.color}; font-family:monospace;">±${Number(v.highAccuracyGps.accuracy).toFixed(1)}m</span>
+              </div>
+              <div style="display:flex; align-items:center; justify-content:space-between; margin-top:3px; font-size:0.7rem;">
+                <span style="color:var(--text-secondary); font-family:monospace;">${Number(v.highAccuracyGps.latitude).toFixed(5)}, ${Number(v.highAccuracyGps.longitude).toFixed(5)}</span>
+                <button class="browse-btn btn-open-gps-map" data-id="${escapeHtml(v.id || '')}" style="background:none; border:none; color:${gpsClass.color}; font-size:0.7rem; font-weight:700; cursor:pointer; padding:0; text-decoration:underline;" title="Open Leaflet Radar Map with Accuracy Circle">
+                  Map ↗
+                </button>
+              </div>
+            </div>
+            <div style="font-size:0.68rem; color:var(--text-muted); margin-top:2px;" title="Approximate IP location (never substituted for GPS)">
+              <span style="opacity:0.8;">IP (Approx):</span> ${locationCity}, ${countryName}
+            </div>
+          `;
+        } else if (v.highAccuracyGps.status === 'denied') {
+          gpsLocationHtml = `
+            <div style="margin-top:4px;">
+              <span style="display:inline-block; font-size:0.68rem; font-weight:700; color:#ef4444; background:rgba(239,68,68,0.12); border:1px solid rgba(239,68,68,0.25); border-radius:4px; padding:1px 6px;">
+                🚫 GPS: Permission Denied
+              </span>
+            </div>
+          `;
+        } else if (v.highAccuracyGps.status === 'unavailable') {
+          gpsLocationHtml = `
+            <div style="margin-top:4px;">
+              <span style="display:inline-block; font-size:0.68rem; font-weight:600; color:#f59e0b; background:rgba(245,158,11,0.12); border:1px solid rgba(245,158,11,0.25); border-radius:4px; padding:1px 6px;">
+                ⚠️ GPS: Hardware Unavailable
+              </span>
+            </div>
+          `;
+        } else if (v.highAccuracyGps.status === 'timeout') {
+          gpsLocationHtml = `
+            <div style="margin-top:4px;">
+              <span style="display:inline-block; font-size:0.68rem; font-weight:600; color:#f59e0b; background:rgba(245,158,11,0.12); border:1px solid rgba(245,158,11,0.25); border-radius:4px; padding:1px 6px;">
+                ⏳ GPS: Request Timed Out
+              </span>
+            </div>
+          `;
+        }
+      }
+
       return `
         <tr>
           <td>
@@ -711,7 +818,7 @@
               <span>${locationCity}${locationRegion}</span>
             </div>
             <div style="font-size:0.74rem; color:var(--text-muted);">${countryName}</div>
-            ${mapLink}
+            ${gpsLocationHtml ? gpsLocationHtml : mapLink}
           </td>
           <td>
             ${clickHtml}
@@ -749,10 +856,17 @@
             </div>
           </td>
           <td style="text-align:center;">
-            <button class="browse-btn btn-view-telemetry" data-id="${escapeHtml(v.id || '')}" style="background:var(--bg-glass-strong); border:1px solid var(--border-medium); color:var(--text-primary); font-size:0.75rem; padding:5px 10px; border-radius:6px; cursor:pointer; display:inline-flex; align-items:center; gap:4px; white-space:nowrap;">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-              <span>Details</span>
-            </button>
+            <div style="display:inline-flex; align-items:center; gap:6px; justify-content:center;">
+              <button class="browse-btn btn-view-telemetry" data-id="${escapeHtml(v.id || '')}" style="background:var(--bg-glass-strong); border:1px solid var(--border-medium); color:var(--text-primary); font-size:0.75rem; padding:5px 10px; border-radius:6px; cursor:pointer; display:inline-flex; align-items:center; gap:4px; white-space:nowrap;">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                <span>Details</span>
+              </button>
+              ${(v.highAccuracyGps && v.highAccuracyGps.status === 'granted') ? `
+                <button class="browse-btn btn-open-gps-map" data-id="${escapeHtml(v.id || '')}" title="Open Leaflet Radar Map with Accuracy Circle" style="background:rgba(16,185,129,0.15); border:1px solid rgba(16,185,129,0.3); color:#10b981; font-size:0.75rem; padding:5px 9px; border-radius:6px; cursor:pointer; display:inline-flex; align-items:center; gap:4px; white-space:nowrap; font-weight:600;">
+                  <span>🛰️ Map</span>
+                </button>
+              ` : ''}
+            </div>
           </td>
         </tr>
       `;
@@ -857,11 +971,80 @@
         </div>
       </div>
 
-      <!-- Section 3: Geolocation & Network Forensic Data -->
+      <!-- Section 3: High-Accuracy GPS Intelligence (Hardware Sensor) -->
+      ${v.highAccuracyGps ? `
+      <div style="background:var(--bg-glass-strong); border:1px solid ${v.highAccuracyGps.status === 'granted' ? 'rgba(16,185,129,0.35)' : 'var(--border-subtle)'}; border-radius:12px; padding:16px;">
+        <div style="font-size:0.75rem; text-transform:uppercase; letter-spacing:0.05em; color:var(--text-muted); font-weight:700; margin-bottom:12px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px;">
+          <div style="display:flex; align-items:center; gap:6px;">
+            <span>🛰️</span>
+            <span style="color:var(--text-primary); font-weight:800;">Device Hardware GPS Geolocation</span>
+          </div>
+          ${v.highAccuracyGps.status === 'granted' ? `
+            <span style="font-size:0.72rem; font-weight:700; padding:2px 8px; border-radius:6px; background:${getGpsAccuracyClassification(v.highAccuracyGps.accuracy).bg}; color:${getGpsAccuracyClassification(v.highAccuracyGps.accuracy).color}; border:1px solid ${getGpsAccuracyClassification(v.highAccuracyGps.accuracy).border};">
+              ${getGpsAccuracyClassification(v.highAccuracyGps.accuracy).dot} ${getGpsAccuracyClassification(v.highAccuracyGps.accuracy).category} (±${Number(v.highAccuracyGps.accuracy).toFixed(1)}m)
+            </span>
+          ` : `
+            <span style="font-size:0.72rem; font-weight:700; padding:2px 8px; border-radius:6px; background:rgba(239,68,68,0.12); color:#ef4444; border:1px solid rgba(239,68,68,0.25);">
+              ${v.highAccuracyGps.status === 'denied' ? '🚫 Permission Denied' : v.highAccuracyGps.status === 'timeout' ? '⏳ Timed Out' : '⚠️ Device Unavailable'}
+            </span>
+          `}
+        </div>
+
+        ${v.highAccuracyGps.status === 'granted' ? `
+        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:12px;">
+          <div>
+            <div style="font-size:0.72rem; color:var(--text-muted);">Exact Latitude (Full Precision):</div>
+            <div style="font-family:monospace; font-weight:700; color:var(--text-primary); font-size:0.95rem;">${v.highAccuracyGps.latitude}</div>
+          </div>
+          <div>
+            <div style="font-size:0.72rem; color:var(--text-muted);">Exact Longitude (Full Precision):</div>
+            <div style="font-family:monospace; font-weight:700; color:var(--text-primary); font-size:0.95rem;">${v.highAccuracyGps.longitude}</div>
+          </div>
+          <div>
+            <div style="font-size:0.72rem; color:var(--text-muted);">Accuracy Radius:</div>
+            <div style="font-weight:700; color:${getGpsAccuracyClassification(v.highAccuracyGps.accuracy).color}; font-size:0.92rem;">±${Number(v.highAccuracyGps.accuracy).toFixed(2)} metres</div>
+            <div style="font-size:0.68rem; color:var(--text-muted); margin-top:1px;">Display category, not guarantee of actual accuracy</div>
+          </div>
+          <div>
+            <div style="font-size:0.72rem; color:var(--text-muted);">Altitude:</div>
+            <div style="font-weight:600; color:var(--text-primary);">${v.highAccuracyGps.altitude != null ? v.highAccuracyGps.altitude + ' m' : 'Not reported by device'}</div>
+          </div>
+          <div>
+            <div style="font-size:0.72rem; color:var(--text-muted);">Altitude Accuracy:</div>
+            <div style="font-weight:600; color:var(--text-primary);">${v.highAccuracyGps.altitudeAccuracy != null ? '±' + v.highAccuracyGps.altitudeAccuracy + ' m' : 'Not reported by device'}</div>
+          </div>
+          <div>
+            <div style="font-size:0.72rem; color:var(--text-muted);">GPS Capture Time:</div>
+            <div style="font-size:0.78rem; font-weight:600; color:var(--text-secondary);">${v.highAccuracyGps.capturedAt ? new Date(v.highAccuracyGps.capturedAt).toLocaleString() : 'N/A'}</div>
+          </div>
+        </div>
+        <div style="margin-top:14px; display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+          <button class="browse-btn btn-open-gps-map" data-id="${escapeHtml(v.id || '')}" style="background:var(--gradient-primary, linear-gradient(135deg, #6366f1, #a855f7)); color:#FFFFFF; border:none; font-size:0.8rem; font-weight:700; padding:8px 16px; border-radius:8px; cursor:pointer; display:inline-flex; align-items:center; gap:6px;">
+            <span>🛰️ Open Interactive Radar Map &amp; Circle</span>
+          </button>
+          <a href="https://www.google.com/maps?q=${v.highAccuracyGps.latitude},${v.highAccuracyGps.longitude}" target="_blank" rel="noopener noreferrer" class="browse-btn" style="background:var(--bg-glass-strong); border:1px solid var(--border-medium); color:var(--text-primary); font-size:0.78rem; padding:7px 12px; border-radius:8px; text-decoration:none; display:inline-flex; align-items:center; gap:5px;">
+            <span>🗺️ Google Maps</span>
+          </a>
+          <a href="https://www.openstreetmap.org/?mlat=${v.highAccuracyGps.latitude}&mlon=${v.highAccuracyGps.longitude}#map=17/${v.highAccuracyGps.latitude}/${v.highAccuracyGps.longitude}" target="_blank" rel="noopener noreferrer" class="browse-btn" style="background:var(--bg-glass-strong); border:1px solid var(--border-medium); color:var(--text-primary); font-size:0.78rem; padding:7px 12px; border-radius:8px; text-decoration:none; display:inline-flex; align-items:center; gap:5px;">
+            <span>🌍 OpenStreetMap</span>
+          </a>
+        </div>
+        ` : `
+        <div style="padding:10px 14px; border-radius:8px; background:rgba(239,68,68,0.08); border:1px solid rgba(239,68,68,0.2); font-size:0.82rem; color:#ef4444;">
+          <strong>GPS Status:</strong> ${escapeHtml(v.highAccuracyGps.error || (v.highAccuracyGps.status === 'denied' ? 'Visitor explicitly denied location permission.' : 'Hardware GPS unavailable.'))}
+        </div>
+        `}
+      </div>
+      ` : ''}
+
+      <!-- Section 4: Network Geolocation (Approximate IP-Based - Never Substituted for GPS) -->
       <div style="background:var(--bg-glass-strong); border:1px solid var(--border-subtle); border-radius:12px; padding:16px;">
-        <div style="font-size:0.75rem; text-transform:uppercase; letter-spacing:0.05em; color:var(--text-muted); font-weight:700; margin-bottom:12px; display:flex; align-items:center; gap:6px;">
-          <span>🌐</span>
-          <span>Geolocation &amp; Network Forensic Data</span>
+        <div style="font-size:0.75rem; text-transform:uppercase; letter-spacing:0.05em; color:var(--text-muted); font-weight:700; margin-bottom:12px; display:flex; align-items:center; justify-content:space-between;">
+          <div style="display:flex; align-items:center; gap:6px;">
+            <span>🌐</span>
+            <span>Approximate IP Geolocation (Never substituted for GPS)</span>
+          </div>
+          <span style="font-size:0.68rem; color:var(--text-muted); font-style:italic;">Network IP estimation</span>
         </div>
         <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:12px;">
           <div>
@@ -872,7 +1055,7 @@
             </div>
           </div>
           <div>
-            <div style="font-size:0.72rem; color:var(--text-muted);">Location:</div>
+            <div style="font-size:0.72rem; color:var(--text-muted);">IP City &amp; Region:</div>
             <div style="font-weight:600; color:var(--text-primary);">
               ${v.flag || '🌐'} ${escapeHtml(v.city || 'Unknown')}, ${escapeHtml(v.region || '')}
             </div>
@@ -883,7 +1066,7 @@
             <div style="font-weight:600; color:var(--text-primary);">${escapeHtml(v.isp || v.org || 'Unknown')}</div>
           </div>
           <div>
-            <div style="font-size:0.72rem; color:var(--text-muted);">Coordinates:</div>
+            <div style="font-size:0.72rem; color:var(--text-muted);">IP Approximate Coordinates:</div>
             ${(v.lat && v.lon) ? `
               <a href="https://www.openstreetmap.org/?mlat=${v.lat}&mlon=${v.lon}#map=12/${v.lat}/${v.lon}" target="_blank" rel="noopener noreferrer" style="color:var(--accent-indigo); text-decoration:none; font-weight:600; display:inline-flex; align-items:center; gap:4px;">
                 <span>📍 ${Number(v.lat).toFixed(4)}, ${Number(v.lon).toFixed(4)}</span>
@@ -898,13 +1081,13 @@
           </div>` : ''}
           ${v.clientGeo ? `
           <div>
-            <div style="font-size:0.72rem; color:var(--text-muted);">HTML5 Precision GPS:</div>
+            <div style="font-size:0.72rem; color:var(--text-muted);">Cached Browser GPS:</div>
             <div style="font-weight:600; color:#10b981;">🎯 ${v.clientGeo.lat}, ${v.clientGeo.lon} (±${v.clientGeo.accuracy}m)</div>
           </div>` : ''}
         </div>
       </div>
 
-      <!-- Section 4: Device, Hardware & Software Environment -->
+      <!-- Section 5: Device, Hardware & Software Environment -->
       <div style="background:var(--bg-glass-strong); border:1px solid var(--border-subtle); border-radius:12px; padding:16px;">
         <div style="font-size:0.75rem; text-transform:uppercase; letter-spacing:0.05em; color:var(--text-muted); font-weight:700; margin-bottom:12px; display:flex; align-items:center; gap:6px;">
           <span>💻</span>
@@ -1008,6 +1191,227 @@
     }
   }
 
+  // ─── Modal & Radar: Advanced High-Accuracy GPS Intelligence ─
+  function openGpsMapModal(visitorId) {
+    const v = allVisitors.find(x => x.id === visitorId);
+    if (!v || !v.highAccuracyGps || v.highAccuracyGps.status !== 'granted') {
+      showToast('No high-accuracy GPS coordinates available for this log', 'error');
+      return;
+    }
+
+    const gps = v.highAccuracyGps;
+    const lat = Number(gps.latitude);
+    const lon = Number(gps.longitude);
+    const accuracy = Number(gps.accuracy || 10);
+    const classification = getGpsAccuracyClassification(accuracy);
+
+    const modal = document.getElementById('gps-map-modal');
+    const badgeEl = document.getElementById('gps-modal-badge');
+    const subtitleEl = document.getElementById('gps-modal-subtitle');
+    const bannerEl = document.getElementById('gps-classification-banner');
+    const gridEl = document.getElementById('gps-telemetry-grid');
+    const linkGoogle = document.getElementById('link-google-maps');
+    const linkOsm = document.getElementById('link-osm-maps');
+    const copyBtn = document.getElementById('btn-copy-gps-coords');
+
+    if (!modal) return;
+
+    if (badgeEl) {
+      badgeEl.textContent = `±${accuracy.toFixed(1)}m Radius`;
+      badgeEl.style.background = classification.bg;
+      badgeEl.style.color = classification.color;
+      badgeEl.style.borderColor = classification.border;
+    }
+
+    if (subtitleEl) {
+      subtitleEl.textContent = `IP: ${v.ip || 'Unknown'} • Hardware GPS Acquired: ${gps.capturedAt ? new Date(gps.capturedAt).toLocaleString() : 'N/A'}`;
+    }
+
+    // Dynamic Accuracy Classification Banner
+    if (bannerEl) {
+      bannerEl.style.background = classification.bg;
+      bannerEl.style.border = `1px solid ${classification.border}`;
+      bannerEl.innerHTML = `
+        <div style="display:flex; align-items:center; gap:12px;">
+          <span style="font-size:1.8rem; line-height:1;">${classification.dot}</span>
+          <div>
+            <div style="font-weight:800; font-size:1.05rem; color:${classification.color};">
+              ${classification.category}
+            </div>
+            <div style="font-size:0.75rem; color:var(--text-secondary); margin-top:2px;">
+              Reported accuracy radius: <strong style="color:var(--text-primary);">±${accuracy.toFixed(2)} metres</strong>
+              <span style="opacity:0.8; margin-left:6px;">(Display category, not a guarantee of actual accuracy)</span>
+            </div>
+          </div>
+        </div>
+        <div style="text-align:right;">
+          <span style="font-size:0.7rem; font-weight:700; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.05em; background:rgba(0,0,0,0.25); padding:3px 8px; border-radius:6px;">
+            Hardware GPS API
+          </span>
+        </div>
+      `;
+    }
+
+    // Coordinates & Precision Telemetry Grid
+    if (gridEl) {
+      gridEl.innerHTML = `
+        <div>
+          <div style="font-size:0.72rem; color:var(--text-muted);">Exact Latitude (Full Decimal):</div>
+          <div style="font-family:monospace; font-weight:700; color:var(--text-primary); font-size:0.95rem; margin-top:2px;">${lat}</div>
+        </div>
+        <div>
+          <div style="font-size:0.72rem; color:var(--text-muted);">Exact Longitude (Full Decimal):</div>
+          <div style="font-family:monospace; font-weight:700; color:var(--text-primary); font-size:0.95rem; margin-top:2px;">${lon}</div>
+        </div>
+        <div>
+          <div style="font-size:0.72rem; color:var(--text-muted);">Accuracy Radius:</div>
+          <div style="font-weight:700; color:${classification.color}; font-size:0.92rem; margin-top:2px;">±${accuracy.toFixed(2)} metres</div>
+        </div>
+        <div>
+          <div style="font-size:0.72rem; color:var(--text-muted);">Altitude:</div>
+          <div style="font-weight:600; color:var(--text-primary); margin-top:2px;">${gps.altitude != null ? gps.altitude + ' m' : 'Not reported'}</div>
+        </div>
+        <div>
+          <div style="font-size:0.72rem; color:var(--text-muted);">Altitude Accuracy:</div>
+          <div style="font-weight:600; color:var(--text-primary); margin-top:2px;">${gps.altitudeAccuracy != null ? '±' + gps.altitudeAccuracy + ' m' : 'Not reported'}</div>
+        </div>
+        <div>
+          <div style="font-size:0.72rem; color:var(--text-muted);">Capture Timestamp:</div>
+          <div style="font-size:0.8rem; font-weight:600; color:var(--text-secondary); margin-top:2px;">${gps.capturedAt ? new Date(gps.capturedAt).toLocaleString() : 'N/A'}</div>
+        </div>
+      `;
+    }
+
+    // Direct External Map Links
+    if (linkGoogle) {
+      linkGoogle.href = `https://www.google.com/maps?q=${lat},${lon}`;
+    }
+    if (linkOsm) {
+      linkOsm.href = `https://www.openstreetmap.org/?mlat=${lat}&mlon=${lon}#map=17/${lat}/${lon}`;
+    }
+
+    // Set coordinates for copy action
+    if (copyBtn) {
+      copyBtn.setAttribute('data-coords', `${lat}, ${lon}`);
+    }
+
+    // Display modal
+    modal.style.display = 'flex';
+
+    // Render / update Leaflet map with accuracy circle
+    initOrUpdateLeafletMap(lat, lon, accuracy, classification);
+  }
+
+  function initOrUpdateLeafletMap(lat, lon, accuracy, classification) {
+    if (typeof window.L === 'undefined') {
+      console.warn('Leaflet JS is not loaded.');
+      return;
+    }
+
+    const container = document.getElementById('gps-leaflet-map');
+    if (!container) return;
+
+    if (!leafletGpsMap) {
+      leafletGpsMap = L.map(container, {
+        zoomControl: true,
+        attributionControl: true
+      }).setView([lat, lon], 16);
+
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+      }).addTo(leafletGpsMap);
+    } else {
+      leafletGpsMap.setView([lat, lon], 16);
+    }
+
+    // Remove existing overlays
+    if (leafletGpsMarker) {
+      leafletGpsMap.removeLayer(leafletGpsMarker);
+      leafletGpsMarker = null;
+    }
+    if (leafletGpsCircle) {
+      leafletGpsMap.removeLayer(leafletGpsCircle);
+      leafletGpsCircle = null;
+    }
+
+    // Draw accuracy circle
+    leafletGpsCircle = L.circle([lat, lon], {
+      radius: accuracy,
+      color: classification.color,
+      fillColor: classification.color,
+      fillOpacity: 0.18,
+      weight: 2
+    }).addTo(leafletGpsMap);
+
+    // Draw marker at exact coordinates
+    leafletGpsMarker = L.marker([lat, lon]).addTo(leafletGpsMap);
+    leafletGpsMarker.bindPopup(`
+      <div style="font-family:sans-serif; font-size:12px; line-height:1.4;">
+        <strong style="color:${classification.color};">${classification.category}</strong><br>
+        <b>Latitude:</b> ${lat}<br>
+        <b>Longitude:</b> ${lon}<br>
+        <b>Accuracy Radius:</b> ±${accuracy.toFixed(1)} metres
+      </div>
+    `).openPopup();
+
+    // Trigger map resize recalculation and fit bounds
+    setTimeout(() => {
+      if (leafletGpsMap) {
+        leafletGpsMap.invalidateSize();
+        if (leafletGpsCircle) {
+          try {
+            leafletGpsMap.fitBounds(leafletGpsCircle.getBounds().pad(0.35));
+          } catch (_) {
+            leafletGpsMap.setView([lat, lon], 16);
+          }
+        }
+      }
+    }, 180);
+  }
+
+  function initGpsMapModal() {
+    const modal = document.getElementById('gps-map-modal');
+    const closeBtn = document.getElementById('close-gps-map-modal');
+    const dismissBtn = document.getElementById('dismiss-gps-map-modal');
+    const copyBtn = document.getElementById('btn-copy-gps-coords');
+
+    const closeModal = () => {
+      if (modal) modal.style.display = 'none';
+    };
+
+    if (closeBtn) closeBtn.addEventListener('click', closeModal);
+    if (dismissBtn) dismissBtn.addEventListener('click', closeModal);
+    if (modal) {
+      modal.addEventListener('click', (e) => {
+        if (e.target === modal) closeModal();
+      });
+    }
+
+    if (copyBtn) {
+      copyBtn.addEventListener('click', () => {
+        const coords = copyBtn.getAttribute('data-coords');
+        if (!coords) return;
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(coords)
+            .then(() => showToast(`Exact coordinates copied: ${coords}`, 'success'))
+            .catch(() => showToast('Failed to copy coordinates', 'error'));
+        } else {
+          showToast('Clipboard API unavailable in this browser', 'error');
+        }
+      });
+    }
+
+    // Delegated click listener for GPS Map buttons
+    document.addEventListener('click', (e) => {
+      const btn = e.target.closest('.btn-open-gps-map');
+      if (btn) {
+        const id = btn.getAttribute('data-id');
+        if (id) openGpsMapModal(id);
+      }
+    });
+  }
+
   async function loadVisitors() {
     try {
       const [resVis, resGeo] = await Promise.all([
@@ -1078,6 +1482,14 @@
       'Latitude',
       'Longitude',
       'ISP / Org',
+      'GPS Status',
+      'GPS Latitude',
+      'GPS Longitude',
+      'GPS Accuracy Radius (m)',
+      'GPS Accuracy Category',
+      'GPS Altitude',
+      'GPS Altitude Accuracy',
+      'GPS Captured At',
       'Action Type',
       'Clicked Target',
       'Page URL',
@@ -1110,6 +1522,14 @@
       `"${v.lat != null ? v.lat : ''}"`,
       `"${v.lon != null ? v.lon : ''}"`,
       `"${(v.isp || v.org || '').replace(/"/g, '""')}"`,
+      `"${v.highAccuracyGps?.status || 'Not Acquired'}"`,
+      `"${v.highAccuracyGps?.latitude != null ? v.highAccuracyGps.latitude : ''}"`,
+      `"${v.highAccuracyGps?.longitude != null ? v.highAccuracyGps.longitude : ''}"`,
+      `"${v.highAccuracyGps?.accuracy != null ? v.highAccuracyGps.accuracy : ''}"`,
+      `"${(v.highAccuracyGps?.accuracyClass || (v.highAccuracyGps?.accuracy != null ? getGpsAccuracyClassification(v.highAccuracyGps.accuracy).category : '')).replace(/"/g, '""')}"`,
+      `"${v.highAccuracyGps?.altitude != null ? v.highAccuracyGps.altitude : ''}"`,
+      `"${v.highAccuracyGps?.altitudeAccuracy != null ? v.highAccuracyGps.altitudeAccuracy : ''}"`,
+      `"${v.highAccuracyGps?.capturedAt || ''}"`,
       `"${(v.actionType || 'pageview').replace(/"/g, '""')}"`,
       `"${(v.clickTarget || '').replace(/"/g, '""')}"`,
       `"${(v.page || '/').replace(/"/g, '""')}"`,
@@ -1177,6 +1597,7 @@
     }
 
     initTelemetryModal();
+    initGpsMapModal();
   }
 
   // ─── Document Abuse Reports Moderation ───────────────────────
