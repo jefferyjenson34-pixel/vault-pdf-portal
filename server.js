@@ -1803,6 +1803,7 @@ app.get('/api/admin/email-config', requireAdmin, (req, res) => {
   res.json({
     isConfigured: config.isConfigured,
     service: config.service,
+    webhookUrl: config.webhookUrl || '',
     host: config.host,
     port: config.port,
     secure: config.secure,
@@ -1815,23 +1816,24 @@ app.get('/api/admin/email-config', requireAdmin, (req, res) => {
 
 // ─── API: Save Email / SMTP Settings (admin, PROTECTED) ─────────────
 app.post('/api/admin/email-config', requireAdmin, (req, res) => {
-  const { service, host, port, secure, user, pass, fromName, fromEmail } = req.body || {};
+  const { service, webhookUrl, host, port, secure, user, pass, fromName, fromEmail } = req.body || {};
   const current = readEmailConfig();
 
   const newConfig = {
     enabled: true,
-    service: service || current.service || 'gmail',
+    service: service || current.service || 'google-webhook',
+    webhookUrl: webhookUrl !== undefined ? String(webhookUrl).trim() : (current.webhookUrl || ''),
     host: (host || current.host || 'smtp.gmail.com').trim(),
     port: parseInt(port || current.port || 465, 10),
     secure: secure !== undefined ? !!secure : (port == 465),
-    user: (user !== undefined ? user : current.user || '').trim(),
+    user: (user !== undefined ? user : current.user || 'vaultpdfportal@gmail.com').trim(),
     pass: (pass && pass.trim()) ? pass.trim() : (current.pass || ''),
     fromName: (fromName || current.fromName || 'Vault PDF Portal').trim(),
-    fromEmail: (fromEmail || current.fromEmail || 'noreply@vaultpdfportal.com').trim()
+    fromEmail: (fromEmail || current.fromEmail || 'vaultpdfportal@gmail.com').trim()
   };
 
   writeEmailConfig(newConfig);
-  res.json({ success: true, message: 'Email & SMTP settings saved successfully.' });
+  res.json({ success: true, message: 'Email & Webhook settings saved successfully.' });
 });
 
 // ─── API: Send Live Test Email (admin, PROTECTED) ───────────────────

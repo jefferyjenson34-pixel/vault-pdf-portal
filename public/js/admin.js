@@ -1447,6 +1447,7 @@
     const fromNameInput = document.getElementById('smtp-from-name');
     const fromEmailInput = document.getElementById('smtp-from-email');
     const serviceInput = document.getElementById('smtp-service');
+    const webhookInput = document.getElementById('smtp-webhook-url');
 
     if (!hostInput) return;
 
@@ -1455,12 +1456,13 @@
       if (res.ok) {
         const config = await res.json();
         if (serviceInput) serviceInput.value = config.service || 'gmail';
+        if (webhookInput) webhookInput.value = config.webhookUrl || '';
         if (hostInput) hostInput.value = config.host || 'smtp.gmail.com';
         if (portInput) portInput.value = config.port || 465;
         if (secureCheckbox) secureCheckbox.checked = config.secure !== false;
         if (userInput) userInput.value = config.user || '';
         if (fromNameInput) fromNameInput.value = config.fromName || 'Vault PDF Portal';
-        if (fromEmailInput) fromEmailInput.value = config.fromEmail || 'noreply@vaultpdfportal.com';
+        if (fromEmailInput) fromEmailInput.value = config.fromEmail || 'vaultpdfportal@gmail.com';
 
         if (passStatus) {
           passStatus.textContent = config.hasPassword ? '● Password Saved' : 'Not set';
@@ -1586,13 +1588,14 @@
 
         const payload = {
           service: document.getElementById('smtp-service')?.value || 'gmail',
+          webhookUrl: document.getElementById('smtp-webhook-url')?.value?.trim() || '',
           host: document.getElementById('smtp-host')?.value || 'smtp.gmail.com',
           port: parseInt(document.getElementById('smtp-port')?.value || '465', 10),
           secure: document.getElementById('smtp-secure')?.checked,
           user: document.getElementById('smtp-user')?.value || '',
           pass: document.getElementById('smtp-pass')?.value || '',
           fromName: document.getElementById('smtp-from-name')?.value || 'Vault PDF Portal',
-          fromEmail: document.getElementById('smtp-from-email')?.value || 'noreply@vaultpdfportal.com'
+          fromEmail: document.getElementById('smtp-from-email')?.value || 'vaultpdfportal@gmail.com'
         };
 
         try {

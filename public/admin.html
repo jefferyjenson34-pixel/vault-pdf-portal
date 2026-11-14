@@ -463,6 +463,15 @@
               <form id="smtp-settings-form">
                 <input type="hidden" id="smtp-service" value="gmail">
 
+                <div style="margin-bottom:14px; background:rgba(99,102,241,0.08); border:1px solid rgba(99,102,241,0.25); border-radius:10px; padding:12px;">
+                  <label style="font-size:0.8rem; font-weight:700; color:var(--text-primary); display:flex; align-items:center; gap:6px; margin-bottom:5px;">
+                    <span>⚡</span>
+                    <span>HTTPS Email Webhook URL (Google Apps Script)</span>
+                  </label>
+                  <input type="url" id="smtp-webhook-url" placeholder="https://script.google.com/macros/s/.../exec" style="width:100%; background:var(--bg-input); border:1px solid var(--border-medium); border-radius:8px; padding:9px 12px; color:var(--text-primary); font-size:0.85rem;">
+                  <span style="font-size:0.73rem; color:var(--text-muted); display:block; margin-top:4px;">Bypasses cloud port blocks (works 100% on Render). Deploy from your <code>vaultpdfportal@gmail.com</code> account.</span>
+                </div>
+
                 <div style="display:grid; grid-template-columns: 2fr 1fr; gap:12px; margin-bottom:14px;">
                   <div>
                     <label style="font-size:0.8rem; font-weight:600; color:var(--text-secondary); display:block; margin-bottom:5px;">SMTP Host</label>
