@@ -1029,7 +1029,7 @@ function getInitialAlertConfig() {
   const disk = typeof readAlertConfig === 'function' ? readAlertConfig() : {};
   return {
     telegramBotToken: process.env.TELEGRAM_BOT_TOKEN || disk.telegramBotToken || '9289102303:AAGh7GBGvMz3uFi_OVGLdpwzh1T35gFEBDs',
-    telegramChatId: process.env.TELEGRAM_CHAT_ID || disk.telegramChatId || '',
+    telegramChatId: process.env.TELEGRAM_CHAT_ID || disk.telegramChatId || '7578048485',
     discordWebhookUrl: process.env.DISCORD_WEBHOOK_URL || disk.discordWebhookUrl || '',
     enabled: disk.enabled !== undefined ? Boolean(disk.enabled) : true
   };

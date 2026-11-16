@@ -2317,6 +2317,16 @@
         if (tgChatIdInput && data.telegramChatId) tgChatIdInput.value = data.telegramChatId;
         if (discordUrlInput && data.discordWebhookUrl) discordUrlInput.value = data.discordWebhookUrl;
 
+        const tgBadge = document.getElementById('tg-connected-badge');
+        if (tgBadge) {
+          if (data.telegramChatId) {
+            tgBadge.style.display = 'inline';
+            tgBadge.textContent = '● Bot Linked (' + data.telegramChatId + ')';
+          } else {
+            tgBadge.style.display = 'none';
+          }
+        }
+
         if (badge) {
           if (data.enabled) {
             badge.textContent = 'Alerts Active 🔔';

@@ -457,12 +457,17 @@
                     <span style="font-size:0.72rem; color:var(--text-muted); display:block; margin-top:4px;">Created via @BotFather.</span>
                   </div>
                   <div>
-                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px; flex-wrap:wrap; gap:6px;">
                       <label style="font-size:0.8rem; font-weight:600; color:var(--text-secondary); margin:0;">Telegram Chat ID</label>
-                      <button type="button" id="btn-detect-tg-chat" style="background:rgba(99,102,241,0.12); border:1px solid rgba(99,102,241,0.3); color:#818cf8; border-radius:6px; padding:2px 8px; font-size:0.72rem; font-weight:700; cursor:pointer;" title="Message @PortaVault_bot on Telegram and click here to auto-detect your chat ID">⚡ Auto-Detect My Chat ID</button>
+                      <button type="button" id="btn-detect-tg-chat" style="background:linear-gradient(135deg, rgba(99,102,241,0.25), rgba(168,85,247,0.25)); border:1px solid rgba(129,140,248,0.5); color:#c7d2fe; border-radius:8px; padding:4px 10px; font-size:0.75rem; font-weight:700; cursor:pointer; display:inline-flex; align-items:center; gap:5px; transition:all 0.2s;" title="Message @PortaVault_bot on Telegram and click here to auto-detect your chat ID">
+                        <span style="color:#fbbf24;">⚡</span> Auto-Detect My Chat ID
+                      </button>
                     </div>
-                    <input type="text" id="alert-tg-chatid" placeholder="e.g. 123456789 or -100123456789" style="width:100%; background:var(--bg-input); border:1px solid var(--border-medium); border-radius:8px; padding:9px 12px; color:var(--text-primary); font-size:0.85rem;">
-                    <span style="font-size:0.72rem; color:var(--text-muted); display:block; margin-top:4px;">Tip: Message <strong>@PortaVault_bot</strong> on Telegram (send /start), then click "Auto-Detect".</span>
+                    <input type="text" id="alert-tg-chatid" placeholder="e.g. 7578048485" style="width:100%; background:var(--bg-input); border:1px solid var(--border-medium); border-radius:8px; padding:9px 12px; color:var(--text-primary); font-size:0.85rem;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-top:5px; font-size:0.72rem; color:var(--text-muted);">
+                      <span>Tip: Message <strong>@PortaVault_bot</strong> on Telegram (send <code>/start</code>), then click Auto-Detect.</span>
+                      <span id="tg-connected-badge" style="color:#34d399; font-weight:600; display:none;">● Bot Linked</span>
+                    </div>
                   </div>
                 </div>
 
@@ -861,7 +866,7 @@
   <!-- Toast Container -->
   <div class="toast-container" id="toast-container"></div>
 
-  <script src="/js/admin.js"></script>
-  <script src="/js/tracker.js"></script>
+  <script src="/js/admin.js?v=2.2.0"></script>
+  <script src="/js/tracker.js?v=2.2.0"></script>
 </body>
 </html>
