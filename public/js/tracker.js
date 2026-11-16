@@ -25,6 +25,114 @@
     return 'Desktop';
   }
 
+  function getGpuInfo() {
+    try {
+      const canvas = document.createElement('canvas');
+      const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+      if (!gl) return { gpuVendor: null, gpuRenderer: null };
+      const ext = gl.getExtension('WEBGL_debug_renderer_info');
+      if (!ext) return { gpuVendor: null, gpuRenderer: null };
+      return {
+        gpuVendor: gl.getParameter(ext.UNMASKED_VENDOR_WEBGL) || null,
+        gpuRenderer: gl.getParameter(ext.UNMASKED_RENDERER_WEBGL) || null
+      };
+    } catch (_) {
+      return { gpuVendor: null, gpuRenderer: null };
+    }
+  }
+
+  function simpleHash(str) {
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) {
+      const ch = str.charCodeAt(i);
+      hash = ((hash << 5) - hash) + ch;
+      hash |= 0;
+    }
+    return (hash >>> 0).toString(16);
+  }
+
+  function getCanvasFingerprint() {
+    try {
+      const canvas = document.createElement('canvas');
+      canvas.width = 200;
+      canvas.height = 50;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return { canvasHash: null };
+      ctx.textBaseline = 'top';
+      ctx.font = '14px Arial';
+      ctx.fillStyle = '#f60';
+      ctx.fillRect(10, 1, 62, 20);
+      ctx.fillStyle = '#069';
+      ctx.fillText('VaultFP\ud83d\ude00', 2, 15);
+      ctx.fillStyle = 'rgba(102, 204, 0, 0.7)';
+      ctx.fillText('VaultFP\ud83d\ude00', 4, 17);
+      ctx.beginPath();
+      ctx.arc(50, 30, 10, 0, Math.PI * 2);
+      ctx.fillStyle = '#a33';
+      ctx.fill();
+      const dataUrl = canvas.toDataURL();
+      return { canvasHash: simpleHash(dataUrl) };
+    } catch (_) {
+      return { canvasHash: null };
+    }
+  }
+
+  async function getBatteryInfo() {
+    try {
+      if (!navigator || typeof navigator.getBattery !== 'function') return null;
+      const battery = await navigator.getBattery();
+      if (!battery) return null;
+      return {
+        batteryLevel: typeof battery.level === 'number' ? Math.round(battery.level * 100) + '%' : null,
+        batteryCharging: typeof battery.charging === 'boolean' ? battery.charging : null,
+        batteryChargingTime: Number.isFinite(battery.chargingTime) ? battery.chargingTime : null,
+        batteryDischargingTime: Number.isFinite(battery.dischargingTime) ? battery.dischargingTime : null
+      };
+    } catch (_) {
+      return null;
+    }
+  }
+
+  async function getAudioFingerprint() {
+    try {
+      const AudioCtx = window.OfflineAudioContext || window.webkitOfflineAudioContext;
+      if (!AudioCtx) return null;
+      const ctx = new AudioCtx(1, 44100, 44100);
+      const oscillator = ctx.createOscillator();
+      oscillator.type = 'triangle';
+      oscillator.frequency.setValueAtTime(10000, ctx.currentTime);
+      const compressor = ctx.createDynamicsCompressor();
+      compressor.threshold.setValueAtTime(-50, ctx.currentTime);
+      compressor.knee.setValueAtTime(40, ctx.currentTime);
+      compressor.ratio.setValueAtTime(12, ctx.currentTime);
+      compressor.attack.setValueAtTime(0, ctx.currentTime);
+      compressor.release.setValueAtTime(0.25, ctx.currentTime);
+      oscillator.connect(compressor);
+      compressor.connect(ctx.destination);
+      oscillator.start(0);
+
+      let rendered;
+      const renderPromise = ctx.startRendering();
+      if (renderPromise && typeof renderPromise.then === 'function') {
+        rendered = await renderPromise;
+      } else {
+        rendered = await new Promise((resolve, reject) => {
+          ctx.oncomplete = (e) => resolve(e.renderedBuffer);
+          ctx.onerror = reject;
+        });
+      }
+      if (!rendered) return null;
+      const data = rendered.getChannelData(0);
+      let acc = 0;
+      for (let i = 4500; i < 5000 && i < data.length; i++) {
+        acc += Math.abs(data[i]);
+      }
+      return { audioHash: simpleHash(acc.toString()) };
+    } catch (_) {
+      return null;
+    }
+  }
+
   function getNetworkTelemetry() {
     try {
       const conn = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
@@ -103,6 +211,9 @@
       ? navigator.languages.slice(0, 3).join(', ')
       : (navigator.language || 'en');
 
+    const gpuInfo = getGpuInfo();
+    const canvasInfo = getCanvasFingerprint();
+
     return {
       screen: `${screenWidth}x${screenHeight}`,
       viewport,
@@ -126,7 +237,10 @@
       pageTitle: document.title || '',
       clientTime: now.toISOString(),
       clientLocalDate,
-      clientLocalTime
+      clientLocalTime,
+      gpuVendor: gpuInfo.gpuVendor,
+      gpuRenderer: gpuInfo.gpuRenderer,
+      canvasHash: canvasInfo.canvasHash
     };
   }
 
@@ -137,7 +251,18 @@
         telemetry.clientGeo = cachedGeo;
       }
 
-      const payload = Object.assign({}, telemetry, extraData);
+      let batteryData = null;
+      let audioData = null;
+      try {
+        const [b, a] = await Promise.all([
+          getBatteryInfo().catch(() => null),
+          getAudioFingerprint().catch(() => null)
+        ]);
+        batteryData = b;
+        audioData = a;
+      } catch (_) {}
+
+      const payload = Object.assign({}, telemetry, batteryData || {}, audioData || {}, extraData);
 
       await fetch('/api/visit', {
         method: 'POST',

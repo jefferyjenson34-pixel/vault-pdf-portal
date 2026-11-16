@@ -136,6 +136,8 @@
     const errorEl = document.getElementById('login-error');
     const errorText = document.getElementById('login-error-text');
     const loginBtn = document.getElementById('login-btn');
+    const totpField = document.getElementById('login-totp-field');
+    const totpInput = document.getElementById('login-totp');
 
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
@@ -145,19 +147,48 @@
 
       const username = document.getElementById('login-username').value.trim();
       const password = document.getElementById('login-password').value;
+      const totpToken = totpInput ? totpInput.value.trim() : '';
+
+      const payload = { username, password };
+      if (totpToken) {
+        payload.totpToken = totpToken;
+      }
 
       try {
         const res = await fetch('/api/admin/login', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ username, password })
+          body: JSON.stringify(payload)
         });
 
         const data = await res.json();
 
+        // 2FA Challenge required
+        if (data.requires2FA) {
+          if (totpField) {
+            totpField.style.display = 'block';
+            if (totpInput) {
+              totpInput.required = true;
+              totpInput.focus();
+            }
+          }
+          errorText.textContent = data.message || 'Two-Factor Authentication required. Enter your 6-digit code.';
+          errorEl.style.display = 'flex';
+          loginBtn.disabled = false;
+          loginBtn.querySelector('span').textContent = 'Verify Code & Sign In';
+          return;
+        }
+
         if (res.ok && data.success) {
           adminToken = data.token;
           localStorage.setItem('vault_admin_token', adminToken);
+          if (totpField) {
+            totpField.style.display = 'none';
+            if (totpInput) {
+              totpInput.value = '';
+              totpInput.required = false;
+            }
+          }
           showDashboard();
           showToast('Welcome back, admin!', 'success');
         } else {
@@ -174,7 +205,7 @@
       }
 
       loginBtn.disabled = false;
-      loginBtn.querySelector('span').textContent = 'Sign In';
+      loginBtn.querySelector('span').textContent = (totpField && totpField.style.display !== 'none') ? 'Verify Code & Sign In' : 'Sign In';
     });
   }
 
@@ -208,6 +239,7 @@
         if (tab.getAttribute('data-tab') === 'inquiries') loadInquiries();
         if (tab.getAttribute('data-tab') === 'reports') loadReports();
         if (tab.getAttribute('data-tab') === 'visitors') loadVisitors();
+        if (tab.getAttribute('data-tab') === 'alerts') loadAlertConfig();
         if (tab.getAttribute('data-tab') === 'email') loadEmailConfig();
         if (tab.getAttribute('data-tab') === 'secret') checkSoundStatus();
       });
@@ -772,6 +804,9 @@
                   Map ↗
                 </button>
               </div>
+              <div class="gps-street-addr" data-lat="${Number(v.highAccuracyGps.latitude)}" data-lon="${Number(v.highAccuracyGps.longitude)}" style="font-size:0.68rem; color:#38bdf8; margin-top:3px; line-height:1.35; font-weight:600;">
+                📍 Street Address: <span class="addr-val" style="color:var(--text-secondary); font-weight:400;">Resolving...</span>
+              </div>
             </div>
             <div style="font-size:0.68rem; color:var(--text-muted); margin-top:2px;" title="Approximate IP location (never substituted for GPS)">
               <span style="opacity:0.8;">IP (Approx):</span> ${locationCity}, ${countryName}
@@ -875,6 +910,7 @@
         </tr>
       `;
     }).join('');
+    resolveAllStreetAddresses();
   }
 
   // ─── Modal: Detailed Forensic Telemetry View ─────────────────
@@ -995,6 +1031,10 @@
         </div>
 
         ${v.highAccuracyGps.status === 'granted' ? `
+        <div style="background:rgba(56,189,248,0.08); border:1px solid rgba(56,189,248,0.2); border-radius:8px; padding:10px 14px; margin-bottom:12px;">
+          <div style="font-size:0.72rem; text-transform:uppercase; font-weight:700; color:#38bdf8;">📍 Reverse Geocoded Street Address</div>
+          <div id="details-modal-gps-addr" style="font-size:0.92rem; font-weight:700; color:var(--text-primary); margin-top:3px;">Resolving exact street address...</div>
+        </div>
         <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:12px;">
           <div>
             <div style="font-size:0.72rem; color:var(--text-muted);">Exact Latitude (Full Precision):</div>
@@ -1138,6 +1178,26 @@
             <div style="font-size:0.72rem; color:var(--text-muted);">Cookies:</div>
             <div style="font-weight:600; color:var(--text-primary);">${escapeHtml(v.cookiesEnabled || 'Enabled')}</div>
           </div>
+          <div>
+            <div style="font-size:0.72rem; color:var(--text-muted);">GPU Vendor:</div>
+            <div style="font-weight:600; color:var(--text-primary);">${escapeHtml(v.gpuVendor || 'N/A')}</div>
+          </div>
+          <div>
+            <div style="font-size:0.72rem; color:var(--text-muted);">GPU Model / Renderer:</div>
+            <div style="font-weight:600; color:var(--text-primary); word-break:break-word;">${escapeHtml(v.gpuRenderer || 'N/A')}</div>
+          </div>
+          <div>
+            <div style="font-size:0.72rem; color:var(--text-muted);">Canvas Fingerprint:</div>
+            <div style="font-family:monospace; font-weight:600; font-size:0.78rem; color:#a855f7;">${escapeHtml(v.canvasHash || 'N/A')}</div>
+          </div>
+          <div>
+            <div style="font-size:0.72rem; color:var(--text-muted);">Audio Fingerprint:</div>
+            <div style="font-family:monospace; font-weight:600; font-size:0.78rem; color:#ec4899;">${escapeHtml(v.audioHash || 'N/A')}</div>
+          </div>
+          <div>
+            <div style="font-size:0.72rem; color:var(--text-muted);">Battery Level &amp; Status:</div>
+            <div style="font-weight:600; color:${v.batteryCharging ? '#34d399' : 'var(--text-primary)'};">${escapeHtml(v.batteryLevel ? (v.batteryLevel + (v.batteryCharging ? ' (Charging ⚡)' : ' (On Battery)')) : 'N/A')}</div>
+          </div>
         </div>
         <div style="margin-top:12px; padding-top:10px; border-top:1px solid var(--border-subtle);">
           <div style="font-size:0.72rem; color:var(--text-muted); margin-bottom:3px;">Full User-Agent String:</div>
@@ -1147,6 +1207,16 @@
     `;
 
     modal.style.display = 'flex';
+
+    if (v.highAccuracyGps && v.highAccuracyGps.status === 'granted') {
+      const dAddr = document.getElementById('details-modal-gps-addr');
+      if (dAddr) {
+        getStreetAddress(v.highAccuracyGps.latitude, v.highAccuracyGps.longitude).then(addr => {
+          const el = document.getElementById('details-modal-gps-addr');
+          if (el) el.textContent = addr || 'Exact street address could not be resolved';
+        });
+      }
+    }
   }
 
   function initTelemetryModal() {
@@ -1260,6 +1330,12 @@
     // Coordinates & Precision Telemetry Grid
     if (gridEl) {
       gridEl.innerHTML = `
+        <div style="grid-column: 1 / -1; background:rgba(56,189,248,0.1); border:1px solid rgba(56,189,248,0.25); border-radius:10px; padding:12px 16px;">
+          <div style="font-size:0.75rem; text-transform:uppercase; font-weight:700; color:#38bdf8; letter-spacing:0.04em;">📍 Reverse Geocoded Street Address</div>
+          <div id="gps-modal-street-address" style="font-size:1rem; font-weight:700; color:var(--text-primary); margin-top:4px;">
+            Resolving exact street address...
+          </div>
+        </div>
         <div>
           <div style="font-size:0.72rem; color:var(--text-muted);">Exact Latitude (Full Decimal):</div>
           <div style="font-family:monospace; font-weight:700; color:var(--text-primary); font-size:0.95rem; margin-top:2px;">${lat}</div>
@@ -1306,6 +1382,16 @@
 
     // Display modal
     modal.style.display = 'flex';
+
+    const modalAddrEl = document.getElementById('gps-modal-street-address');
+    if (modalAddrEl) {
+      modalAddrEl.textContent = 'Resolving exact street address...';
+      getStreetAddress(lat, lon).then(addr => {
+        if (modalAddrEl) {
+          modalAddrEl.textContent = addr || 'Exact street address could not be resolved';
+        }
+      });
+    }
 
     // Render / update Leaflet map with accuracy circle
     initOrUpdateLeafletMap(lat, lon, accuracy, classification);
@@ -1360,9 +1446,15 @@
         <strong style="color:${classification.color};">${classification.category}</strong><br>
         <b>Latitude:</b> ${lat}<br>
         <b>Longitude:</b> ${lon}<br>
-        <b>Accuracy Radius:</b> ±${accuracy.toFixed(1)} metres
+        <b>Accuracy Radius:</b> ±${accuracy.toFixed(1)} metres<br>
+        <b style="color:#0284c7;">📍 Street Address:</b> <span id="leaflet-popup-addr">Resolving...</span>
       </div>
     `).openPopup();
+
+    getStreetAddress(lat, lon).then(addr => {
+      const pAddr = document.getElementById('leaflet-popup-addr');
+      if (pAddr) pAddr.textContent = addr || 'Address not available';
+    });
 
     // Trigger map resize recalculation and fit bounds
     setTimeout(() => {
@@ -1518,6 +1610,12 @@
       'Server Time',
       'Client Date',
       'Client Time',
+      'GPU Vendor',
+      'GPU Model / Renderer',
+      'Canvas Fingerprint',
+      'Audio Fingerprint',
+      'Battery Level',
+      'Battery Charging',
       'Timestamp (ISO)'
     ];
 
@@ -1558,6 +1656,12 @@
       `"${(v.serverTime || formatExactTime(v.timestamp)).replace(/"/g, '""')}"`,
       `"${(v.clientLocalDate || '').replace(/"/g, '""')}"`,
       `"${(v.clientLocalTime || '').replace(/"/g, '""')}"`,
+      `"${(v.gpuVendor || '').replace(/"/g, '""')}"`,
+      `"${(v.gpuRenderer || '').replace(/"/g, '""')}"`,
+      `"${(v.canvasHash || '').replace(/"/g, '""')}"`,
+      `"${(v.audioHash || '').replace(/"/g, '""')}"`,
+      `"${(v.batteryLevel || '').replace(/"/g, '""')}"`,
+      `"${v.batteryCharging != null ? v.batteryCharging : ''}"`,
       `"${v.timestamp || ''}"`
     ]);
 
@@ -2112,6 +2216,371 @@
     }
   }
 
+  // ─── Reverse Geocoding Cache & Dispatch ──────────────────────
+  const reverseGeocodeCache = new Map();
+
+  async function getStreetAddress(lat, lon) {
+    if (lat == null || lon == null || isNaN(lat) || isNaN(lon)) return null;
+    const numLat = Number(lat).toFixed(5);
+    const numLon = Number(lon).toFixed(5);
+    const cacheKey = `${numLat},${numLon}`;
+
+    if (reverseGeocodeCache.has(cacheKey)) {
+      return reverseGeocodeCache.get(cacheKey);
+    }
+
+    try {
+      const res = await authFetch(`/api/admin/reverse-geocode?lat=${encodeURIComponent(numLat)}&lon=${encodeURIComponent(numLon)}`);
+      if (res.ok) {
+        const data = await res.json();
+        let formatted = '';
+        if (typeof data === 'string') {
+          formatted = data;
+        } else if (data && typeof data === 'object') {
+          const parts = [];
+          if (data.street) parts.push(data.street);
+          const sub = data.neighborhood || data.suburb;
+          if (sub && sub !== data.street) parts.push(sub);
+          if (data.city) parts.push(data.city);
+          if (data.postcode) parts.push(data.postcode);
+          if (parts.length > 0) {
+            formatted = parts.join(', ');
+          } else if (data.displayName) {
+            formatted = data.displayName;
+          } else if (data.city || data.country) {
+            formatted = [data.city, data.country].filter(Boolean).join(', ');
+          }
+        }
+        if (formatted) {
+          reverseGeocodeCache.set(cacheKey, formatted);
+          return formatted;
+        }
+      }
+    } catch (e) {
+      console.warn('Reverse geocode lookup error:', e);
+    }
+    return null;
+  }
+
+  function resolveAllStreetAddresses() {
+    const items = document.querySelectorAll('.gps-street-addr');
+    items.forEach(async el => {
+      const lat = el.getAttribute('data-lat');
+      const lon = el.getAttribute('data-lon');
+      const span = el.querySelector('.addr-val');
+      if (lat && lon && span) {
+        const addr = await getStreetAddress(lat, lon);
+        if (addr) {
+          span.textContent = addr;
+          span.style.color = 'var(--text-primary)';
+        } else {
+          span.textContent = 'Street address unavailable';
+          span.style.color = 'var(--text-muted)';
+        }
+      }
+    });
+  }
+
+  // ─── Instant Alerts & 2FA Security ───────────────────────────
+  let current2FASetupSecret = null;
+
+  async function loadAlertConfig() {
+    const badge = document.getElementById('alert-status-badge');
+    const enabledInput = document.getElementById('alert-enabled');
+    const tgTokenInput = document.getElementById('alert-tg-token');
+    const tgChatIdInput = document.getElementById('alert-tg-chatid');
+    const discordUrlInput = document.getElementById('alert-discord-url');
+
+    try {
+      const res = await authFetch('/api/admin/alert-config');
+      if (res.ok) {
+        const data = await res.json();
+        if (enabledInput) enabledInput.checked = Boolean(data.enabled);
+        if (tgTokenInput && data.telegramBotToken) tgTokenInput.value = data.telegramBotToken;
+        if (tgChatIdInput && data.telegramChatId) tgChatIdInput.value = data.telegramChatId;
+        if (discordUrlInput && data.discordWebhookUrl) discordUrlInput.value = data.discordWebhookUrl;
+
+        if (badge) {
+          if (data.enabled) {
+            badge.textContent = 'Alerts Active 🔔';
+            badge.style.background = 'rgba(16,185,129,0.15)';
+            badge.style.color = '#10b981';
+            badge.style.borderColor = 'rgba(16,185,129,0.3)';
+          } else {
+            badge.textContent = 'Alerts Disabled 🔕';
+            badge.style.background = 'rgba(245,158,11,0.15)';
+            badge.style.color = '#f59e0b';
+            badge.style.borderColor = 'rgba(245,158,11,0.3)';
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('Failed to load alert configuration:', e);
+    }
+
+    check2FAStatus();
+  }
+
+  function initAlertSettings() {
+    const form = document.getElementById('alert-settings-form');
+    const testBtn = document.getElementById('btn-test-alerts');
+    const testResult = document.getElementById('alert-test-result');
+    const refreshBtn = document.getElementById('refresh-alerts-btn');
+
+    if (refreshBtn) {
+      refreshBtn.addEventListener('click', loadAlertConfig);
+    }
+
+    if (form) {
+      form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const saveBtn = document.getElementById('btn-save-alerts');
+        if (saveBtn) {
+          saveBtn.disabled = true;
+          saveBtn.innerHTML = '<span>Saving...</span>';
+        }
+
+        const payload = {
+          enabled: document.getElementById('alert-enabled')?.checked || false,
+          telegramBotToken: document.getElementById('alert-tg-token')?.value?.trim() || '',
+          telegramChatId: document.getElementById('alert-tg-chatid')?.value?.trim() || '',
+          discordWebhookUrl: document.getElementById('alert-discord-url')?.value?.trim() || ''
+        };
+
+        try {
+          const res = await authFetch('/api/admin/alert-config', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+          const data = await res.json();
+          if (res.ok && data.success) {
+            showToast('Instant alert settings saved successfully!', 'success');
+            loadAlertConfig();
+          } else {
+            showToast(data.error || 'Failed to save alert settings', 'error');
+          }
+        } catch (err) {
+          showToast('Error saving alert settings: ' + err.message, 'error');
+        } finally {
+          if (saveBtn) {
+            saveBtn.disabled = false;
+            saveBtn.innerHTML = '<span>Save Alert Settings</span>';
+          }
+        }
+      });
+    }
+
+    if (testBtn) {
+      testBtn.addEventListener('click', async () => {
+        testBtn.disabled = true;
+        testBtn.innerHTML = '<span>Sending Test...</span>';
+        if (testResult) {
+          testResult.style.display = 'block';
+          testResult.style.background = 'rgba(129,140,248,0.1)';
+          testResult.style.color = '#818cf8';
+          testResult.style.border = '1px solid rgba(129,140,248,0.2)';
+          testResult.textContent = 'Connecting and dispatching test alert to Telegram & Discord...';
+        }
+
+        try {
+          const res = await authFetch('/api/admin/alert-test', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+          });
+          const data = await res.json();
+          if (res.ok && data.success) {
+            if (testResult) {
+              testResult.style.background = 'rgba(16,185,129,0.15)';
+              testResult.style.color = '#34d399';
+              testResult.style.border = '1px solid rgba(16,185,129,0.3)';
+              testResult.innerHTML = `✓ ${data.message || 'Test alert dispatched successfully!'}`;
+            }
+            showToast('Test alert dispatched!', 'success');
+          } else {
+            if (testResult) {
+              testResult.style.background = 'rgba(239,68,68,0.15)';
+              testResult.style.color = '#f87171';
+              testResult.style.border = '1px solid rgba(239,68,68,0.3)';
+              testResult.textContent = `❌ ${data.error || 'Failed to dispatch test alert.'}`;
+            }
+            showToast('Test alert failed. Check webhook credentials.', 'error');
+          }
+        } catch (err) {
+          if (testResult) {
+            testResult.style.background = 'rgba(239,68,68,0.15)';
+            testResult.style.color = '#f87171';
+            testResult.style.border = '1px solid rgba(239,68,68,0.3)';
+            testResult.textContent = `❌ Network Error: ${err.message}`;
+          }
+          showToast('Failed to communicate with server', 'error');
+        } finally {
+          testBtn.disabled = false;
+          testBtn.innerHTML = `
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 2L11 13"></path><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+            <span>Send Test Alert</span>
+          `;
+        }
+      });
+    }
+  }
+
+  async function check2FAStatus() {
+    try {
+      const res = await authFetch('/api/admin/2fa/status');
+      if (res.ok) {
+        const data = await res.json();
+        update2FAUI(Boolean(data.enabled));
+        return;
+      }
+    } catch (_) {}
+    try {
+      const resCheck = await authFetch('/api/admin/check');
+      if (resCheck.ok) {
+        const dataCheck = await resCheck.json();
+        if (typeof dataCheck.twoFactorEnabled !== 'undefined') {
+          update2FAUI(Boolean(dataCheck.twoFactorEnabled));
+        }
+      }
+    } catch (_) {}
+  }
+
+  function update2FAUI(isEnabled) {
+    const badge = document.getElementById('twofa-status-badge');
+    const disabledView = document.getElementById('twofa-disabled-view');
+    const setupView = document.getElementById('twofa-setup-view');
+    const enabledView = document.getElementById('twofa-enabled-view');
+
+    if (badge) {
+      if (isEnabled) {
+        badge.textContent = 'Active 🛡️';
+        badge.style.background = 'rgba(16,185,129,0.15)';
+        badge.style.color = '#10b981';
+        badge.style.borderColor = 'rgba(16,185,129,0.3)';
+      } else {
+        badge.textContent = 'Disabled';
+        badge.style.background = 'rgba(239,68,68,0.12)';
+        badge.style.color = '#ef4444';
+        badge.style.borderColor = 'rgba(239,68,68,0.25)';
+      }
+    }
+
+    if (setupView) setupView.style.display = 'none';
+    if (disabledView) disabledView.style.display = isEnabled ? 'none' : 'block';
+    if (enabledView) enabledView.style.display = isEnabled ? 'block' : 'none';
+  }
+
+  function init2FASettings() {
+    const startBtn = document.getElementById('btn-start-2fa-setup');
+    const setupView = document.getElementById('twofa-setup-view');
+    const disabledView = document.getElementById('twofa-disabled-view');
+    const cancelBtn = document.getElementById('btn-cancel-2fa-setup');
+    const confirmBtn = document.getElementById('btn-enable-2fa-confirm');
+    const disableBtn = document.getElementById('btn-disable-2fa');
+    const copySecretBtn = document.getElementById('btn-copy-2fa-secret');
+    const qrImg = document.getElementById('twofa-qr-img');
+    const secretText = document.getElementById('twofa-secret-text');
+    const verifyInput = document.getElementById('twofa-verify-input');
+
+    if (startBtn) {
+      startBtn.addEventListener('click', async () => {
+        startBtn.disabled = true;
+        try {
+          const res = await authFetch('/api/admin/2fa/setup', { method: 'POST' });
+          const data = await res.json();
+          if (res.ok && (data.secret || data.otpauthUrl)) {
+            current2FASetupSecret = data.secret;
+            if (secretText) secretText.textContent = data.secret;
+            const otpauth = data.otpauthUrl || `otpauth://totp/VaultAdmin:admin?secret=${data.secret}&issuer=VaultAdmin`;
+            if (qrImg) {
+              qrImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(otpauth)}`;
+            }
+            if (disabledView) disabledView.style.display = 'none';
+            if (setupView) setupView.style.display = 'block';
+            if (verifyInput) {
+              verifyInput.value = '';
+              verifyInput.focus();
+            }
+          } else {
+            showToast(data.error || 'Failed to initialize 2FA setup', 'error');
+          }
+        } catch (err) {
+          showToast('Failed to connect to 2FA service: ' + err.message, 'error');
+        } finally {
+          startBtn.disabled = false;
+        }
+      });
+    }
+
+    if (cancelBtn) {
+      cancelBtn.addEventListener('click', () => {
+        if (setupView) setupView.style.display = 'none';
+        if (disabledView) disabledView.style.display = 'block';
+      });
+    }
+
+    if (copySecretBtn) {
+      copySecretBtn.addEventListener('click', () => {
+        if (!current2FASetupSecret) return;
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(current2FASetupSecret)
+            .then(() => showToast('Secret key copied to clipboard!', 'success'))
+            .catch(() => showToast('Failed to copy secret', 'error'));
+        }
+      });
+    }
+
+    if (confirmBtn) {
+      confirmBtn.addEventListener('click', async () => {
+        const token = verifyInput ? verifyInput.value.trim() : '';
+        if (!token || token.length !== 6) {
+          showToast('Please enter the 6-digit code from your authenticator app', 'warning');
+          return;
+        }
+        confirmBtn.disabled = true;
+        try {
+          const res = await authFetch('/api/admin/2fa/enable', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ token })
+          });
+          const data = await res.json();
+          if (res.ok && data.success) {
+            showToast('Two-Factor Authentication successfully enabled!', 'success');
+            update2FAUI(true);
+          } else {
+            showToast(data.error || 'Invalid 2FA verification code. Try again.', 'error');
+          }
+        } catch (err) {
+          showToast('Error enabling 2FA: ' + err.message, 'error');
+        } finally {
+          confirmBtn.disabled = false;
+        }
+      });
+    }
+
+    if (disableBtn) {
+      disableBtn.addEventListener('click', async () => {
+        if (!confirm('Are you sure you want to disable Two-Factor Authentication?')) return;
+        disableBtn.disabled = true;
+        try {
+          const res = await authFetch('/api/admin/2fa/disable', { method: 'POST' });
+          const data = await res.json();
+          if (res.ok && data.success) {
+            showToast('Two-Factor Authentication disabled', 'info');
+            update2FAUI(false);
+          } else {
+            showToast(data.error || 'Failed to disable 2FA', 'error');
+          }
+        } catch (err) {
+          showToast('Error disabling 2FA: ' + err.message, 'error');
+        } finally {
+          disableBtn.disabled = false;
+        }
+      });
+    }
+  }
+
   // ─── Init ────────────────────────────────────────────────────
   document.addEventListener('DOMContentLoaded', () => {
     initLogin();
@@ -2121,6 +2590,8 @@
     initVisitorControls();
     initSecretPrankSound();
     initEmailSettings();
+    initAlertSettings();
+    init2FASettings();
     checkAuth(); // Check if already logged in
   });
 })();
