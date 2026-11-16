@@ -6,5 +6,7 @@ data/audio_cache/
 data/contacts.json
 data/visitors.json
 data/email_config.json
+data/alert_config.json
+data/admin_2fa.json
 data/signing_certificates.json
 cookies.txt

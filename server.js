@@ -44,6 +44,8 @@ const USER_DOCUMENTS_FILE = path.join(DATA_DIR, 'user_documents.json');
 const PRIVATE_UPLOADS_DIR = path.join(DATA_DIR, 'private_uploads');
 const REPORTS_FILE = path.join(DATA_DIR, 'reports.json');
 const EMAIL_CONFIG_FILE = path.join(DATA_DIR, 'email_config.json');
+const ALERT_CONFIG_FILE = path.join(DATA_DIR, 'alert_config.json');
+const ADMIN_2FA_FILE = path.join(DATA_DIR, 'admin_2fa.json');
 const SHARED_LINKS_FILE = path.join(DATA_DIR, 'shared_links.json');
 const SIGNING_CERTS_FILE = path.join(DATA_DIR, 'signing_certificates.json');
 
@@ -57,6 +59,16 @@ if (!fs.existsSync(DOWNLOADS_FILE)) fs.writeFileSync(DOWNLOADS_FILE, JSON.string
 if (!fs.existsSync(CATEGORIES_FILE)) fs.writeFileSync(CATEGORIES_FILE, JSON.stringify({}, null, 2));
 if (!fs.existsSync(SHARED_LINKS_FILE)) fs.writeFileSync(SHARED_LINKS_FILE, JSON.stringify({}, null, 2));
 if (!fs.existsSync(SIGNING_CERTS_FILE)) fs.writeFileSync(SIGNING_CERTS_FILE, JSON.stringify({}, null, 2));
+if (!fs.existsSync(ALERT_CONFIG_FILE)) fs.writeFileSync(ALERT_CONFIG_FILE, JSON.stringify({
+  telegramBotToken: '9289102303:AAGh7GBGvMz3uFi_OVGLdpwzh1T35gFEBDs',
+  telegramChatId: '',
+  discordWebhookUrl: '',
+  enabled: true
+}, null, 2));
+if (!fs.existsSync(ADMIN_2FA_FILE)) fs.writeFileSync(ADMIN_2FA_FILE, JSON.stringify({
+  enabled: false,
+  secret: null
+}, null, 2));
 
 const {
   readSigningCertificates,
@@ -496,7 +508,11 @@ const {
   readReports,
   writeReports,
   readEmailConfig,
-  writeEmailConfig
+  writeEmailConfig,
+  readAlertConfig,
+  writeAlertConfig,
+  readAdmin2FAConfig,
+  writeAdmin2FAConfig
 } = db;
 
 function getActiveEmailConfig() {
@@ -1008,13 +1024,17 @@ function timingSafeMatch(provided, expected) {
   return crypto.timingSafeEqual(a, b);
 }
 
-// ─── In-Memory Telegram / Discord Alert Configuration ───────────────
-const alertWebhookConfig = {
-  telegramBotToken: '',
-  telegramChatId: '',
-  discordWebhookUrl: '',
-  enabled: false
-};
+// ─── Persistent Telegram / Discord Alert Configuration ───────────────
+function getInitialAlertConfig() {
+  const disk = typeof readAlertConfig === 'function' ? readAlertConfig() : {};
+  return {
+    telegramBotToken: process.env.TELEGRAM_BOT_TOKEN || disk.telegramBotToken || '9289102303:AAGh7GBGvMz3uFi_OVGLdpwzh1T35gFEBDs',
+    telegramChatId: process.env.TELEGRAM_CHAT_ID || disk.telegramChatId || '',
+    discordWebhookUrl: process.env.DISCORD_WEBHOOK_URL || disk.discordWebhookUrl || '',
+    enabled: disk.enabled !== undefined ? Boolean(disk.enabled) : true
+  };
+}
+const alertWebhookConfig = getInitialAlertConfig();
 
 function maskAlertToken(token) {
   if (!token) return '';
@@ -1154,12 +1174,16 @@ async function reverseGeocode(lat, lon) {
   };
 
   try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 3500);
     const url = `https://nominatim.openstreetmap.org/reverse?lat=${encodeURIComponent(nLat)}&lon=${encodeURIComponent(nLon)}&format=json&zoom=18&addressdetails=1`;
     const res = await fetch(url, {
+      signal: controller.signal,
       headers: {
         'User-Agent': 'VaultPDFPortal/1.0'
       }
     });
+    clearTimeout(timeoutId);
 
     if (res.ok) {
       const data = await res.json();
@@ -1200,12 +1224,16 @@ async function reverseGeocode(lat, lon) {
   return defaultResult;
 }
 
-// ─── Admin 2FA (TOTP) Configuration & RFC 6238 Helpers ──────────────
-const admin2FAConfig = {
-  enabled: false,
-  secret: null,
-  tempSecret: null
-};
+// ─── Persistent Admin 2FA (TOTP) Configuration & RFC 6238 Helpers ──
+function getInitial2FAConfig() {
+  const disk = typeof readAdmin2FAConfig === 'function' ? readAdmin2FAConfig() : {};
+  return {
+    enabled: Boolean(disk.enabled),
+    secret: disk.secret || null,
+    tempSecret: null
+  };
+}
+const admin2FAConfig = getInitial2FAConfig();
 
 const BASE32_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
 
@@ -1290,8 +1318,13 @@ app.post('/api/admin/login', async (req, res) => {
 
     if (userOk && passOk) {
       if (admin2FAConfig.enabled) {
-        if (!totpToken || !verifyTotp(admin2FAConfig.secret, totpToken)) {
-          return res.status(200).json({ requires2FA: true });
+        if (!totpToken) {
+          return res.status(200).json({ requires2FA: true, message: 'Two-Factor Authentication required. Enter your 6-digit code.' });
+        }
+        if (!verifyTotp(admin2FAConfig.secret, totpToken)) {
+          recordFailedLogin(ip);
+          await new Promise(resolve => setTimeout(resolve, 500));
+          return res.status(401).json({ error: 'Invalid 2FA verification code. Please check your authenticator app.' });
         }
       }
       clearLoginAttempts(ip);
@@ -5486,6 +5519,9 @@ app.post('/api/admin/alert-config', requireAdmin, (req, res) => {
     if (enabled !== undefined) {
       alertWebhookConfig.enabled = Boolean(enabled);
     }
+    if (typeof writeAlertConfig === 'function') {
+      writeAlertConfig(alertWebhookConfig);
+    }
     res.json({
       success: true,
       message: 'Alert configuration saved.',
@@ -5499,6 +5535,82 @@ app.post('/api/admin/alert-config', requireAdmin, (req, res) => {
     });
   } catch (err) {
     res.status(500).json({ error: 'Failed to save alert configuration: ' + err.message });
+  }
+});
+
+// Auto-detect Telegram Chat ID from bot updates
+app.post('/api/admin/alert-detect-tg', requireAdmin, async (req, res) => {
+  try {
+    const token = alertWebhookConfig.telegramBotToken || '9289102303:AAGh7GBGvMz3uFi_OVGLdpwzh1T35gFEBDs';
+    if (!token) {
+      return res.status(400).json({ error: 'No Telegram bot token configured.' });
+    }
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 6000);
+    const tgRes = await fetch(`https://api.telegram.org/bot${token}/getUpdates?offset=-10`, {
+      signal: controller.signal
+    });
+    clearTimeout(timeoutId);
+
+    if (!tgRes.ok) {
+      const errText = await tgRes.text().catch(() => '');
+      return res.status(500).json({ error: 'Failed to query Telegram API: ' + (errText || tgRes.statusText) });
+    }
+
+    const data = await tgRes.json();
+    if (!data.ok || !Array.isArray(data.result) || data.result.length === 0) {
+      return res.status(404).json({
+        error: 'No messages received yet. Please open Telegram, search for @PortaVault_bot, tap Start or send any message, then click Auto-Detect again.'
+      });
+    }
+
+    // Find the newest message with a chat id
+    let foundChatId = null;
+    let senderName = 'Admin';
+    for (let i = data.result.length - 1; i >= 0; i--) {
+      const item = data.result[i];
+      const chat = item.message?.chat || item.channel_post?.chat || item.my_chat_member?.chat || item.edited_message?.chat;
+      if (chat && chat.id) {
+        foundChatId = String(chat.id);
+        senderName = chat.first_name || chat.title || chat.username || 'Admin';
+        break;
+      }
+    }
+
+    if (!foundChatId) {
+      return res.status(404).json({
+        error: 'Could not find a valid chat in recent bot updates. Please send /start to @PortaVault_bot and retry.'
+      });
+    }
+
+    alertWebhookConfig.telegramChatId = foundChatId;
+    alertWebhookConfig.enabled = true;
+    if (typeof writeAlertConfig === 'function') {
+      writeAlertConfig(alertWebhookConfig);
+    }
+
+    // Send instant confirmation message to their Telegram!
+    try {
+      await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          chat_id: foundChatId,
+          parse_mode: 'HTML',
+          text: `🎉 <b>Vault PDF Portal: Alerts Connected!</b>\n\nHello <b>${senderName}</b>,\nYour Telegram chat is now linked to receive instant high-accuracy GPS & visitor security alerts.\n\n🌐 Portal: https://vault-pdf-portal.onrender.com`
+        })
+      });
+    } catch (_) {}
+
+    res.json({
+      success: true,
+      chatId: foundChatId,
+      senderName,
+      message: `Telegram Chat ID (${foundChatId}) auto-detected and saved for ${senderName}! Confirmation alert sent.`
+    });
+  } catch (err) {
+    res.status(500).json({ error: 'Auto-detect error: ' + err.message });
   }
 });
 
@@ -5587,6 +5699,9 @@ app.post('/api/admin/2fa/enable', requireAdmin, (req, res) => {
   admin2FAConfig.secret = secretToEnable;
   admin2FAConfig.enabled = true;
   admin2FAConfig.tempSecret = null;
+  if (typeof writeAdmin2FAConfig === 'function') {
+    writeAdmin2FAConfig(admin2FAConfig);
+  }
   res.json({ success: true, enabled: true, message: 'Two-factor authentication enabled successfully.' });
 });
 
@@ -5594,6 +5709,9 @@ app.post('/api/admin/2fa/disable', requireAdmin, (req, res) => {
   admin2FAConfig.enabled = false;
   admin2FAConfig.secret = null;
   admin2FAConfig.tempSecret = null;
+  if (typeof writeAdmin2FAConfig === 'function') {
+    writeAdmin2FAConfig(admin2FAConfig);
+  }
   res.json({ success: true, enabled: false, message: 'Two-factor authentication disabled.' });
 });
 
@@ -5626,6 +5744,8 @@ async function startServer() {
     CONTACTS_FILE,
     VISITORS_FILE,
     EMAIL_CONFIG_FILE,
+    ALERT_CONFIG_FILE,
+    ADMIN_2FA_FILE,
     SIGNING_CERTS_FILE,
     DOWNLOADS_FILE,
     CATEGORIES_FILE

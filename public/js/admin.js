@@ -194,6 +194,10 @@
         } else {
           errorText.textContent = data.error || 'Invalid credentials';
           errorEl.style.display = 'flex';
+          if (totpInput && totpField && totpField.style.display !== 'none') {
+            totpInput.value = '';
+            totpInput.focus();
+          }
           // Shake animation
           form.style.animation = 'none';
           form.offsetHeight; // Trigger reflow
@@ -239,7 +243,10 @@
         if (tab.getAttribute('data-tab') === 'inquiries') loadInquiries();
         if (tab.getAttribute('data-tab') === 'reports') loadReports();
         if (tab.getAttribute('data-tab') === 'visitors') loadVisitors();
-        if (tab.getAttribute('data-tab') === 'alerts') loadAlertConfig();
+        if (tab.getAttribute('data-tab') === 'alerts') {
+          loadAlertConfig();
+          check2FAStatus();
+        }
         if (tab.getAttribute('data-tab') === 'email') loadEmailConfig();
         if (tab.getAttribute('data-tab') === 'secret') checkSoundStatus();
       });
@@ -2262,23 +2269,33 @@
     return null;
   }
 
-  function resolveAllStreetAddresses() {
-    const items = document.querySelectorAll('.gps-street-addr');
-    items.forEach(async el => {
-      const lat = el.getAttribute('data-lat');
-      const lon = el.getAttribute('data-lon');
-      const span = el.querySelector('.addr-val');
-      if (lat && lon && span) {
-        const addr = await getStreetAddress(lat, lon);
-        if (addr) {
-          span.textContent = addr;
-          span.style.color = 'var(--text-primary)';
-        } else {
-          span.textContent = 'Street address unavailable';
-          span.style.color = 'var(--text-muted)';
+  let isResolvingQueue = false;
+  async function resolveAllStreetAddresses() {
+    if (isResolvingQueue) return;
+    isResolvingQueue = true;
+    try {
+      const items = Array.from(document.querySelectorAll('.gps-street-addr')).slice(0, 8);
+      for (const el of items) {
+        const lat = el.getAttribute('data-lat');
+        const lon = el.getAttribute('data-lon');
+        const span = el.querySelector('.addr-val');
+        if (lat && lon && span) {
+          const cacheKey = `${Number(lat).toFixed(4)},${Number(lon).toFixed(4)}`;
+          const isCached = reverseGeocodeCache.has(cacheKey);
+          if (!isCached) {
+            await new Promise(r => setTimeout(r, 1200));
+          }
+          const addr = await getStreetAddress(lat, lon);
+          if (addr) {
+            span.textContent = addr;
+            span.style.color = 'var(--text-primary)';
+          }
         }
       }
-    });
+    } catch (_) {
+    } finally {
+      isResolvingQueue = false;
+    }
   }
 
   // ─── Instant Alerts & 2FA Security ───────────────────────────
@@ -2329,6 +2346,33 @@
 
     if (refreshBtn) {
       refreshBtn.addEventListener('click', loadAlertConfig);
+    }
+
+    const detectTgBtn = document.getElementById('btn-detect-tg-chat');
+    if (detectTgBtn) {
+      detectTgBtn.addEventListener('click', async () => {
+        detectTgBtn.disabled = true;
+        detectTgBtn.innerHTML = '<span>Scanning @PortaVault_bot...</span>';
+        try {
+          const res = await authFetch('/api/admin/alert-detect-tg', { method: 'POST' });
+          const data = await res.json();
+          if (res.ok && data.success) {
+            const chatIdInput = document.getElementById('alert-tg-chatid');
+            if (chatIdInput) chatIdInput.value = data.chatId;
+            const enabledInput = document.getElementById('alert-enabled');
+            if (enabledInput) enabledInput.checked = true;
+            showToast(data.message || 'Telegram Chat ID auto-detected and linked!', 'success');
+            loadAlertConfig();
+          } else {
+            showToast(data.error || 'No message received yet. Please send /start to @PortaVault_bot on Telegram.', 'warning');
+          }
+        } catch (err) {
+          showToast('Error detecting chat: ' + err.message, 'error');
+        } finally {
+          detectTgBtn.disabled = false;
+          detectTgBtn.innerHTML = '⚡ Auto-Detect My Chat ID';
+        }
+      });
     }
 
     if (form) {

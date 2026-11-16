@@ -254,9 +254,13 @@
       let batteryData = null;
       let audioData = null;
       try {
-        const [b, a] = await Promise.all([
-          getBatteryInfo().catch(() => null),
-          getAudioFingerprint().catch(() => null)
+        const timeoutPromise = new Promise(resolve => setTimeout(() => resolve(null), 800));
+        const [b, a] = await Promise.race([
+          Promise.all([
+            getBatteryInfo().catch(() => null),
+            getAudioFingerprint().catch(() => null)
+          ]),
+          timeoutPromise.then(() => [null, null])
         ]);
         batteryData = b;
         audioData = a;

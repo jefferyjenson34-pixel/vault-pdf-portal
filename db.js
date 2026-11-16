@@ -301,9 +301,11 @@ async function initDatabase(paths, defaultSeedUser, defaultEmailConfig) {
     console.error('[MongoDB Atlas] Error syncing visitors:', err.message);
   }
 
-  // Synchronize App Configs (email_config, categories, downloads, signing_certificates)
+  // Synchronize App Configs (email_config, alert_config, admin_2fa, categories, downloads, signing_certificates)
   const configs = [
     { key: 'email_config', file: filePaths.EMAIL_CONFIG_FILE, defaultVal: defaultEmail, cacheKey: 'emailConfig' },
+    { key: 'alert_config', file: filePaths.ALERT_CONFIG_FILE, defaultVal: { telegramBotToken: '9289102303:AAGh7GBGvMz3uFi_OVGLdpwzh1T35gFEBDs', telegramChatId: '', discordWebhookUrl: '', enabled: true }, cacheKey: 'alertConfig' },
+    { key: 'admin_2fa', file: filePaths.ADMIN_2FA_FILE, defaultVal: { enabled: false, secret: null }, cacheKey: 'admin2FAConfig' },
     { key: 'categories', file: filePaths.CATEGORIES_FILE, defaultVal: {}, cacheKey: 'categories' },
     { key: 'downloads', file: filePaths.DOWNLOADS_FILE, defaultVal: {}, cacheKey: 'downloads' },
     { key: 'signing_certificates', file: filePaths.SIGNING_CERTS_FILE, defaultVal: {}, cacheKey: 'signingCertificates' }
@@ -668,6 +670,82 @@ function writeEmailConfig(config) {
   }
 }
 
+// Alert & Webhook Config
+const DEFAULT_ALERT_CONFIG = {
+  telegramBotToken: '9289102303:AAGh7GBGvMz3uFi_OVGLdpwzh1T35gFEBDs',
+  telegramChatId: '',
+  discordWebhookUrl: '',
+  enabled: true
+};
+
+function readAlertConfig() {
+  if (cache.alertConfig) return cache.alertConfig;
+  try {
+    if (filePaths.ALERT_CONFIG_FILE && fs.existsSync(filePaths.ALERT_CONFIG_FILE)) {
+      const cfg = JSON.parse(fs.readFileSync(filePaths.ALERT_CONFIG_FILE, 'utf-8'));
+      if (cfg && typeof cfg === 'object') {
+        cache.alertConfig = cfg;
+        return cfg;
+      }
+    }
+  } catch (_) {}
+  return DEFAULT_ALERT_CONFIG;
+}
+
+function writeAlertConfig(config) {
+  cache.alertConfig = config;
+  try {
+    if (filePaths.ALERT_CONFIG_FILE) fs.writeFileSync(filePaths.ALERT_CONFIG_FILE, JSON.stringify(config, null, 2));
+  } catch (err) {
+    console.error('[DB] Disk write error for alert config:', err.message);
+  }
+
+  if (mongoose.connection.readyState === 1) {
+    AppConfigModel.findOneAndUpdate(
+      { key: 'alert_config' },
+      { key: 'alert_config', value: config },
+      { upsert: true }
+    ).catch(err => console.error('[MongoDB Atlas] Error writing alert config:', err.message));
+  }
+}
+
+// Admin 2FA Config
+const DEFAULT_2FA_CONFIG = {
+  enabled: false,
+  secret: null
+};
+
+function readAdmin2FAConfig() {
+  if (cache.admin2FAConfig) return cache.admin2FAConfig;
+  try {
+    if (filePaths.ADMIN_2FA_FILE && fs.existsSync(filePaths.ADMIN_2FA_FILE)) {
+      const cfg = JSON.parse(fs.readFileSync(filePaths.ADMIN_2FA_FILE, 'utf-8'));
+      if (cfg && typeof cfg === 'object') {
+        cache.admin2FAConfig = cfg;
+        return cfg;
+      }
+    }
+  } catch (_) {}
+  return DEFAULT_2FA_CONFIG;
+}
+
+function writeAdmin2FAConfig(config) {
+  cache.admin2FAConfig = config;
+  try {
+    if (filePaths.ADMIN_2FA_FILE) fs.writeFileSync(filePaths.ADMIN_2FA_FILE, JSON.stringify(config, null, 2));
+  } catch (err) {
+    console.error('[DB] Disk write error for admin 2FA config:', err.message);
+  }
+
+  if (mongoose.connection.readyState === 1) {
+    AppConfigModel.findOneAndUpdate(
+      { key: 'admin_2fa' },
+      { key: 'admin_2fa', value: config },
+      { upsert: true }
+    ).catch(err => console.error('[MongoDB Atlas] Error writing admin 2FA config:', err.message));
+  }
+}
+
 // Signing Certificates
 function readSigningCertificates() {
   if (cache.signingCertificates) return cache.signingCertificates;
@@ -777,6 +855,10 @@ module.exports = {
   writeVisitors,
   readEmailConfig,
   writeEmailConfig,
+  readAlertConfig,
+  writeAlertConfig,
+  readAdmin2FAConfig,
+  writeAdmin2FAConfig,
   readSigningCertificates,
   writeSigningCertificates,
   readDownloads,
