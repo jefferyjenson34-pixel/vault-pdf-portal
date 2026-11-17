@@ -243,6 +243,7 @@
         if (tab.getAttribute('data-tab') === 'inquiries') loadInquiries();
         if (tab.getAttribute('data-tab') === 'reports') loadReports();
         if (tab.getAttribute('data-tab') === 'visitors') loadVisitors();
+        if (tab.getAttribute('data-tab') === 'analytics') loadAnalytics();
         if (tab.getAttribute('data-tab') === 'alerts') {
           loadAlertConfig();
           check2FAStatus();
@@ -251,6 +252,11 @@
         if (tab.getAttribute('data-tab') === 'secret') checkSoundStatus();
       });
     });
+
+    const refreshAnalyticsBtn = document.getElementById('btn-refresh-analytics');
+    if (refreshAnalyticsBtn) {
+      refreshAnalyticsBtn.addEventListener('click', loadAnalytics);
+    }
 
     const refreshInquiriesBtn = document.getElementById('refresh-inquiries');
     if (refreshInquiriesBtn) {
@@ -2632,6 +2638,259 @@
           disableBtn.disabled = false;
         }
       });
+    }
+  }
+
+  // ─── Behavioral Analytics Dashboard ───────────────────────────
+  function formatDuration(sec) {
+    if (!sec || sec <= 0) return '0s';
+    const m = Math.floor(sec / 60);
+    const s = sec % 60;
+    if (m === 0) return s + 's';
+    return m + 'm ' + s + 's';
+  }
+
+  async function loadAnalytics() {
+    try {
+      const [statsRes, sessionsRes] = await Promise.all([
+        authFetch('/api/admin/analytics'),
+        authFetch('/api/admin/analytics/sessions')
+      ]);
+
+      if (statsRes.ok) {
+        const data = await statsRes.json();
+
+        // Primary KPIs
+        const elSessions = document.getElementById('analytics-total-sessions');
+        if (elSessions) elSessions.textContent = (data.totalSessions || 0).toLocaleString();
+
+        const elDuration = document.getElementById('analytics-avg-duration');
+        if (elDuration) elDuration.textContent = formatDuration(data.avgSessionDuration);
+
+        const elScroll = document.getElementById('analytics-avg-scroll');
+        if (elScroll) elScroll.textContent = (data.avgScrollDepth || 0) + '%';
+
+        const elBounce = document.getElementById('analytics-bounce-rate');
+        if (elBounce) elBounce.textContent = (data.bounceRate || 0) + '%';
+
+        // Secondary KPIs
+        const elEngagement = document.getElementById('analytics-engagement');
+        if (elEngagement) elEngagement.textContent = (data.avgEngagement || 0) + ' / 100';
+
+        const elRage = document.getElementById('analytics-rage-clicks');
+        if (elRage) elRage.textContent = (data.rageClickCount || 0).toLocaleString();
+
+        const elErrors = document.getElementById('analytics-errors');
+        if (elErrors) elErrors.textContent = (data.errorCount || 0).toLocaleString();
+
+        // Device summary
+        const dev = data.deviceBreakdown || {};
+        const devTotal = (dev.desktop || 0) + (dev.mobile || 0) + (dev.tablet || 0) || 1;
+        const elDevSumm = document.getElementById('analytics-device-summary');
+        if (elDevSumm) {
+          if (dev.mobile > dev.desktop) elDevSumm.textContent = 'Mobile First';
+          else if (dev.desktop >= dev.mobile) elDevSumm.textContent = 'Desktop First';
+          else elDevSumm.textContent = 'Balanced';
+        }
+
+        // Device Breakdown progress bars
+        const elDevBreak = document.getElementById('analytics-device-breakdown');
+        if (elDevBreak) {
+          const dPct = Math.round(((dev.desktop || 0) / devTotal) * 100);
+          const mPct = Math.round(((dev.mobile || 0) / devTotal) * 100);
+          const tPct = Math.round(((dev.tablet || 0) / devTotal) * 100);
+          elDevBreak.innerHTML = `
+            <div style="margin-bottom:10px;">
+              <div style="display:flex; justify-content:space-between; font-size:0.8rem; margin-bottom:4px;">
+                <span>🖥️ Desktop</span>
+                <span style="font-weight:700;">${dPct}% (${dev.desktop || 0})</span>
+              </div>
+              <div style="height:6px; background:var(--bg-input); border-radius:3px; overflow:hidden;">
+                <div style="width:${dPct}%; height:100%; background:#818cf8; border-radius:3px;"></div>
+              </div>
+            </div>
+            <div style="margin-bottom:10px;">
+              <div style="display:flex; justify-content:space-between; font-size:0.8rem; margin-bottom:4px;">
+                <span>📱 Mobile</span>
+                <span style="font-weight:700;">${mPct}% (${dev.mobile || 0})</span>
+              </div>
+              <div style="height:6px; background:var(--bg-input); border-radius:3px; overflow:hidden;">
+                <div style="width:${mPct}%; height:100%; background:#34d399; border-radius:3px;"></div>
+              </div>
+            </div>
+            <div>
+              <div style="display:flex; justify-content:space-between; font-size:0.8rem; margin-bottom:4px;">
+                <span>📟 Tablet</span>
+                <span style="font-weight:700;">${tPct}% (${dev.tablet || 0})</span>
+              </div>
+              <div style="height:6px; background:var(--bg-input); border-radius:3px; overflow:hidden;">
+                <div style="width:${tPct}%; height:100%; background:#f59e0b; border-radius:3px;"></div>
+              </div>
+            </div>
+          `;
+        }
+
+        // Browser list
+        const elBrowsers = document.getElementById('analytics-browser-breakdown');
+        if (elBrowsers) {
+          const browsers = Object.entries(data.browserBreakdown || {}).sort((a, b) => b[1] - a[1]);
+          if (browsers.length === 0) {
+            elBrowsers.innerHTML = '<span style="color:var(--text-muted);">No browser telemetry yet</span>';
+          } else {
+            elBrowsers.innerHTML = '<div style="display:flex; flex-wrap:wrap; gap:6px; margin-top:8px;">' +
+              browsers.map(([b, cnt]) => `
+                <span style="background:var(--bg-glass-strong); border:1px solid var(--border-subtle); padding:3px 8px; border-radius:6px; font-size:0.75rem;">
+                  <strong>${escapeHtml(b)}:</strong> ${cnt}
+                </span>
+              `).join('') + '</div>';
+          }
+        }
+
+        // Hourly 24-bar chart
+        const elHourly = document.getElementById('analytics-hourly-chart');
+        if (elHourly && Array.isArray(data.hourlyActivity)) {
+          const maxVal = Math.max(...data.hourlyActivity, 1);
+          elHourly.innerHTML = data.hourlyActivity.map((count, h) => {
+            const hPct = Math.max(8, Math.round((count / maxVal) * 100));
+            const padH = String(h).padStart(2, '0') + ':00';
+            return `
+              <div style="flex:1; display:flex; flex-direction:column; align-items:center; height:100%; justify-content:flex-end;" title="${padH} — ${count} events">
+                <div style="width:100%; height:${hPct}%; background:${count > 0 ? 'var(--gradient-primary, #6366f1)' : 'rgba(100,116,139,0.15)'}; border-radius:2px 2px 0 0; min-height:4px; transition:height 0.3s;"></div>
+              </div>
+            `;
+          }).join('');
+        }
+
+        // Top pages
+        const elPages = document.getElementById('analytics-top-pages');
+        if (elPages) {
+          const pages = data.topPages || [];
+          if (pages.length === 0) {
+            elPages.innerHTML = '<p style="color:var(--text-muted); font-size:0.82rem; margin:0;">No pageviews recorded yet.</p>';
+          } else {
+            elPages.innerHTML = `
+              <table style="width:100%; font-size:0.8rem; border-collapse:collapse;">
+                <tbody>
+                  ${pages.map(p => `
+                    <tr style="border-bottom:1px solid var(--border-subtle);">
+                      <td style="padding:6px 4px; font-family:monospace; color:var(--text-primary);">${escapeHtml(p.page)}</td>
+                      <td style="padding:6px 4px; text-align:right; font-weight:700; color:#818cf8;">${p.count} views</td>
+                    </tr>
+                  `).join('')}
+                </tbody>
+              </table>
+            `;
+          }
+        }
+
+        // Content viewed
+        const elContent = document.getElementById('analytics-content-viewed');
+        if (elContent) {
+          const content = data.contentViewed || [];
+          if (content.length === 0) {
+            elContent.innerHTML = '<p style="color:var(--text-muted); font-size:0.82rem; margin:0;">Sections are tracked as visitors scroll into view.</p>';
+          } else {
+            elContent.innerHTML = `
+              <table style="width:100%; font-size:0.8rem; border-collapse:collapse;">
+                <tbody>
+                  ${content.map(c => `
+                    <tr style="border-bottom:1px solid var(--border-subtle);">
+                      <td style="padding:6px 4px; color:var(--text-primary); max-width:240px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${escapeHtml(c.section)}</td>
+                      <td style="padding:6px 4px; text-align:right; font-weight:700; color:#34d399;">${c.count} views</td>
+                    </tr>
+                  `).join('')}
+                </tbody>
+              </table>
+            `;
+          }
+        }
+
+        // Outbound links
+        const elOutbound = document.getElementById('analytics-outbound-links');
+        if (elOutbound) {
+          const outbound = data.outboundLinks || [];
+          if (outbound.length === 0) {
+            elOutbound.innerHTML = '<p style="color:var(--text-muted); font-size:0.82rem; margin:0;">No outbound link clicks recorded yet.</p>';
+          } else {
+            elOutbound.innerHTML = `
+              <table style="width:100%; font-size:0.8rem; border-collapse:collapse;">
+                <tbody>
+                  ${outbound.map(o => `
+                    <tr style="border-bottom:1px solid var(--border-subtle);">
+                      <td style="padding:6px 4px; max-width:240px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
+                        <a href="${escapeHtml(o.url)}" target="_blank" rel="noopener noreferrer" style="color:#818cf8; text-decoration:none;">${escapeHtml(o.url)}</a>
+                      </td>
+                      <td style="padding:6px 4px; text-align:right; font-weight:700; color:var(--text-primary);">${o.count} clicks</td>
+                    </tr>
+                  `).join('')}
+                </tbody>
+              </table>
+            `;
+          }
+        }
+
+        // Referrers
+        const elReferrers = document.getElementById('analytics-top-referrers');
+        if (elReferrers) {
+          const referrers = data.topReferrers || [];
+          if (referrers.length === 0) {
+            elReferrers.innerHTML = '<p style="color:var(--text-muted); font-size:0.82rem; margin:0;">All recorded visits are Direct.</p>';
+          } else {
+            elReferrers.innerHTML = `
+              <table style="width:100%; font-size:0.8rem; border-collapse:collapse;">
+                <tbody>
+                  ${referrers.map(r => `
+                    <tr style="border-bottom:1px solid var(--border-subtle);">
+                      <td style="padding:6px 4px; color:var(--text-primary);">${escapeHtml(r.referrer)}</td>
+                      <td style="padding:6px 4px; text-align:right; font-weight:700; color:#a78bfa;">${r.count} visits</td>
+                    </tr>
+                  `).join('')}
+                </tbody>
+              </table>
+            `;
+          }
+        }
+      }
+
+      // Sessions list
+      if (sessionsRes.ok) {
+        const sessions = await sessionsRes.json();
+        const badge = document.getElementById('analytics-session-count-badge');
+        if (badge) badge.textContent = `${sessions.length} sessions logged`;
+
+        const tbody = document.getElementById('analytics-sessions-tbody');
+        if (tbody) {
+          if (!sessions || sessions.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; padding:24px; color:var(--text-muted);">No multi-step visitor sessions recorded yet.</td></tr>';
+          } else {
+            tbody.innerHTML = sessions.map(s => {
+              const sidShort = (s.sessionId || '').slice(0, 10) + '...';
+              const locationStr = `${s.flag || '🌐'} ${s.city ? s.city + ', ' : ''}${s.country || 'Unknown'}`;
+              const pagesFormatted = (s.pages && s.pages.length > 0)
+                ? s.pages.map(p => `<span style="background:var(--bg-glass-strong); padding:2px 6px; border-radius:4px; font-size:0.72rem; margin-right:3px;">${escapeHtml(p)}</span>`).join(' → ')
+                : '<span style="color:var(--text-muted); font-size:0.75rem;">/</span>';
+              const durFormatted = formatDuration(s.duration);
+              const scrollFormatted = (s.maxScroll || 0) + '%';
+              const timeStr = s.lastSeen ? new Date(s.lastSeen).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--';
+
+              return `
+                <tr>
+                  <td style="font-family:monospace; font-size:0.78rem;" title="${escapeHtml(s.sessionId)}">${escapeHtml(sidShort)}</td>
+                  <td>${escapeHtml(locationStr)}</td>
+                  <td><span style="font-size:0.75rem; padding:2px 6px; border-radius:4px; background:rgba(99,102,241,0.1); color:#818cf8;">${escapeHtml(s.deviceType || 'Desktop')}</span></td>
+                  <td style="max-width:280px; overflow-x:auto;">${pagesFormatted}</td>
+                  <td style="font-weight:600; color:#34d399;">${durFormatted}</td>
+                  <td style="font-weight:600; color:#38bdf8;">${scrollFormatted}</td>
+                  <td>${s.clicks || 0}</td>
+                  <td style="font-size:0.75rem; color:var(--text-muted);">${timeStr}</td>
+                </tr>
+              `;
+            }).join('');
+          }
+        }
+      }
+    } catch (err) {
+      console.warn('Analytics loading error:', err);
     }
   }
 

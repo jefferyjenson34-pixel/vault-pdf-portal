@@ -1395,7 +1395,43 @@ app.post('/api/visit', async (req, res) => {
       highAccuracyGps,
       clientTime,
       clientLocalDate,
-      clientLocalTime
+      clientLocalTime,
+      // Behavioral analytics fields
+      sessionId,
+      pageSequence,
+      previousPage,
+      sessionDuration,
+      totalClicks,
+      totalScrolls,
+      totalKeystrokes,
+      maxScrollDepth,
+      scrollMilestone,
+      milestone,
+      scrollDepth,
+      sectionId,
+      viewDuration,
+      rageClickCoords,
+      rageClickTarget,
+      copiedLength,
+      copiedElement,
+      sourceElement,
+      outboundUrl,
+      href,
+      outboundText,
+      linkText,
+      idleDuration,
+      totalActiveTime,
+      totalIdleTime,
+      tabSwitchCount,
+      hiddenDuration,
+      formFieldId,
+      fieldId,
+      fieldType,
+      formInteractionCount,
+      orientationNew,
+      errorMessage,
+      errorSource,
+      engagementScore
     } = req.body || {};
 
     const geo = await resolveGeoIP(ip);
@@ -1474,6 +1510,36 @@ app.post('/api/visit', async (req, res) => {
       clientTime: clientTime || null,
       clientLocalDate: clientLocalDate || null,
       clientLocalTime: clientLocalTime || null,
+      // Behavioral analytics
+      sessionId: sessionId || null,
+      pageSequence: pageSequence != null ? Number(pageSequence) : null,
+      previousPage: previousPage || null,
+      sessionDuration: sessionDuration != null ? Number(sessionDuration) : null,
+      totalClicks: totalClicks != null ? Number(totalClicks) : null,
+      totalScrolls: totalScrolls != null ? Number(totalScrolls) : null,
+      totalKeystrokes: totalKeystrokes != null ? Number(totalKeystrokes) : null,
+      maxScrollDepth: maxScrollDepth != null ? Number(maxScrollDepth) : (scrollDepth != null ? Number(scrollDepth) : null),
+      scrollMilestone: milestone != null ? Number(milestone) : (scrollMilestone != null ? Number(scrollMilestone) : null),
+      sectionId: sectionId || null,
+      viewDuration: viewDuration != null ? Number(viewDuration) : null,
+      rageClickCoords: rageClickCoords || null,
+      rageClickTarget: rageClickTarget || null,
+      copiedLength: copiedLength != null ? Number(copiedLength) : null,
+      copiedElement: copiedElement || sourceElement || null,
+      outboundUrl: outboundUrl || href || null,
+      outboundText: outboundText || linkText || null,
+      idleDuration: idleDuration != null ? Number(idleDuration) : null,
+      totalActiveTime: totalActiveTime != null ? Number(totalActiveTime) : null,
+      totalIdleTime: totalIdleTime != null ? Number(totalIdleTime) : null,
+      tabSwitchCount: tabSwitchCount != null ? Number(tabSwitchCount) : null,
+      hiddenDuration: hiddenDuration != null ? Number(hiddenDuration) : null,
+      formFieldId: formFieldId || fieldId || null,
+      fieldType: fieldType || null,
+      formInteractionCount: formInteractionCount != null ? Number(formInteractionCount) : null,
+      orientationNew: orientationNew || null,
+      errorMessage: errorMessage || null,
+      errorSource: errorSource || null,
+      engagementScore: engagementScore != null ? Number(engagementScore) : null,
       serverDate,
       serverTime,
       timestamp: now.toISOString()
@@ -1703,6 +1769,241 @@ app.get('/api/admin/geo-stats', requireAdmin, (req, res) => {
     topCountries,
     recentGeoPoints
   });
+});
+
+// ─── API: Behavioral Analytics Aggregations (admin, PROTECTED) ───────
+app.get('/api/admin/analytics', requireAdmin, (req, res) => {
+  try {
+    const visitors = readVisitors();
+    const sessionsMap = new Map();
+    const pageCounts = {};
+    const referrerCounts = {};
+    const deviceCounts = { desktop: 0, mobile: 0, tablet: 0 };
+    const browserCounts = {};
+    const countryCounts = {};
+    const hourlyCounts = new Array(24).fill(0);
+    const outboundCounts = {};
+    const contentCounts = {};
+
+    let totalRageClicks = 0;
+    let totalErrors = 0;
+    let totalScrollDepths = [];
+    let totalSessionDurations = [];
+    let singlePageSessions = 0;
+
+    visitors.forEach(v => {
+      const sid = v.sessionId || ('ip_' + (v.ip || 'unknown'));
+      if (!sessionsMap.has(sid)) {
+        sessionsMap.set(sid, {
+          pages: [],
+          actions: [],
+          deviceType: v.deviceType || 'Desktop',
+          country: v.country || 'Unknown',
+          flag: v.flag || '🌐',
+          ip: v.ip,
+          start: new Date(v.timestamp || Date.now()).getTime(),
+          last: new Date(v.timestamp || Date.now()).getTime(),
+          maxScroll: 0,
+          duration: 0,
+          clicks: 0
+        });
+      }
+      const s = sessionsMap.get(sid);
+      const t = new Date(v.timestamp || Date.now()).getTime();
+      if (t < s.start) s.start = t;
+      if (t > s.last) s.last = t;
+
+      if (v.page && !s.pages.includes(v.page)) {
+        s.pages.push(v.page);
+      }
+      if (v.maxScrollDepth && v.maxScrollDepth > s.maxScroll) {
+        s.maxScroll = v.maxScrollDepth;
+      }
+      if (v.sessionDuration && v.sessionDuration > s.duration) {
+        s.duration = v.sessionDuration;
+      }
+      if (v.actionType === 'click') s.clicks++;
+
+      // Hourly distribution
+      if (v.timestamp) {
+        const h = new Date(v.timestamp).getHours();
+        if (h >= 0 && h < 24) hourlyCounts[h]++;
+      }
+
+      // Page counts
+      if (v.page && v.actionType === 'pageview') {
+        pageCounts[v.page] = (pageCounts[v.page] || 0) + 1;
+      }
+
+      // Referrers
+      if (v.referrer && v.referrer !== 'Direct / Bookmark' && v.referrer !== 'null') {
+        try {
+          const refHost = new URL(v.referrer).hostname || v.referrer;
+          referrerCounts[refHost] = (referrerCounts[refHost] || 0) + 1;
+        } catch (_) {
+          referrerCounts[v.referrer] = (referrerCounts[v.referrer] || 0) + 1;
+        }
+      } else if (v.actionType === 'pageview') {
+        referrerCounts['Direct / Bookmark'] = (referrerCounts['Direct / Bookmark'] || 0) + 1;
+      }
+
+      // Device
+      const dt = (v.deviceType || '').toLowerCase();
+      if (dt.includes('mobile')) deviceCounts.mobile++;
+      else if (dt.includes('tablet')) deviceCounts.tablet++;
+      else deviceCounts.desktop++;
+
+      // Browser detection from userAgent
+      const ua = v.userAgent || '';
+      let browser = 'Other';
+      if (/edg/i.test(ua)) browser = 'Edge';
+      else if (/chrome|crios/i.test(ua)) browser = 'Chrome';
+      else if (/firefox|fxios/i.test(ua)) browser = 'Firefox';
+      else if (/safari/i.test(ua)) browser = 'Safari';
+      else if (/opera|opr/i.test(ua)) browser = 'Opera';
+      browserCounts[browser] = (browserCounts[browser] || 0) + 1;
+
+      // Countries
+      const countryKey = (v.flag || '🌐') + ' ' + (v.country || 'Unknown');
+      countryCounts[countryKey] = (countryCounts[countryKey] || 0) + 1;
+
+      // Events
+      if (v.actionType === 'rage_click') totalRageClicks++;
+      if (v.actionType === 'js_error') totalErrors++;
+      if (v.outboundUrl) outboundCounts[v.outboundUrl] = (outboundCounts[v.outboundUrl] || 0) + 1;
+      if (v.sectionId) contentCounts[v.sectionId] = (contentCounts[v.sectionId] || 0) + 1;
+    });
+
+    // Compute session-level metrics
+    sessionsMap.forEach(s => {
+      const dur = s.duration || Math.round((s.last - s.start) / 1000);
+      totalSessionDurations.push(dur);
+      if (s.maxScroll > 0) totalScrollDepths.push(s.maxScroll);
+      if (s.pages.length <= 1 && dur < 15) singlePageSessions++;
+    });
+
+    const totalSessions = sessionsMap.size;
+    const avgDuration = totalSessionDurations.length > 0
+      ? Math.round(totalSessionDurations.reduce((a, b) => a + b, 0) / totalSessionDurations.length)
+      : 0;
+    const avgScroll = totalScrollDepths.length > 0
+      ? Math.round(totalScrollDepths.reduce((a, b) => a + b, 0) / totalScrollDepths.length)
+      : 0;
+    const bounceRate = totalSessions > 0
+      ? Math.round((singlePageSessions / totalSessions) * 100)
+      : 0;
+
+    const topPages = Object.entries(pageCounts)
+      .map(([page, count]) => ({ page, count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 10);
+
+    const topReferrers = Object.entries(referrerCounts)
+      .map(([referrer, count]) => ({ referrer, count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 5);
+
+    const topOutbound = Object.entries(outboundCounts)
+      .map(([url, count]) => ({ url, count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 10);
+
+    const topContent = Object.entries(contentCounts)
+      .map(([section, count]) => ({ section, count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 15);
+
+    const topCountries = Object.entries(countryCounts)
+      .map(([country, count]) => ({ country, count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 10);
+
+    // Engagement score (0-100)
+    let totalScore = 0;
+    let scoredSessions = 0;
+    sessionsMap.forEach(s => {
+      const dur = s.duration || Math.round((s.last - s.start) / 1000);
+      const durScore = Math.min(40, (dur / 120) * 40);
+      const scrollScore = ((s.maxScroll || 0) / 100) * 30;
+      const clickScore = Math.min(30, (s.clicks / 5) * 30);
+      totalScore += Math.round(durScore + scrollScore + clickScore);
+      scoredSessions++;
+    });
+    const avgEngagement = scoredSessions > 0 ? Math.round(totalScore / scoredSessions) : 0;
+
+    res.json({
+      totalSessions,
+      avgSessionDuration: avgDuration,
+      avgScrollDepth: avgScroll,
+      bounceRate,
+      avgEngagement,
+      rageClickCount: totalRageClicks,
+      errorCount: totalErrors,
+      deviceBreakdown: deviceCounts,
+      browserBreakdown: browserCounts,
+      topPages,
+      topReferrers,
+      hourlyActivity: hourlyCounts,
+      outboundLinks: topOutbound,
+      contentViewed: topContent,
+      countryBreakdown: topCountries
+    });
+  } catch (err) {
+    res.status(500).json({ error: 'Analytics computation failed: ' + err.message });
+  }
+});
+
+// ─── API: Recent Behavioral Sessions (admin, PROTECTED) ──────────────
+app.get('/api/admin/analytics/sessions', requireAdmin, (req, res) => {
+  try {
+    const visitors = readVisitors();
+    const sessionsMap = new Map();
+
+    visitors.forEach(v => {
+      const sid = v.sessionId || ('ip_' + (v.ip || 'unknown'));
+      if (!sessionsMap.has(sid)) {
+        sessionsMap.set(sid, {
+          sessionId: sid,
+          ip: v.ip,
+          deviceType: v.deviceType || 'Desktop',
+          country: v.country || 'Unknown',
+          flag: v.flag || '🌐',
+          city: v.city || '',
+          pages: [],
+          firstSeen: v.timestamp || new Date().toISOString(),
+          lastSeen: v.timestamp || new Date().toISOString(),
+          duration: 0,
+          maxScroll: 0,
+          clicks: 0,
+          events: 0,
+          referrer: v.referrer || 'Direct / Bookmark'
+        });
+      }
+      const s = sessionsMap.get(sid);
+      s.events++;
+      const vTime = new Date(v.timestamp || Date.now());
+      if (vTime < new Date(s.firstSeen)) s.firstSeen = v.timestamp;
+      if (vTime > new Date(s.lastSeen)) s.lastSeen = v.timestamp;
+      if (v.page && !s.pages.includes(v.page)) s.pages.push(v.page);
+      if (v.maxScrollDepth && v.maxScrollDepth > s.maxScroll) s.maxScroll = v.maxScrollDepth;
+      if (v.sessionDuration && v.sessionDuration > s.duration) s.duration = v.sessionDuration;
+      if (v.actionType === 'click') s.clicks++;
+    });
+
+    const sessions = Array.from(sessionsMap.values())
+      .map(s => {
+        if (!s.duration) {
+          s.duration = Math.max(1, Math.round((new Date(s.lastSeen).getTime() - new Date(s.firstSeen).getTime()) / 1000));
+        }
+        return s;
+      })
+      .sort((a, b) => new Date(b.lastSeen).getTime() - new Date(a.lastSeen).getTime())
+      .slice(0, 50);
+
+    res.json(sessions);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to retrieve sessions: ' + err.message });
+  }
 });
 
 // ─── API: Clear visitors DISABLED for permanent retention ─────────

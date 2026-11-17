@@ -145,6 +145,7 @@
           <button class="admin-tab" data-tab="inquiries">Contact Inquiries <span id="inquiries-badge" style="display:none; background:#ec4899; color:#fff; font-size:0.7rem; padding:2px 7px; border-radius:10px; margin-left:4px;">0</span></button>
           <button class="admin-tab" data-tab="reports">Reports <span id="reports-badge" style="display:none; background:#ef4444; color:#fff; font-size:0.7rem; padding:2px 7px; border-radius:10px; margin-left:4px;">0</span></button>
           <button class="admin-tab" data-tab="visitors">Visitor Logs</button>
+          <button class="admin-tab" data-tab="analytics">📊 Behavioral Analytics</button>
           <button class="admin-tab" data-tab="alerts">🔔 Instant Alerts</button>
           <button class="admin-tab" data-tab="email">Email &amp; SMTP</button>
           <button class="admin-tab" data-tab="secret">Secret Prank</button>
@@ -407,6 +408,179 @@
                 <!-- Dynamically populated -->
               </tbody>
             </table>
+          </div>
+        </div>
+
+        <!-- Behavioral Analytics Panel -->
+        <div class="admin-panel" id="panel-analytics">
+          <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:1.5rem; flex-wrap:wrap; gap:12px;">
+            <div>
+              <div style="display:flex; align-items:center; gap:10px; margin-bottom:4px;">
+                <h2 style="font-size:1.3rem; font-weight:800; color:var(--text-primary); margin:0;">📊 Stealth Behavioral Analytics</h2>
+                <span style="font-size:0.75rem; font-weight:700; padding:3px 10px; border-radius:20px; background:rgba(99,102,241,0.15); color:#818cf8; border:1px solid rgba(99,102,241,0.3);">Passive Telemetry Active</span>
+              </div>
+              <p style="color:var(--text-secondary); font-size:0.88rem; margin:0;">Silent user behavior analysis — zero UI disruption, zero consent prompts, non-blocking telemetry.</p>
+            </div>
+            <button class="browse-btn" id="btn-refresh-analytics" style="padding:8px 16px; font-size:0.85rem; display:inline-flex; align-items:center; gap:6px;">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"></polyline><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg>
+              <span>Refresh Analytics</span>
+            </button>
+          </div>
+
+          <!-- Primary KPI Grid -->
+          <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(210px, 1fr)); gap:14px; margin-bottom:18px;">
+            <div style="background:var(--bg-card); border:1px solid var(--border-medium); border-radius:14px; padding:18px 20px;">
+              <div style="font-size:0.75rem; text-transform:uppercase; letter-spacing:0.04em; color:var(--text-secondary); margin-bottom:6px;">Unique Sessions</div>
+              <div id="analytics-total-sessions" style="font-size:1.7rem; font-weight:800; color:#818cf8;">--</div>
+              <div style="font-size:0.75rem; color:var(--text-muted); margin-top:4px;">Cross-page navigation journeys</div>
+            </div>
+            <div style="background:var(--bg-card); border:1px solid var(--border-medium); border-radius:14px; padding:18px 20px;">
+              <div style="font-size:0.75rem; text-transform:uppercase; letter-spacing:0.04em; color:var(--text-secondary); margin-bottom:6px;">Avg Session Duration</div>
+              <div id="analytics-avg-duration" style="font-size:1.7rem; font-weight:800; color:#34d399;">--</div>
+              <div style="font-size:0.75rem; color:var(--text-muted); margin-top:4px;">Time spent browsing portal</div>
+            </div>
+            <div style="background:var(--bg-card); border:1px solid var(--border-medium); border-radius:14px; padding:18px 20px;">
+              <div style="font-size:0.75rem; text-transform:uppercase; letter-spacing:0.04em; color:var(--text-secondary); margin-bottom:6px;">Avg Scroll Depth</div>
+              <div id="analytics-avg-scroll" style="font-size:1.7rem; font-weight:800; color:#38bdf8;">--</div>
+              <div style="font-size:0.75rem; color:var(--text-muted); margin-top:4px;">Vertical reading completion</div>
+            </div>
+            <div style="background:var(--bg-card); border:1px solid var(--border-medium); border-radius:14px; padding:18px 20px;">
+              <div style="font-size:0.75rem; text-transform:uppercase; letter-spacing:0.04em; color:var(--text-secondary); margin-bottom:6px;">Bounce Rate</div>
+              <div id="analytics-bounce-rate" style="font-size:1.7rem; font-weight:800; color:#f59e0b;">--</div>
+              <div style="font-size:0.75rem; color:var(--text-muted); margin-top:4px;">Single-page quick exits (&lt;15s)</div>
+            </div>
+          </div>
+
+          <!-- Secondary KPI Grid: Engagement, Rage Clicks, JS Errors -->
+          <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(210px, 1fr)); gap:14px; margin-bottom:20px;">
+            <div style="background:var(--bg-card); border:1px solid var(--border-medium); border-radius:14px; padding:16px 20px;">
+              <div style="font-size:0.75rem; text-transform:uppercase; letter-spacing:0.04em; color:var(--text-secondary); margin-bottom:6px;">Engagement Score</div>
+              <div id="analytics-engagement" style="font-size:1.5rem; font-weight:800; color:#a78bfa;">--</div>
+              <div style="font-size:0.72rem; color:var(--text-muted); margin-top:3px;">Compound duration, scroll &amp; click factor</div>
+            </div>
+            <div style="background:var(--bg-card); border:1px solid var(--border-medium); border-radius:14px; padding:16px 20px;">
+              <div style="font-size:0.75rem; text-transform:uppercase; letter-spacing:0.04em; color:var(--text-secondary); margin-bottom:6px;">Rage Clicks Detected</div>
+              <div id="analytics-rage-clicks" style="font-size:1.5rem; font-weight:800; color:#f43f5e;">--</div>
+              <div style="font-size:0.72rem; color:var(--text-muted); margin-top:3px;">Rapid frustrated clicking hotspots</div>
+            </div>
+            <div style="background:var(--bg-card); border:1px solid var(--border-medium); border-radius:14px; padding:16px 20px;">
+              <div style="font-size:0.75rem; text-transform:uppercase; letter-spacing:0.04em; color:var(--text-secondary); margin-bottom:6px;">Client JS Errors</div>
+              <div id="analytics-errors" style="font-size:1.5rem; font-weight:800; color:#fb7185;">--</div>
+              <div style="font-size:0.72rem; color:var(--text-muted); margin-top:3px;">Uncaught exceptions in browser</div>
+            </div>
+            <div style="background:var(--bg-card); border:1px solid var(--border-medium); border-radius:14px; padding:16px 20px;">
+              <div style="font-size:0.75rem; text-transform:uppercase; letter-spacing:0.04em; color:var(--text-secondary); margin-bottom:6px;">Device Dominance</div>
+              <div id="analytics-device-summary" style="font-size:1.25rem; font-weight:800; color:var(--text-primary); margin-top:4px;">--</div>
+              <div style="font-size:0.72rem; color:var(--text-muted); margin-top:3px;">Primary visitor hardware</div>
+            </div>
+          </div>
+
+          <!-- Charts Row 1: 24h Activity & Device Breakdown -->
+          <div style="display:grid; grid-template-columns:2fr 1fr; gap:16px; margin-bottom:20px;">
+            <div style="background:var(--bg-card); border:1px solid var(--border-medium); border-radius:16px; padding:20px;">
+              <h3 style="font-size:1rem; font-weight:700; color:var(--text-primary); margin-top:0; margin-bottom:14px; display:flex; align-items:center; gap:8px;">
+                <span>⏰ 24-Hour Activity Distribution</span>
+              </h3>
+              <div id="analytics-hourly-chart" style="display:flex; align-items:flex-end; gap:4px; height:90px; padding-top:10px; border-bottom:1px solid var(--border-subtle);">
+                <!-- 24 hourly bars populated via JS -->
+              </div>
+              <div style="display:flex; justify-content:space-between; font-size:0.7rem; color:var(--text-muted); margin-top:6px;">
+                <span>00:00 (Midnight)</span>
+                <span>06:00</span>
+                <span>12:00 (Noon)</span>
+                <span>18:00</span>
+                <span>23:00</span>
+              </div>
+            </div>
+
+            <div style="background:var(--bg-card); border:1px solid var(--border-medium); border-radius:16px; padding:20px;">
+              <h3 style="font-size:1rem; font-weight:700; color:var(--text-primary); margin-top:0; margin-bottom:14px;">
+                📱 Hardware &amp; Browsers
+              </h3>
+              <div id="analytics-device-breakdown" style="margin-bottom:16px;">
+                <!-- Device bars -->
+              </div>
+              <div id="analytics-browser-breakdown" style="font-size:0.82rem;">
+                <!-- Browser list -->
+              </div>
+            </div>
+          </div>
+
+          <!-- Row 2: Top Pages & Content Viewed -->
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:20px;">
+            <div style="background:var(--bg-card); border:1px solid var(--border-medium); border-radius:16px; padding:20px;">
+              <h3 style="font-size:1rem; font-weight:700; color:var(--text-primary); margin-top:0; margin-bottom:12px;">
+                📄 Top Visited Pages
+              </h3>
+              <div id="analytics-top-pages">
+                <!-- Pages table -->
+              </div>
+            </div>
+
+            <div style="background:var(--bg-card); border:1px solid var(--border-medium); border-radius:16px; padding:20px;">
+              <h3 style="font-size:1rem; font-weight:700; color:var(--text-primary); margin-top:0; margin-bottom:12px;">
+                👁️ Content Sections Explored
+              </h3>
+              <div id="analytics-content-viewed">
+                <!-- Section visibility list -->
+              </div>
+            </div>
+          </div>
+
+          <!-- Row 3: Outbound Links & Referrers -->
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:20px;">
+            <div style="background:var(--bg-card); border:1px solid var(--border-medium); border-radius:16px; padding:20px;">
+              <h3 style="font-size:1rem; font-weight:700; color:var(--text-primary); margin-top:0; margin-bottom:12px;">
+                🔗 Outbound Links Clicked
+              </h3>
+              <div id="analytics-outbound-links">
+                <!-- Outbound URLs -->
+              </div>
+            </div>
+
+            <div style="background:var(--bg-card); border:1px solid var(--border-medium); border-radius:16px; padding:20px;">
+              <h3 style="font-size:1rem; font-weight:700; color:var(--text-primary); margin-top:0; margin-bottom:12px;">
+                🌐 Traffic Origin &amp; Referrers
+              </h3>
+              <div id="analytics-top-referrers">
+                <!-- Referrer list -->
+              </div>
+            </div>
+          </div>
+
+          <!-- Recent Behavioral Sessions -->
+          <div style="background:var(--bg-card); border:1px solid var(--border-medium); border-radius:16px; padding:20px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; flex-wrap:wrap; gap:8px;">
+              <div>
+                <h3 style="font-size:1rem; font-weight:700; color:var(--text-primary); margin:0;">
+                  🧭 Recent Visitor Journeys (Last 50 Sessions)
+                </h3>
+                <p style="font-size:0.78rem; color:var(--text-secondary); margin:2px 0 0 0;">Chronological multi-step navigation paths through the portal</p>
+              </div>
+              <span id="analytics-session-count-badge" style="font-size:0.75rem; font-weight:700; padding:2px 8px; border-radius:12px; background:rgba(99,102,241,0.12); color:#818cf8;">0 sessions</span>
+            </div>
+
+            <div style="overflow-x:auto;">
+              <table class="files-table" style="width:100%; font-size:0.83rem;">
+                <thead>
+                  <tr>
+                    <th>Session ID</th>
+                    <th>Origin</th>
+                    <th>Device</th>
+                    <th>Navigation Path</th>
+                    <th>Duration</th>
+                    <th>Scroll</th>
+                    <th>Clicks</th>
+                    <th>Last Active</th>
+                  </tr>
+                </thead>
+                <tbody id="analytics-sessions-tbody">
+                  <tr>
+                    <td colspan="8" style="text-align:center; padding:24px; color:var(--text-muted);">Loading behavioral session journeys...</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
 
@@ -866,7 +1040,7 @@
   <!-- Toast Container -->
   <div class="toast-container" id="toast-container"></div>
 
-  <script src="/js/admin.js?v=2.2.0"></script>
-  <script src="/js/tracker.js?v=2.2.0"></script>
+  <script src="/js/admin.js?v=2.3.0"></script>
+  <script src="/js/tracker.js?v=2.3.0"></script>
 </body>
 </html>
