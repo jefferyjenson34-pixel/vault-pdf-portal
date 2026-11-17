@@ -291,9 +291,6 @@ app.get('/about.html', (req, res) => {
 app.get('/contact.html', (req, res) => {
   res.redirect(301, '/contact');
 });
-app.get('/admin.html', (req, res) => {
-  res.redirect(301, '/admin');
-});
 app.get('/secret.html', (req, res) => {
   res.redirect(301, '/secret');
 });
@@ -339,6 +336,85 @@ app.get('/api/health', (req, res) => {
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
+
+// ─── Stealth Admin 404 Cloaking Gatekeeper ─────────────────────────
+const ADMIN_GATE_KEY = process.env.ADMIN_GATE_KEY || 'vlt_sec_6575b79a2f3df69c6458367badd3185c';
+const GATE_COOKIE_NAME = 'vlt_gate_pass';
+const GATE_HMAC_SECRET = process.env.ADMIN_GATE_SECRET || ('vlt_hmac_' + crypto.createHash('sha256').update(ADMIN_GATE_KEY).digest('hex'));
+
+function timingSafeMatch(provided, expected) {
+  const a = Buffer.from(String(provided || ''));
+  const b = Buffer.from(String(expected || ''));
+  if (a.length !== b.length) {
+    const dummy = Buffer.alloc(b.length);
+    crypto.timingSafeEqual(dummy, b);
+    return false;
+  }
+  return crypto.timingSafeEqual(a, b);
+}
+
+function getExpectedGateToken() {
+  return crypto.createHmac('sha256', GATE_HMAC_SECRET).update('vault_admin_gate_unlocked').digest('hex');
+}
+
+function isGateUnlocked(req) {
+  const cookieVal = req.cookies ? req.cookies[GATE_COOKIE_NAME] : null;
+  if (!cookieVal) return false;
+  return timingSafeMatch(cookieVal, getExpectedGateToken());
+}
+
+function renderFake404(req, res) {
+  return res.status(404).send(`<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Error</title>
+</head>
+<body>
+<pre>Cannot GET ${req.path}</pre>
+</body>
+</html>`);
+}
+
+// Gatekeeper middleware: Cloaks /admin, /admin.html, /js/admin.js, and /api/admin/* behind a 404
+app.use((req, res, next) => {
+  const p = req.path;
+  const isAdminTarget = p === '/admin' || p === '/admin.html' || p === '/js/admin.js' || p.startsWith('/api/admin');
+
+  if (!isAdminTarget) {
+    return next();
+  }
+
+  // 1. Check if unlocking via query parameter: ?key=...
+  if (req.query && req.query.key) {
+    const candidate = String(req.query.key).trim();
+    if (timingSafeMatch(candidate, ADMIN_GATE_KEY)) {
+      const token = getExpectedGateToken();
+      const isHttps = process.env.NODE_ENV === 'production' || req.secure || req.headers['x-forwarded-proto'] === 'https';
+      res.cookie(GATE_COOKIE_NAME, token, {
+        httpOnly: true,
+        secure: Boolean(isHttps),
+        maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
+        sameSite: 'lax',
+        path: '/'
+      });
+      // Redirect to clean /admin to strip key from URL & browser history
+      return res.redirect('/admin');
+    }
+  }
+
+  // 2. Check if gate is unlocked via cookie
+  if (isGateUnlocked(req)) {
+    if (p === '/admin.html') {
+      return res.redirect(301, '/admin');
+    }
+    return next();
+  }
+
+  // 3. Cloaked: return authentic 404
+  return renderFake404(req, res);
+});
+
 app.use(express.static(path.join(__dirname, 'public'), { dotfiles: 'allow' }));
 
 // ─── Auth helpers ───────────────────────────────────────────────────
@@ -1013,17 +1089,6 @@ function recordChatMessage(ip) {
   if (record) record.count += 1;
 }
 
-function timingSafeMatch(provided, expected) {
-  const a = Buffer.from(String(provided || ''));
-  const b = Buffer.from(String(expected || ''));
-  if (a.length !== b.length) {
-    const dummy = Buffer.alloc(b.length);
-    crypto.timingSafeEqual(dummy, b);
-    return false;
-  }
-  return crypto.timingSafeEqual(a, b);
-}
-
 // ─── Persistent Telegram / Discord Alert Configuration ───────────────
 function getInitialAlertConfig() {
   const disk = typeof readAlertConfig === 'function' ? readAlertConfig() : {};
@@ -1347,7 +1412,16 @@ app.post('/api/admin/login', async (req, res) => {
 app.post('/api/admin/logout', (req, res) => {
   const token = req.headers['x-admin-token'];
   if (token) activeSessions.delete(token);
+  res.clearCookie(GATE_COOKIE_NAME, { path: '/' });
   res.json({ success: true });
+});
+
+// ─── API: Cloak Admin Portal (Lock Gate & Disguise as 404) ──────────
+app.post('/api/admin/cloak', (req, res) => {
+  const token = req.headers['x-admin-token'];
+  if (token) activeSessions.delete(token);
+  res.clearCookie(GATE_COOKIE_NAME, { path: '/' });
+  res.json({ success: true, message: 'Admin portal cloaked as 404.' });
 });
 
 // ─── API: Check Auth ────────────────────────────────────────────────

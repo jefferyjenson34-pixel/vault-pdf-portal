@@ -214,15 +214,33 @@
   }
 
   function initLogout() {
-    document.getElementById('logout-btn').addEventListener('click', async () => {
-      try {
-        await authFetch('/api/admin/logout', { method: 'POST' });
-      } catch { /* ignore */ }
-      adminToken = null;
-      localStorage.removeItem('vault_admin_token');
-      showLogin();
-      showToast('Logged out', 'success');
-    });
+    const logoutBtn = document.getElementById('logout-btn');
+    if (logoutBtn) {
+      logoutBtn.addEventListener('click', async () => {
+        try {
+          await authFetch('/api/admin/logout', { method: 'POST' });
+        } catch { /* ignore */ }
+        adminToken = null;
+        localStorage.removeItem('vault_admin_token');
+        showLogin();
+        showToast('Logged out', 'success');
+      });
+    }
+
+    const cloakBtn = document.getElementById('cloak-btn');
+    if (cloakBtn) {
+      cloakBtn.addEventListener('click', async () => {
+        if (!confirm('Cloak admin portal as 404? You will need your secret key URL to uncloak it again.')) {
+          return;
+        }
+        try {
+          await fetch('/api/admin/cloak', { method: 'POST' });
+        } catch { /* ignore */ }
+        adminToken = null;
+        localStorage.removeItem('vault_admin_token');
+        window.location.href = '/';
+      });
+    }
   }
 
   // ─── Tabs ────────────────────────────────────────────────────
