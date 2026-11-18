@@ -9,4 +9,6 @@ data/email_config.json
 data/alert_config.json
 data/admin_2fa.json
 data/signing_certificates.json
+data/banned_ips.json
+data/lockdown_state.json
 cookies.txt

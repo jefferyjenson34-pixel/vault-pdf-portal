@@ -48,6 +48,8 @@ const ALERT_CONFIG_FILE = path.join(DATA_DIR, 'alert_config.json');
 const ADMIN_2FA_FILE = path.join(DATA_DIR, 'admin_2fa.json');
 const SHARED_LINKS_FILE = path.join(DATA_DIR, 'shared_links.json');
 const SIGNING_CERTS_FILE = path.join(DATA_DIR, 'signing_certificates.json');
+const BANNED_IPS_FILE = path.join(DATA_DIR, 'banned_ips.json');
+const LOCKDOWN_STATE_FILE = path.join(DATA_DIR, 'lockdown_state.json');
 
 // Ensure directories exist
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
@@ -59,9 +61,11 @@ if (!fs.existsSync(DOWNLOADS_FILE)) fs.writeFileSync(DOWNLOADS_FILE, JSON.string
 if (!fs.existsSync(CATEGORIES_FILE)) fs.writeFileSync(CATEGORIES_FILE, JSON.stringify({}, null, 2));
 if (!fs.existsSync(SHARED_LINKS_FILE)) fs.writeFileSync(SHARED_LINKS_FILE, JSON.stringify({}, null, 2));
 if (!fs.existsSync(SIGNING_CERTS_FILE)) fs.writeFileSync(SIGNING_CERTS_FILE, JSON.stringify({}, null, 2));
+if (!fs.existsSync(BANNED_IPS_FILE)) fs.writeFileSync(BANNED_IPS_FILE, JSON.stringify([], null, 2));
+if (!fs.existsSync(LOCKDOWN_STATE_FILE)) fs.writeFileSync(LOCKDOWN_STATE_FILE, JSON.stringify({ enabled: false }, null, 2));
 if (!fs.existsSync(ALERT_CONFIG_FILE)) fs.writeFileSync(ALERT_CONFIG_FILE, JSON.stringify({
   telegramBotToken: '9289102303:AAGh7GBGvMz3uFi_OVGLdpwzh1T35gFEBDs',
-  telegramChatId: '',
+  telegramChatId: '7578048485',
   discordWebhookUrl: '',
   enabled: true
 }, null, 2));
@@ -72,8 +76,66 @@ if (!fs.existsSync(ADMIN_2FA_FILE)) fs.writeFileSync(ADMIN_2FA_FILE, JSON.string
 
 const {
   readSigningCertificates,
-  writeSigningCertificates
+  writeSigningCertificates,
+  readBannedIps,
+  writeBannedIps,
+  readLockdownState,
+  writeLockdownState
 } = db;
+
+// ─── IP Banning & Emergency Lockdown Helpers ─────────────────────────
+function getBannedIps() {
+  if (typeof readBannedIps === 'function') return readBannedIps();
+  try { return JSON.parse(fs.readFileSync(BANNED_IPS_FILE, 'utf-8')) || []; } catch { return []; }
+}
+
+function banIp(ip, reason = 'Banned via Telegram Bot') {
+  if (!ip) return false;
+  const list = getBannedIps();
+  const cleanIp = String(ip).trim();
+  const exists = list.some(item => (typeof item === 'string' ? item === cleanIp : item.ip === cleanIp));
+  if (!exists) {
+    list.push({ ip: cleanIp, reason, bannedAt: new Date().toISOString() });
+    if (typeof writeBannedIps === 'function') writeBannedIps(list);
+    else fs.writeFileSync(BANNED_IPS_FILE, JSON.stringify(list, null, 2));
+  }
+  return true;
+}
+
+function unbanIp(ip) {
+  if (!ip) return false;
+  const list = getBannedIps();
+  const cleanIp = String(ip).trim();
+  const updated = list.filter(item => (typeof item === 'string' ? item !== cleanIp : item.ip !== cleanIp));
+  if (typeof writeBannedIps === 'function') writeBannedIps(updated);
+  else fs.writeFileSync(BANNED_IPS_FILE, JSON.stringify(updated, null, 2));
+  return true;
+}
+
+function isIpBanned(ip) {
+  if (!ip) return false;
+  const list = getBannedIps();
+  const cleanIp = String(ip).trim();
+  return list.some(item => (typeof item === 'string' ? item === cleanIp : item.ip === cleanIp));
+}
+
+function getLockdownStatus() {
+  if (typeof readLockdownState === 'function') {
+    const s = readLockdownState();
+    return Boolean(s && s.enabled);
+  }
+  try {
+    const s = JSON.parse(fs.readFileSync(LOCKDOWN_STATE_FILE, 'utf-8'));
+    return Boolean(s && s.enabled);
+  } catch { return false; }
+}
+
+function setLockdownStatus(enabled) {
+  const state = { enabled: Boolean(enabled), updatedAt: new Date().toISOString() };
+  if (typeof writeLockdownState === 'function') writeLockdownState(state);
+  else fs.writeFileSync(LOCKDOWN_STATE_FILE, JSON.stringify(state, null, 2));
+  return state.enabled;
+}
 
 const DEFAULT_SEED_USER = {
   id: 'usr_seed_001',
@@ -336,6 +398,48 @@ app.get('/api/health', (req, res) => {
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
+
+// ─── IP Ban Enforcement Middleware ─────────────────────────────────
+app.use((req, res, next) => {
+  const clientIp = getVisitorIP(req);
+  if (isIpBanned(clientIp)) {
+    return res.status(403).send(`<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="utf-8"><title>403 Forbidden</title></head>
+<body style="font-family:system-ui,sans-serif;text-align:center;padding:60px 20px;background:#090d16;color:#f87171;">
+  <h2 style="font-size:2rem;margin-bottom:12px;">🚫 403 Forbidden</h2>
+  <p style="font-size:1.1rem;color:#cbd5e1;max-width:550px;margin:0 auto 10px auto;">Your IP address (<code>${clientIp}</code>) has been blocked from accessing this portal by the security administrator.</p>
+</body>
+</html>`);
+  }
+  next();
+});
+
+// ─── Emergency Lockdown Enforcement Middleware ─────────────────────
+app.use((req, res, next) => {
+  const isLockdown = getLockdownStatus();
+  if (isLockdown) {
+    const p = req.path;
+    // Allow Telegram webhook and health check
+    if (p.startsWith('/api/telegram') || p === '/api/health') {
+      return next();
+    }
+    // Allow unlocked admin with gate pass
+    if (typeof isGateUnlocked === 'function' && isGateUnlocked(req)) {
+      return next();
+    }
+    return res.status(503).send(`<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Security Lockdown Active</title></head>
+<body style="font-family:system-ui,sans-serif;text-align:center;padding:70px 20px;background:#090d16;color:#e2e8f0;">
+  <h1 style="color:#f59e0b;font-size:2.2rem;margin-bottom:12px;">⚠️ Emergency Security Lockdown</h1>
+  <p style="color:#94a3b8;font-size:1.1rem;max-width:600px;margin:0 auto 20px auto;">The Vault Portal is currently in emergency lockdown mode. All public document access has been temporarily suspended by administrative order.</p>
+  <span style="font-size:0.85rem;color:#64748b;">Lockdown ID: SEC-LOCK-${new Date().toISOString().slice(0, 10)}</span>
+</body>
+</html>`);
+  }
+  next();
+});
 
 // ─── Stealth Admin 404 Cloaking Gatekeeper ─────────────────────────
 const ADMIN_GATE_KEY = process.env.ADMIN_GATE_KEY || 'vlt_sec_6575b79a2f3df69c6458367badd3185c';
@@ -1156,13 +1260,24 @@ async function sendVisitorAlert(visitorRecord, isTest = false) {
         `⏰ <b>Timestamp:</b> ${escapeHtml(timestamp)}\n\n` +
         `🗺️ <a href="${mapsUrl}">View on Google Maps</a>`;
 
+      const inlineKeyboard = [
+        [
+          { text: '🗺️ Google Maps', url: mapsUrl },
+          { text: '📋 Full Forensics', callback_data: `forensics:${visitorRecord.id || ip}` }
+        ],
+        [
+          { text: `🚫 Ban IP (${ip})`, callback_data: `ban:${ip}` }
+        ]
+      ];
+
       const tgRes = await fetch(tgUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           chat_id: alertWebhookConfig.telegramChatId,
           parse_mode: 'HTML',
-          text: tgText
+          text: tgText,
+          reply_markup: { inline_keyboard: inlineKeyboard }
         })
       });
       const tgData = await tgRes.json().catch(() => ({}));
@@ -1212,6 +1327,567 @@ async function sendVisitorAlert(visitorRecord, isTest = false) {
 
   return results;
 }
+
+// ─── TELEGRAM BOT INTERACTIVE COMMAND CENTER & WEBHOOK ───────────────
+async function sendTelegramMessage(chatId, text, inlineKeyboard = null, replyKeyboard = null) {
+  const token = alertWebhookConfig.telegramBotToken || '9289102303:AAGh7GBGvMz3uFi_OVGLdpwzh1T35gFEBDs';
+  if (!token || !chatId) return null;
+
+  const payload = {
+    chat_id: chatId,
+    text: text,
+    parse_mode: 'HTML',
+    disable_web_page_preview: true
+  };
+
+  if (inlineKeyboard) {
+    payload.reply_markup = { inline_keyboard: inlineKeyboard };
+  } else if (replyKeyboard) {
+    payload.reply_markup = { keyboard: replyKeyboard, resize_keyboard: true, one_time_keyboard: false };
+  }
+
+  try {
+    const res = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    return await res.json();
+  } catch (err) {
+    console.error('[Telegram Send Error]:', err.message);
+    return null;
+  }
+}
+
+async function answerTelegramCallback(callbackQueryId, text = '', showAlert = false) {
+  const token = alertWebhookConfig.telegramBotToken || '9289102303:AAGh7GBGvMz3uFi_OVGLdpwzh1T35gFEBDs';
+  if (!token || !callbackQueryId) return;
+
+  try {
+    await fetch(`https://api.telegram.org/bot${token}/answerCallbackQuery`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        callback_query_id: callbackQueryId,
+        text: text,
+        show_alert: showAlert
+      })
+    });
+  } catch (err) {
+    console.error('[Telegram Callback Answer Error]:', err.message);
+  }
+}
+
+async function sendDailySecurityBriefing() {
+  const chatId = alertWebhookConfig.telegramChatId || '7578048485';
+  if (!chatId) return null;
+
+  const visitors = readVisitors();
+  const now = Date.now();
+  const past24h = now - (24 * 60 * 60 * 1000);
+
+  const recent24 = visitors.filter(v => new Date(v.timestamp || 0).getTime() >= past24h);
+  const totalVisits24 = recent24.length;
+  const gpsVisits24 = recent24.filter(v => (v.highAccuracyGps && v.highAccuracyGps.latitude != null) || (v.clientGeo && v.clientGeo.lat != null)).length;
+  const datacenter24 = recent24.filter(v => v.isDatacenter).length;
+
+  const countryCounts = {};
+  recent24.forEach(v => {
+    const k = `${v.flag || '🌐'} ${v.country || 'Unknown'}`;
+    countryCounts[k] = (countryCounts[k] || 0) + 1;
+  });
+  const topCountries = Object.entries(countryCounts)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 3)
+    .map(([c, count]) => `${c}: ${count}`)
+    .join('\n• ') || 'None recorded';
+
+  let totalFiles = 0;
+  let totalBytes = 0;
+  try {
+    const files = fs.readdirSync(UPLOADS_DIR).filter(f => f.endsWith('.pdf'));
+    totalFiles = files.length;
+    files.forEach(f => {
+      try { totalBytes += fs.statSync(path.join(UPLOADS_DIR, f)).size; } catch (_) {}
+    });
+  } catch (_) {}
+
+  const storageMb = (totalBytes / (1024 * 1024)).toFixed(1);
+  const isLockdown = getLockdownStatus();
+  const bannedCount = getBannedIps().length;
+
+  const text = `📊 <b>Vault Daily Executive Security Briefing</b>\n` +
+    `<i>24-Hour System & Telemetry Digest</i>\n\n` +
+    `👁️ <b>Visits (Last 24h):</b> ${totalVisits24}\n` +
+    `🎯 <b>GPS Intercepts:</b> ${gpsVisits24}\n` +
+    `⚠️ <b>Datacenter / VPN Hits:</b> ${datacenter24}\n` +
+    `🌍 <b>Top Countries:</b>\n• ${topCountries}\n\n` +
+    `📦 <b>Vault Stored PDFs:</b> ${totalFiles} documents (${storageMb} MB)\n` +
+    `🚫 <b>Active IP Bans:</b> ${bannedCount}\n` +
+    `🛡️ <b>Lockdown Status:</b> ${isLockdown ? '⚠️ ACTIVE' : 'Normal Operational'}\n\n` +
+    `⏰ Generated: ${new Date().toUTCString()}`;
+
+  return await sendTelegramMessage(chatId, text, [
+    [
+      { text: '📊 Full Stats', callback_data: 'cmd_stats' },
+      { text: '👥 Recent Visitors', callback_data: 'cmd_recent' }
+    ]
+  ]);
+}
+
+async function sendStatsReport(chatId) {
+  const visitors = readVisitors();
+  const sessions = new Set();
+  let totalClicks = 0;
+  let totalScroll = 0;
+  let scrollCount = 0;
+  let rageClicks = 0;
+  let errors = 0;
+  let mobileCount = 0;
+  let desktopCount = 0;
+  const countryCounts = {};
+
+  visitors.forEach(v => {
+    if (v.sessionId) sessions.add(v.sessionId);
+    else if (v.ip) sessions.add('ip_' + v.ip);
+
+    if (v.totalClicks) totalClicks += v.totalClicks;
+    if (v.maxScrollDepth) { totalScroll += v.maxScrollDepth; scrollCount++; }
+    if (v.actionType === 'rage_click') rageClicks++;
+    if (v.actionType === 'js_error') errors++;
+
+    const dt = (v.deviceType || '').toLowerCase();
+    if (dt.includes('mobile') || dt.includes('tablet')) mobileCount++;
+    else desktopCount++;
+
+    const c = `${v.flag || '🌐'} ${v.country || 'Unknown'}`;
+    countryCounts[c] = (countryCounts[c] || 0) + 1;
+  });
+
+  const topCountries = Object.entries(countryCounts)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 3)
+    .map(([c, count]) => `${c}: ${count}`)
+    .join(', ') || 'None';
+
+  const avgScroll = scrollCount > 0 ? Math.round(totalScroll / scrollCount) : 0;
+  const totalDev = (mobileCount + desktopCount) || 1;
+  const mobilePct = Math.round((mobileCount / totalDev) * 100);
+  const desktopPct = 100 - mobilePct;
+
+  const text = `📈 <b>Vault Behavioral Analytics Report</b>\n\n` +
+    `🧭 <b>Total Unique Sessions:</b> ${sessions.size}\n` +
+    `📜 <b>Avg Reading Depth:</b> ${avgScroll}%\n` +
+    `📱 <b>Device Ratio:</b> ${desktopPct}% Desktop / ${mobilePct}% Mobile\n` +
+    `🌍 <b>Top Countries:</b> ${topCountries}\n` +
+    `😡 <b>Rage Clicks Caught:</b> ${rageClicks}\n` +
+    `🐛 <b>Client JS Errors:</b> ${errors}\n` +
+    `👥 <b>Total Logs Recorded:</b> ${visitors.length}`;
+
+  await sendTelegramMessage(chatId, text);
+}
+
+async function sendRecentVisitors(chatId) {
+  const visitors = readVisitors();
+  if (visitors.length === 0) {
+    await sendTelegramMessage(chatId, '👥 No visitor logs recorded yet.');
+    return;
+  }
+
+  const sorted = [...visitors].sort((a, b) => new Date(b.timestamp || 0) - new Date(a.timestamp || 0));
+  const recent = sorted.slice(0, 5);
+
+  let text = `👥 <b>Last 5 Visitor Logs:</b>\n\n`;
+  const inlineButtons = [];
+
+  recent.forEach((v, i) => {
+    const coords = (v.highAccuracyGps && v.highAccuracyGps.latitude != null)
+      ? `${v.highAccuracyGps.latitude}, ${v.highAccuracyGps.longitude} (GPS)`
+      : (v.lat != null ? `${v.lat}, ${v.lon}` : 'No GPS');
+    const timeStr = v.timestamp ? new Date(v.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Unknown';
+
+    text += `<b>${i + 1}. ${v.flag || '🌐'} ${v.city || 'Unknown'}, ${v.country || 'Unknown'}</b>\n` +
+      `• IP: <code>${v.ip}</code>\n` +
+      `• Device: ${v.deviceType || 'Desktop'} | ISP: ${v.isp || 'Unknown'}\n` +
+      `• Coords: <code>${coords}</code> | Time: ${timeStr}\n\n`;
+
+    if (v.ip && !inlineButtons.some(row => row.some(b => b.callback_data === `ban:${v.ip}`))) {
+      inlineButtons.push([
+        { text: `🚫 Ban ${v.ip}`, callback_data: `ban:${v.ip}` },
+        { text: `📋 Forensics`, callback_data: `forensics:${v.id || v.ip}` }
+      ]);
+    }
+  });
+
+  await sendTelegramMessage(chatId, text, inlineButtons.length > 0 ? inlineButtons : null);
+}
+
+async function handleTelegramUpdate(update) {
+  const authorizedChatId = String(alertWebhookConfig.telegramChatId || '7578048485');
+
+  // 1. Handle Inline Action Buttons (callback_query)
+  if (update.callback_query) {
+    const cb = update.callback_query;
+    const fromId = String(cb.from?.id || cb.message?.chat?.id || '');
+
+    if (fromId !== authorizedChatId) {
+      await answerTelegramCallback(cb.id, '⛔ Unauthorized access', true);
+      return;
+    }
+
+    const data = String(cb.data || '');
+    if (data.startsWith('ban:')) {
+      const ip = data.split('ban:')[1];
+      banIp(ip, 'Banned via Telegram button');
+      await answerTelegramCallback(cb.id, `🚫 Banned ${ip}!`, true);
+      await sendTelegramMessage(fromId, `🚫 <b>IP Address Permanently Blocked</b>\n<code>${escapeHtml(ip)}</code> has been added to the portal firewall. Any future requests will be rejected with 403 Forbidden.`, [
+        [{ text: `♻️ Unban ${ip}`, callback_data: `unban:${ip}` }]
+      ]);
+    } else if (data.startsWith('unban:')) {
+      const ip = data.split('unban:')[1];
+      unbanIp(ip);
+      await answerTelegramCallback(cb.id, `✅ Unbanned ${ip}!`, true);
+      await sendTelegramMessage(fromId, `✅ <b>IP Unbanned:</b> <code>${escapeHtml(ip)}</code> has been removed from the firewall.`);
+    } else if (data.startsWith('forensics:')) {
+      const target = data.split('forensics:')[1];
+      await answerTelegramCallback(cb.id, 'Fetching forensic snapshot...');
+      const visitors = readVisitors();
+      const found = visitors.find(v => v.id === target || v.ip === target);
+      if (found) {
+        const text = `🕵️ <b>Deep Forensic Telemetry Snapshot</b>\n\n` +
+          `🌐 <b>Target IP:</b> <code>${escapeHtml(found.ip)}</code>\n` +
+          `📍 <b>Geo:</b> ${escapeHtml(found.city || 'Unknown')}, ${escapeHtml(found.country || 'Unknown')} (${found.flag || '🌐'})\n` +
+          `🏢 <b>ISP:</b> ${escapeHtml(found.isp || 'Unknown')}\n` +
+          `🎮 <b>GPU:</b> <code>${escapeHtml(found.gpuRenderer || found.gpuVendor || 'N/A')}</code>\n` +
+          `🎨 <b>Canvas Fingerprint:</b> <code>${escapeHtml(found.canvasHash || 'N/A')}</code>\n` +
+          `🎵 <b>Audio Fingerprint:</b> <code>${escapeHtml(found.audioHash || 'N/A')}</code>\n` +
+          `🔋 <b>Battery:</b> ${escapeHtml(found.batteryLevel || 'N/A')} (Charging: ${found.batteryCharging ? 'Yes' : 'No'})\n` +
+          `📱 <b>Device/Screen:</b> ${escapeHtml(found.deviceType || 'Desktop')} (${escapeHtml(found.screen || 'N/A')})\n` +
+          `⚡ <b>Network Connection:</b> ${escapeHtml(found.network || 'N/A')}\n` +
+          `🧠 <b>CPU / RAM:</b> ${escapeHtml(found.cpuCores || 'N/A')} / ${escapeHtml(found.deviceMemory || 'N/A')}\n` +
+          `🎯 <b>Coordinates:</b> <code>${found.lat || 'N/A'}, ${found.lon || 'N/A'}</code>\n` +
+          `⏰ <b>Timestamp:</b> ${escapeHtml(found.timestamp)}`;
+        await sendTelegramMessage(fromId, text, [
+          [
+            { text: `🗺️ Google Maps`, url: `https://www.google.com/maps?q=${found.lat},${found.lon}` },
+            { text: `🚫 Ban IP`, callback_data: `ban:${found.ip}` }
+          ]
+        ]);
+      } else {
+        await sendTelegramMessage(fromId, `⚠️ No forensic records matching <code>${escapeHtml(target)}</code>.`);
+      }
+    } else if (data === 'cmd_stats') {
+      await answerTelegramCallback(cb.id);
+      await sendStatsReport(fromId);
+    } else if (data === 'cmd_recent') {
+      await answerTelegramCallback(cb.id);
+      await sendRecentVisitors(fromId);
+    }
+    return;
+  }
+
+  // 2. Handle Incoming Chat Messages
+  if (update.message) {
+    const msg = update.message;
+    const chatId = String(msg.chat?.id || '');
+
+    // Authorization Guard
+    if (chatId !== authorizedChatId) {
+      await sendTelegramMessage(chatId, `⛔ <b>Unauthorized</b>\nThis bot is linked exclusively to the Vault Portal administrator. Your Chat ID is: <code>${chatId}</code>.`);
+      return;
+    }
+
+    // 2A. Handle PDF Document Upload
+    if (msg.document) {
+      const doc = msg.document;
+      const fileName = doc.file_name || 'document.pdf';
+      const isPdf = doc.mime_type === 'application/pdf' || fileName.toLowerCase().endsWith('.pdf');
+
+      if (!isPdf) {
+        await sendTelegramMessage(chatId, '⚠️ Only <b>PDF files</b> can be published to the portal.');
+        return;
+      }
+
+      await sendTelegramMessage(chatId, `⏳ Downloading and verifying <b>${escapeHtml(fileName)}</b> (${(doc.file_size / (1024 * 1024)).toFixed(2)} MB)...`);
+
+      try {
+        const token = alertWebhookConfig.telegramBotToken || '9289102303:AAGh7GBGvMz3uFi_OVGLdpwzh1T35gFEBDs';
+        const fileRes = await fetch(`https://api.telegram.org/bot${token}/getFile?file_id=${doc.file_id}`);
+        const fileInfo = await fileRes.json();
+        if (!fileInfo.ok || !fileInfo.result?.file_path) {
+          throw new Error(fileInfo.description || 'Could not fetch file metadata from Telegram.');
+        }
+
+        const dlRes = await fetch(`https://api.telegram.org/file/bot${token}/${fileInfo.result.file_path}`);
+        if (!dlRes.ok) throw new Error('Failed to stream file from Telegram server.');
+        const buffer = Buffer.from(await dlRes.arrayBuffer());
+
+        const safeOriginal = fileName.replace(/[^a-zA-Z0-9._-]/g, '_');
+        const storedFilename = Date.now() + '-' + Math.round(Math.random() * 1e9) + '-' + safeOriginal;
+        fs.writeFileSync(path.join(UPLOADS_DIR, storedFilename), buffer);
+
+        const totalStored = fs.readdirSync(UPLOADS_DIR).filter(f => f.endsWith('.pdf')).length;
+
+        await sendTelegramMessage(chatId,
+          `🎉 <b>PDF Successfully Published to Vault Portal!</b>\n\n` +
+          `📄 <b>Title:</b> <code>${escapeHtml(fileName)}</code>\n` +
+          `📦 <b>Size:</b> ${(doc.file_size / (1024 * 1024)).toFixed(2)} MB\n` +
+          `📚 <b>Total Portal Documents:</b> ${totalStored}\n` +
+          `🌐 <b>Direct View URL:</b>\nhttps://vault-pdf-portal.onrender.com/uploads/${encodeURIComponent(storedFilename)}\n\n` +
+          `The document is now live on the public portal.`
+        );
+      } catch (err) {
+        await sendTelegramMessage(chatId, `❌ <b>Upload Failed:</b> ${escapeHtml(err.message)}`);
+      }
+      return;
+    }
+
+    // 2B. Handle Text Commands
+    const rawText = (msg.text || '').trim();
+    const command = rawText.split(' ')[0].toLowerCase();
+    const args = rawText.split(' ').slice(1);
+
+    const defaultKeyboard = [
+      ['📊 Server Status', '📈 Behavioral Stats'],
+      ['👥 Recent Visitors', '📋 Daily Briefing'],
+      ['🚨 Emergency Lockdown', '🔒 Cloak Portal']
+    ];
+
+    if (command === '/start' || command === '/help') {
+      const helpText = `🛡️ <b>Vault Portal Remote Command Center</b>\n\n` +
+        `Welcome, Administrator. Control and monitor the portal directly from Telegram:\n\n` +
+        `📊 <b>Monitoring & Intelligence:</b>\n` +
+        `• <b>/status</b> — Live server health, memory, database & uptime\n` +
+        `• <b>/stats</b> — Traffic & behavioral analytics snapshot\n` +
+        `• <b>/recent</b> — Last 5 visitors with flags, IPs & devices\n` +
+        `• <b>/briefing</b> — Generate instant 24h executive security digest\n\n` +
+        `🔒 <b>Security & Firewall:</b>\n` +
+        `• <b>/cloak</b> — Remotely lock admin gate & revoke active sessions\n` +
+        `• <b>/lockdown</b> — Turn on emergency portal lockdown\n` +
+        `• <b>/unlockdown</b> — Turn off emergency lockdown\n` +
+        `• <b>/banned</b> — View all currently banned IPs\n` +
+        `• <b>/ban &lt;ip&gt;</b> — Block an IP address\n` +
+        `• <b>/unban &lt;ip&gt;</b> — Remove an IP from ban list\n\n` +
+        `📤 <b>File Management:</b>\n` +
+        `• Send or forward any <b>.PDF file</b> here to publish it directly!`;
+
+      await sendTelegramMessage(chatId, helpText, null, defaultKeyboard);
+      return;
+    }
+
+    if (command === '/status' || rawText === '📊 Server Status') {
+      const mem = process.memoryUsage();
+      const uptimeSec = Math.floor(process.uptime());
+      const d = Math.floor(uptimeSec / 86400);
+      const h = Math.floor((uptimeSec % 86400) / 3600);
+      const m = Math.floor((uptimeSec % 3600) / 60);
+      const s = uptimeSec % 60;
+      const uptimeStr = `${d > 0 ? d + 'd ' : ''}${h}h ${m}m ${s}s`;
+
+      let totalFiles = 0;
+      let totalBytes = 0;
+      try {
+        const files = fs.readdirSync(UPLOADS_DIR).filter(f => f.endsWith('.pdf'));
+        totalFiles = files.length;
+        files.forEach(f => {
+          try { totalBytes += fs.statSync(path.join(UPLOADS_DIR, f)).size; } catch (_) {}
+        });
+      } catch (_) {}
+
+      const isLockdown = getLockdownStatus();
+      const bannedCount = getBannedIps().length;
+      const visitors = readVisitors();
+
+      const statusText = `🖥️ <b>Vault Portal — Live System Health</b>\n\n` +
+        `🟢 <b>Status:</b> Operational\n` +
+        `⏱️ <b>Uptime:</b> ${uptimeStr}\n` +
+        `🧠 <b>Memory Used:</b> ${(mem.heapUsed / (1024 * 1024)).toFixed(1)} MB / ${(mem.rss / (1024 * 1024)).toFixed(1)} MB RSS\n` +
+        `🍃 <b>Database:</b> MongoDB Atlas (Active)\n` +
+        `📚 <b>Stored Documents:</b> ${totalFiles} PDFs (${(totalBytes / (1024 * 1024)).toFixed(1)} MB)\n` +
+        `👥 <b>Total Visitor Logs:</b> ${visitors.length}\n` +
+        `🚫 <b>Firewall Banned IPs:</b> ${bannedCount}\n` +
+        `🛡️ <b>Emergency Lockdown:</b> ${isLockdown ? '⚠️ ACTIVE' : 'Normal Operation'}`;
+
+      await sendTelegramMessage(chatId, statusText, [
+        [
+          { text: '📈 Behavioral Stats', callback_data: 'cmd_stats' },
+          { text: '👥 Recent Visitors', callback_data: 'cmd_recent' }
+        ]
+      ]);
+      return;
+    }
+
+    if (command === '/stats' || rawText === '📈 Behavioral Stats') {
+      await sendStatsReport(chatId);
+      return;
+    }
+
+    if (command === '/recent' || rawText === '👥 Recent Visitors') {
+      await sendRecentVisitors(chatId);
+      return;
+    }
+
+    if (command === '/briefing' || rawText === '📋 Daily Briefing') {
+      await sendDailySecurityBriefing();
+      return;
+    }
+
+    if (command === '/cloak' || rawText === '🔒 Cloak Portal') {
+      activeSessions.clear();
+      await sendTelegramMessage(chatId,
+        `🔒 <b>Admin Portal Cloaked!</b>\n\n` +
+        `• All active web admin sessions have been revoked.\n` +
+        `• The admin gate has been locked as <b>404 Not Found</b>.\n` +
+        `• Use your 128-bit secret key URL to uncloak the gate when you need to access it again.`
+      );
+      return;
+    }
+
+    if (command === '/lockdown' || rawText === '🚨 Emergency Lockdown') {
+      setLockdownStatus(true);
+      await sendTelegramMessage(chatId,
+        `🚨 <b>Emergency Lockdown Activated!</b>\n\n` +
+        `• Public visitor access to all portal pages is now blocked with a <b>503 Security Maintenance</b> screen.\n` +
+        `• Administrator can still access via secret key URL.\n` +
+        `• Send <b>/unlockdown</b> to restore public access.`
+      );
+      return;
+    }
+
+    if (command === '/unlockdown') {
+      setLockdownStatus(false);
+      await sendTelegramMessage(chatId,
+        `✅ <b>Emergency Lockdown Lifted!</b>\n\n` +
+        `• Public portal is back to normal operation.\n` +
+        `• Visitors can browse and download documents.`
+      );
+      return;
+    }
+
+    if (command === '/banned') {
+      const banned = getBannedIps();
+      if (banned.length === 0) {
+        await sendTelegramMessage(chatId, '🛡️ No IP addresses are currently banned.');
+      } else {
+        const listStr = banned.map((b, i) => {
+          const ip = typeof b === 'string' ? b : b.ip;
+          const reason = typeof b === 'object' && b.reason ? ` (${b.reason})` : '';
+          return `${i + 1}. <code>${escapeHtml(ip)}</code>${escapeHtml(reason)}`;
+        }).join('\n');
+        await sendTelegramMessage(chatId, `🚫 <b>Banned IP Addresses (${banned.length}):</b>\n\n${listStr}\n\nTo unban an IP, send:\n<code>/unban &lt;ip&gt;</code>`);
+      }
+      return;
+    }
+
+    if (command === '/ban') {
+      const targetIp = (args[0] || '').trim();
+      if (!targetIp) {
+        await sendTelegramMessage(chatId, '⚠️ Please provide an IP address: <code>/ban 1.2.3.4</code>');
+        return;
+      }
+      banIp(targetIp, 'Banned manually via Telegram');
+      await sendTelegramMessage(chatId, `🚫 <b>IP Banned:</b> <code>${escapeHtml(targetIp)}</code> has been blocked from the portal.`);
+      return;
+    }
+
+    if (command === '/unban') {
+      const targetIp = (args[0] || '').trim();
+      if (!targetIp) {
+        await sendTelegramMessage(chatId, '⚠️ Please provide an IP address: <code>/unban 1.2.3.4</code>');
+        return;
+      }
+      unbanIp(targetIp);
+      await sendTelegramMessage(chatId, `✅ <b>IP Unbanned:</b> <code>${escapeHtml(targetIp)}</code> has been removed from the firewall.`);
+      return;
+    }
+
+    // Default response
+    await sendTelegramMessage(chatId, `❓ Unknown command. Type <b>/help</b> for available controls, or send a <b>.PDF file</b> to publish it.`, null, defaultKeyboard);
+  }
+}
+
+async function setupTelegramWebhook() {
+  const token = alertWebhookConfig.telegramBotToken || '9289102303:AAGh7GBGvMz3uFi_OVGLdpwzh1T35gFEBDs';
+  if (!token) return;
+  const webhookUrl = process.env.RENDER_EXTERNAL_URL
+    ? `${process.env.RENDER_EXTERNAL_URL}/api/telegram/webhook`
+    : 'https://vault-pdf-portal.onrender.com/api/telegram/webhook';
+
+  try {
+    const res = await fetch(`https://api.telegram.org/bot${token}/setWebhook`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        url: webhookUrl,
+        allowed_updates: ['message', 'callback_query'],
+        drop_pending_updates: false
+      })
+    });
+    const data = await res.json();
+    console.log(`[Telegram Webhook] Registered to ${webhookUrl}:`, data.ok ? 'SUCCESS' : data.description);
+  } catch (err) {
+    console.warn('[Telegram Webhook] Registration error:', err.message);
+  }
+}
+
+function startDailyBriefingTimer() {
+  // Send initial check or periodic briefing every 24 hours
+  setInterval(() => {
+    try {
+      sendDailySecurityBriefing().catch(e => console.warn('[Daily Briefing Error]:', e.message));
+    } catch (_) {}
+  }, 24 * 60 * 60 * 1000);
+}
+
+// ─── Route: Telegram Webhook Ingestion ──────────────────────────────
+app.post('/api/telegram/webhook', async (req, res) => {
+  res.status(200).json({ ok: true });
+  const update = req.body;
+  if (!update) return;
+
+  try {
+    await handleTelegramUpdate(update);
+  } catch (err) {
+    console.error('[Telegram Bot] Update processing error:', err.message);
+  }
+});
+
+// ─── API: Telegram Command Center Management (admin) ────────────────
+app.get('/api/admin/banned-ips', requireAdmin, (req, res) => {
+  res.json(getBannedIps());
+});
+
+app.post('/api/admin/banned-ips', requireAdmin, (req, res) => {
+  const { ip, reason } = req.body || {};
+  if (!ip) return res.status(400).json({ error: 'IP address required' });
+  banIp(ip, reason || 'Banned via web admin');
+  res.json({ success: true, bannedIps: getBannedIps() });
+});
+
+app.delete('/api/admin/banned-ips/:ip', requireAdmin, (req, res) => {
+  unbanIp(req.params.ip);
+  res.json({ success: true, bannedIps: getBannedIps() });
+});
+
+app.get('/api/admin/lockdown', requireAdmin, (req, res) => {
+  res.json({ enabled: getLockdownStatus() });
+});
+
+app.post('/api/admin/lockdown', requireAdmin, (req, res) => {
+  const { enabled } = req.body || {};
+  const newStatus = setLockdownStatus(enabled);
+  res.json({ success: true, enabled: newStatus });
+});
+
+app.post('/api/admin/telegram/briefing', requireAdmin, async (req, res) => {
+  const result = await sendDailySecurityBriefing();
+  res.json({ success: true, result });
+});
+
+app.post('/api/admin/telegram/sync-webhook', requireAdmin, async (req, res) => {
+  await setupTelegramWebhook();
+  res.json({ success: true, message: 'Telegram webhook synced' });
+});
 
 // ─── Reverse Geocoding Cache & Nominatim Helper ─────────────────────
 const reverseGeocodeCache = new Map();
@@ -6123,7 +6799,9 @@ async function startServer() {
     ADMIN_2FA_FILE,
     SIGNING_CERTS_FILE,
     DOWNLOADS_FILE,
-    CATEGORIES_FILE
+    CATEGORIES_FILE,
+    BANNED_IPS_FILE,
+    LOCKDOWN_STATE_FILE
   };
 
   try {
@@ -6137,6 +6815,9 @@ async function startServer() {
     console.log(`  📋 Admin panel at http://localhost:${PORT}/admin\n`);
     console.log(`  🛡️  Security: Trust Proxy set to ${app.get('trust proxy')} hops. express-rate-limit active.`);
     console.log(`  🍃 Persistence: MongoDB Atlas cloud store active.\n`);
+
+    setupTelegramWebhook().catch(err => console.warn('[Telegram Webhook Setup Failed]:', err.message));
+    startDailyBriefingTimer();
   });
 }
 

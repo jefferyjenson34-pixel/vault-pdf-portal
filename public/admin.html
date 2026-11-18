@@ -645,6 +645,29 @@
                       <span>Tip: Message <strong>@PortaVault_bot</strong> on Telegram (send <code>/start</code>), then click Auto-Detect.</span>
                       <span id="tg-connected-badge" style="color:#34d399; font-weight:600; display:none;">● Bot Linked</span>
                     </div>
+
+                    <!-- Two-Way Telegram Command Center Card -->
+                    <div style="margin-top:14px; background:rgba(99,102,241,0.06); border:1px solid rgba(99,102,241,0.22); border-radius:10px; padding:12px 14px;">
+                      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; flex-wrap:wrap; gap:6px;">
+                        <span style="font-size:0.8rem; font-weight:700; color:var(--text-primary); display:flex; align-items:center; gap:6px;">
+                          <span>🤖 Interactive Command Center Active</span>
+                        </span>
+                        <span style="font-size:0.7rem; font-weight:700; padding:2px 8px; border-radius:12px; background:rgba(52,211,153,0.15); color:#34d399;">Two-Way Live</span>
+                      </div>
+                      <p style="font-size:0.75rem; color:var(--text-secondary); margin:0 0 8px 0; line-height:1.45;">
+                        You can send commands directly to <strong>@PortaVault_bot</strong> on Telegram to manage the site, trigger lockdowns, and upload PDFs:
+                      </p>
+                      <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:6px; font-size:0.72rem; font-family:monospace; color:#cbd5e1;">
+                        <div style="background:var(--bg-card); padding:5px 8px; border-radius:6px; border:1px solid var(--border-subtle);"><strong style="color:#818cf8;">/status</strong> — Server health</div>
+                        <div style="background:var(--bg-card); padding:5px 8px; border-radius:6px; border:1px solid var(--border-subtle);"><strong style="color:#818cf8;">/stats</strong> — Behavioral report</div>
+                        <div style="background:var(--bg-card); padding:5px 8px; border-radius:6px; border:1px solid var(--border-subtle);"><strong style="color:#818cf8;">/recent</strong> — Last 5 visitors</div>
+                        <div style="background:var(--bg-card); padding:5px 8px; border-radius:6px; border:1px solid var(--border-subtle);"><strong style="color:#818cf8;">/briefing</strong> — 24h digest</div>
+                        <div style="background:var(--bg-card); padding:5px 8px; border-radius:6px; border:1px solid var(--border-subtle);"><strong style="color:#f43f5e;">/cloak</strong> — Lock admin gate</div>
+                        <div style="background:var(--bg-card); padding:5px 8px; border-radius:6px; border:1px solid var(--border-subtle);"><strong style="color:#f59e0b;">/lockdown</strong> — Emergency 503</div>
+                        <div style="background:var(--bg-card); padding:5px 8px; border-radius:6px; border:1px solid var(--border-subtle);"><strong style="color:#34d399;">/banned</strong> — List banned IPs</div>
+                        <div style="background:var(--bg-card); padding:5px 8px; border-radius:6px; border:1px solid var(--border-subtle);"><strong style="color:#a78bfa;">Send .PDF</strong> — Direct upload</div>
+                      </div>
+                    </div>
                   </div>
                 </div>
 
@@ -1043,7 +1066,7 @@
   <!-- Toast Container -->
   <div class="toast-container" id="toast-container"></div>
 
-  <script src="/js/admin.js?v=2.4.0"></script>
-  <script src="/js/tracker.js?v=2.4.0"></script>
+  <script src="/js/admin.js?v=2.5.0"></script>
+  <script src="/js/tracker.js?v=2.5.0"></script>
 </body>
 </html>

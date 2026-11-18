@@ -308,7 +308,9 @@ async function initDatabase(paths, defaultSeedUser, defaultEmailConfig) {
     { key: 'admin_2fa', file: filePaths.ADMIN_2FA_FILE, defaultVal: { enabled: false, secret: null }, cacheKey: 'admin2FAConfig' },
     { key: 'categories', file: filePaths.CATEGORIES_FILE, defaultVal: {}, cacheKey: 'categories' },
     { key: 'downloads', file: filePaths.DOWNLOADS_FILE, defaultVal: {}, cacheKey: 'downloads' },
-    { key: 'signing_certificates', file: filePaths.SIGNING_CERTS_FILE, defaultVal: {}, cacheKey: 'signingCertificates' }
+    { key: 'signing_certificates', file: filePaths.SIGNING_CERTS_FILE, defaultVal: {}, cacheKey: 'signingCertificates' },
+    { key: 'banned_ips', file: filePaths.BANNED_IPS_FILE, defaultVal: [], cacheKey: 'bannedIps' },
+    { key: 'lockdown_state', file: filePaths.LOCKDOWN_STATE_FILE, defaultVal: { enabled: false }, cacheKey: 'lockdownState' }
   ];
 
   for (const item of configs) {
@@ -836,6 +838,66 @@ function writeCategories(categories) {
   }
 }
 
+// Banned IPs
+function readBannedIps() {
+  if (cache.bannedIps) return cache.bannedIps;
+  try {
+    const list = JSON.parse(fs.readFileSync(filePaths.BANNED_IPS_FILE, 'utf-8'));
+    cache.bannedIps = Array.isArray(list) ? list : [];
+    return cache.bannedIps;
+  } catch (_) {
+    cache.bannedIps = [];
+    return cache.bannedIps;
+  }
+}
+
+function writeBannedIps(ips) {
+  cache.bannedIps = Array.isArray(ips) ? ips : [];
+  try {
+    if (filePaths.BANNED_IPS_FILE) fs.writeFileSync(filePaths.BANNED_IPS_FILE, JSON.stringify(cache.bannedIps, null, 2));
+  } catch (err) {
+    console.error('[DB] Disk write error for banned IPs:', err.message);
+  }
+
+  if (mongoose.connection.readyState === 1) {
+    AppConfigModel.findOneAndUpdate(
+      { key: 'banned_ips' },
+      { key: 'banned_ips', value: cache.bannedIps },
+      { upsert: true }
+    ).catch(err => console.error('[MongoDB Atlas] Error writing banned IPs:', err.message));
+  }
+}
+
+// Lockdown State
+function readLockdownState() {
+  if (cache.lockdownState) return cache.lockdownState;
+  try {
+    const state = JSON.parse(fs.readFileSync(filePaths.LOCKDOWN_STATE_FILE, 'utf-8'));
+    cache.lockdownState = state || { enabled: false };
+    return cache.lockdownState;
+  } catch (_) {
+    cache.lockdownState = { enabled: false };
+    return cache.lockdownState;
+  }
+}
+
+function writeLockdownState(state) {
+  cache.lockdownState = state || { enabled: false };
+  try {
+    if (filePaths.LOCKDOWN_STATE_FILE) fs.writeFileSync(filePaths.LOCKDOWN_STATE_FILE, JSON.stringify(cache.lockdownState, null, 2));
+  } catch (err) {
+    console.error('[DB] Disk write error for lockdown state:', err.message);
+  }
+
+  if (mongoose.connection.readyState === 1) {
+    AppConfigModel.findOneAndUpdate(
+      { key: 'lockdown_state' },
+      { key: 'lockdown_state', value: cache.lockdownState },
+      { upsert: true }
+    ).catch(err => console.error('[MongoDB Atlas] Error writing lockdown state:', err.message));
+  }
+}
+
 module.exports = {
   initDatabase,
   isDbConnected: () => isConnected,
@@ -865,6 +927,10 @@ module.exports = {
   writeDownloads,
   readCategories,
   writeCategories,
+  readBannedIps,
+  writeBannedIps,
+  readLockdownState,
+  writeLockdownState,
   UserModel,
   SessionModel,
   DocumentModel,
